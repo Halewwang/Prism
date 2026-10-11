@@ -10,31 +10,37 @@ final class AppShellUITests: PrismUITestCase {
         let edit = application.menuItems["Edit"].firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 3))
         edit.click()
-        _ = requireElement("rules.editor.applicationSearch", in: application)
+        requireButton("rules.editor.condition", in: application).click()
+        let sourceSearch = requireElement("workspace.picker.search.Source application", in: application)
+        sourceSearch.typeKey(.escape, modifierFlags: [])
         let save = requireButton("rules.editor.save", in: application)
         let match = requireButton("rules.editor.match", in: application)
         XCTAssertEqual(match.value as? String, "Source application")
         match.click()
         let exactDomain = application.buttons["Exact domain"].firstMatch
         XCTAssertTrue(exactDomain.waitForExistence(timeout: 3))
-        application.typeKey(.escape, modifierFlags: [])
+        application.popovers.firstMatch.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitUntil(timeout: 3) { !exactDomain.exists })
-        application.typeKey(.space, modifierFlags: [])
+        XCTAssertTrue(save.exists && match.exists, "Escape must close only the picker, keeping the editor available")
+        XCTAssertEqual(match.value as? String, "Source application")
+        match.typeKey(.space, modifierFlags: [])
         guard exactDomain.waitForExistence(timeout: 3) else {
             XCTFail("Closing the picker must restore keyboard focus to its trigger")
             return
         }
-        application.typeKey(.escape, modifierFlags: [])
+        application.popovers.firstMatch.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(save.exists && match.exists)
         XCTAssertTrue(save.isHittable, "The footer must remain available for the taller source-application form")
         try attachWindowScreenshot("review-source-rule-editor", application: application, appearance: .light)
         application.buttons["Cancel"].firstMatch.click()
         XCTAssertTrue(waitUntil(timeout: 3) { !save.exists })
     }
 
-    func testBrowserManagementOpensFromCenterOfSettingsActionRow() throws {
+    func testBrowserManagementOpensFromApplicationMenu() throws {
         let application = launchFixture("workspace", appearance: .light)
         requireElement("appShell.sidebar.settings", in: application).click()
-        requireButton("settings.manageBrowsers", in: application).click()
+        application.menuBars.menuBarItems["Prism"].click()
+        application.menuItems["Manage Browsers"].click()
         _ = requireButton("browsers.rescan", in: application)
         _ = requireButton("browsers.add", in: application)
         try attachWindowScreenshot("review-browser-management", application: application, appearance: .light)
@@ -50,9 +56,8 @@ final class AppShellUITests: PrismUITestCase {
 
         requireElement("appShell.sidebar.rules", in: application).click()
         _ = requireElement("appShell.page.rules.heading", in: application)
-        let emptyRuleGroups = application.staticTexts.matching(identifier: "No rules in this group")
-        XCTAssertTrue(emptyRuleGroups.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(emptyRuleGroups.count, 2)
+        _ = requirePageStateTitle("Start with your first rule", kind: "empty", in: application)
+        _ = requireButton("rules.emptyCreate", in: application)
         _ = requireButton("rules.create", in: application)
         try attachWindowScreenshot(
             "rules-management",
@@ -69,7 +74,8 @@ final class AppShellUITests: PrismUITestCase {
         _ = requireElement("settings.launchAtLogin", in: application)
         let automaticUpdateChecks = requireElement("settings.automaticUpdateChecks", in: application)
         XCTAssertFalse(automaticUpdateChecks.isEnabled)
-        XCTAssertFalse(application.buttons["settings.checkForUpdates"].exists)
+        XCTAssertTrue(application.buttons["settings.checkForUpdates"].exists)
+        XCTAssertFalse(application.buttons["settings.checkForUpdates"].isEnabled)
         try attachWindowScreenshot(
             "settings-management",
             application: application,
@@ -181,9 +187,9 @@ final class AppShellUITests: PrismUITestCase {
 
         unmatched.click()
         XCTAssertTrue(application.buttons["Last used"].firstMatch.waitForExistence(timeout: 3))
-        application.activate()
-        application.typeKey(.downArrow, modifierFlags: [])
-        application.typeKey(.return, modifierFlags: [])
+        let choices = application.popovers.firstMatch
+        choices.typeKey(.downArrow, modifierFlags: [])
+        choices.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(waitUntil(timeout: 3) { unmatched.value as? String == "Last used" })
 
         requireElement("appShell.sidebar.history", in: application).click()

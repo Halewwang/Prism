@@ -20,15 +20,14 @@ struct HistoryView: View {
                         accessibilityIdentifier: "appShell.page.history.heading"
                     )
                     PageStateView(model: pageState) { action in
-                    if action == AppShellActionID.testLink.rawValue {
-                        testLink()
-                    } else if action == "history.openSettings" {
-                        environment.updateRoute(.settings)
-                    } else if action == "history.retryLoad" {
-                        Task { await model.load() }
+                        if action == AppShellActionID.testLink.rawValue {
+                            testLink()
+                        } else if action == "history.openSettings" {
+                            environment.updateRoute(.settings)
+                        } else if action == "history.retryLoad" {
+                            Task { await model.load() }
+                        }
                     }
-                    }
-                    .frame(minHeight: 360)
                 }
             }
         }
@@ -71,7 +70,7 @@ struct HistoryView: View {
     private var historyPageState: PageStateModel? {
         if model.state == .empty, !environment.settings.historyEnabled {
             return .empty(
-                iconSystemName: "pause.circle",
+                iconSystemName: "shield.slash",
                 title: "History recording is paused",
                 message: "New links are not being saved. You can turn history back on in Settings.",
                 actions: [PageStateAction(id: "history.openSettings", title: "Open Settings", accessibilityIdentifier: "history.openSettings")]
@@ -88,7 +87,7 @@ struct HistoryView: View {
                 accessibilityIdentifier: "appShell.page.history.heading"
             )
             HStack(spacing: 16) {
-                WorkspaceSearchField(placeholder: "Search URL, source app, or browser", text: $query)
+                WorkspaceSearchField(placeholder: "Search URL, source app, or browser", text: $query, horizontalPadding: 11)
                     .frame(width: 340)
                     .accessibilityIdentifier("history.search")
                 Spacer(minLength: 0)
@@ -99,64 +98,89 @@ struct HistoryView: View {
                 Spacer(minLength: 0)
                 Text(String(format: String(localized: "%d records"), filteredEntries.count))
                     .font(.system(size: 13))
-                    .foregroundStyle(SettingsPalette.secondary)
+                    .foregroundStyle(SettingsPalette.tertiary)
                     .accessibilityIdentifier("history.recordCount")
             }
             if filteredEntries.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 24))
-                    Text("No matching history")
-                        .font(.system(size: 15, weight: .medium))
-                    Text("Try another search or result filter.")
-                        .font(.system(size: 13))
+                PageStateView(model: .empty(
+                    iconSystemName: "magnifyingglass",
+                    title: "No matching history",
+                    message: "Try another search or result filter.",
+                    actions: [PageStateAction(id: "history.clearFilters", title: "pageState.clearFilters", accessibilityIdentifier: "history.clearFilters")]
+                )) { _ in
+                    query = ""
+                    resultFilter = .all
                 }
-                .foregroundStyle(SettingsPalette.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 48)
                 .accessibilityIdentifier("history.filteredEmpty")
             } else {
                 ForEach(HistoryListPresentation.grouped(filteredEntries)) { group in
-                    VStack(alignment: .leading, spacing: 12) {
-                        WorkspaceSectionHeader(title: group.title(), detail: group.detail)
+                    VStack(alignment: .leading, spacing: 10) {
+                        historyDateHeader(group)
                         SettingsGroup {
                             ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
                                 historyRow(entry)
                                 if index < group.entries.count - 1 {
-                                    SettingsSeparator(leadingInset: 64)
+                                    SettingsSeparator(leadingInset: 66, color: SettingsPalette.borderSubtle)
                                 }
                             }
                         }
                     }
                 }
             }
-            Label("Sensitive URL parameters are hidden. History stays on this Mac.", systemImage: "lock")
-                .font(.system(size: 12))
-                .foregroundStyle(SettingsPalette.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.shield")
+                    .font(.system(size: 14))
+                    .foregroundStyle(SettingsPalette.iconMuted)
+                    .frame(width: 14, height: 14)
+                    .accessibilityHidden(true)
+                Text("Sensitive URL parameters are hidden. History stays on this Mac.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(SettingsPalette.tertiary)
+            }
+            .frame(minHeight: 19)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
         }
+    }
+
+    private func historyDateHeader(_ group: HistoryDayGroup) -> some View {
+        HStack {
+            Text(group.title())
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(SettingsPalette.secondary)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 8)
+            Text(group.detail)
+                .font(.system(size: 12))
+                .foregroundStyle(SettingsPalette.muted)
+        }
+        .padding(.horizontal, 4)
+        .frame(height: 19)
     }
 
     private var resultFilterButtons: some View {
         HStack(spacing: 2) {
-            ForEach(HistoryResultFilter.allCases) { filter in
-                Button {
-                    resultFilter = filter
-                } label: {
-                    Text(LocalizedStringKey(filter.title))
-                        .font(.system(size: 13, weight: resultFilter == filter ? .medium : .regular))
-                        .foregroundStyle(resultFilter == filter ? SettingsPalette.primary : SettingsPalette.secondary)
-                        .lineLimit(1)
-                        .padding(.horizontal, 10)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 31)
-                        .background {
-                            if resultFilter == filter {
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(SettingsPalette.group)
-                            }
-                        }
-                        .contentShape(RoundedRectangle(cornerRadius: 6))
+            Menu {
+                ForEach([HistoryResultFilter.all, .failed, .processing]) { filter in
+                    Button(LocalizedStringKey(filter.title)) { resultFilter = filter }
+                        .accessibilityIdentifier(filter == .all ? "history.resultFilter.menu.all" : "history.resultFilter.\(filter.rawValue)")
+                }
+            } label: {
+                Text(LocalizedStringKey((isAdditionalResultSelected ? resultFilter : .all).title))
+                    .font(.system(size: 13, weight: resultFilter == .all || isAdditionalResultSelected ? .semibold : .regular))
+                    .foregroundStyle(resultFilter == .all || isAdditionalResultSelected ? SettingsPalette.primary : SettingsPalette.tertiary)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .padding(.horizontal, 16)
+            .frame(height: 31)
+            .background(resultFilter == .all || isAdditionalResultSelected ? SettingsPalette.group : .clear, in: RoundedRectangle(cornerRadius: 8))
+            .accessibilityLabel("Result")
+            .accessibilityIdentifier("history.resultFilter.all")
+            ForEach([HistoryResultFilter.opened, .cancelled]) { filter in
+                Button { resultFilter = filter } label: {
+                    filterLabel(filter, selected: resultFilter == filter)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(resultFilter == filter ? .isSelected : [])
@@ -164,12 +188,27 @@ struct HistoryView: View {
             }
         }
         .padding(3)
-        .frame(maxWidth: 470)
+        .fixedSize(horizontal: true, vertical: false)
         .frame(height: 37)
-        .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: 8))
+        .background(SettingsPalette.iconWell, in: RoundedRectangle(cornerRadius: 10))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Result")
         .accessibilityIdentifier("history.resultFilter")
+    }
+
+    private var isAdditionalResultSelected: Bool {
+        resultFilter == .failed || resultFilter == .processing
+    }
+
+    private func filterLabel(_ filter: HistoryResultFilter, selected: Bool) -> some View {
+        Text(LocalizedStringKey(filter.title))
+            .font(.system(size: 13, weight: selected ? .semibold : .regular))
+            .foregroundStyle(selected ? SettingsPalette.primary : SettingsPalette.tertiary)
+            .lineLimit(1)
+            .padding(.horizontal, 16)
+            .frame(height: 31)
+            .background(selected ? SettingsPalette.group : .clear, in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var filteredEntries: [HistoryEntry] {
@@ -209,10 +248,13 @@ struct HistoryView: View {
                     Text("Clearing…")
                 }
             } else {
-                Label("Clear History", systemImage: "trash")
+                HStack(spacing: 6) {
+                    Image(systemName: "trash").font(.system(size: 16)).frame(width: 16, height: 16)
+                    Text("history.clearButton")
+                }
             }
         }
-        .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 36))
+        .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 36, horizontalPadding: 13, fontSize: 14))
         .disabled(!model.canClear)
         .accessibilityIdentifier("history.clear")
         .accessibilityValue(model.isClearing ? "Clearing" : "Ready")

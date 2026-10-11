@@ -20,6 +20,14 @@ struct HistoryRow: View {
     var currentRules: [RoutingRule]? = nil
     var editRule: (() -> Void)? = nil
 
+    private static let listTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
     @State private var showsDetails = false
     @State private var showsRoutingExplanation = false
     @State private var isHovered = false
@@ -42,7 +50,7 @@ struct HistoryRow: View {
                 inlineRecoveryButton
             }
             .frame(width: 28, height: 28)
-            Text(HistoryListPresentation.eventDate(for: entry), format: .dateTime.hour().minute())
+            Text(Self.listTimeFormatter.string(from: HistoryListPresentation.eventDate(for: entry)))
                 .font(.system(size: 12))
                 .foregroundStyle(SettingsPalette.muted)
                 .frame(width: 40, height: 17, alignment: .trailing)
@@ -141,7 +149,7 @@ struct HistoryRow: View {
                     statusLabel
                 }
             }
-            .frame(width: 72, height: 22)
+            .frame(width: Bundle.main.preferredLocalizations.first?.hasPrefix("zh") == true ? 72 : 88, height: 22)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

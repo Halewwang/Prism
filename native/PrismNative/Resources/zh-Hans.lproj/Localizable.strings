@@ -526,3 +526,5 @@
 "Your History remains unchanged. Try reading it again." = "本地数据未能读取，现有内容不会被覆盖。\n请重试或稍后再打开。";
 "rules.empty.title" = "从第一条规则开始";
 "rules.empty.message" = "让工作链接进入工作浏览器，\n将日常浏览留给你喜欢的应用。";
+
+"history.method.unmatched" = "未匹配";

@@ -180,7 +180,11 @@ struct PageStateView: View {
         HStack(spacing: 8) {
             ForEach(model.actions) { action in
                 actionButton(action)
-                    .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 39))
+                    .buttonStyle(WorkspaceButtonStyle(
+                        kind: .secondary,
+                        height: action.id == "rules.emptyCreate" ? 35 : 39,
+                        horizontalPadding: action.id == "rules.emptyCreate" ? 14 : 16
+                    ))
             }
         }
     }

@@ -11,22 +11,25 @@ final class AppShellUITests: PrismUITestCase {
         XCTAssertTrue(edit.waitForExistence(timeout: 3))
         edit.click()
         requireButton("rules.editor.condition", in: application).click()
-        _ = requireElement("workspace.picker.search.Source application", in: application)
-        application.typeKey(.escape, modifierFlags: [])
+        let sourceSearch = requireElement("workspace.picker.search.Source application", in: application)
+        sourceSearch.typeKey(.escape, modifierFlags: [])
         let save = requireButton("rules.editor.save", in: application)
         let match = requireButton("rules.editor.match", in: application)
         XCTAssertEqual(match.value as? String, "Source application")
         match.click()
         let exactDomain = application.buttons["Exact domain"].firstMatch
         XCTAssertTrue(exactDomain.waitForExistence(timeout: 3))
-        application.typeKey(.escape, modifierFlags: [])
+        application.popovers.firstMatch.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitUntil(timeout: 3) { !exactDomain.exists })
-        application.typeKey(.space, modifierFlags: [])
+        XCTAssertTrue(save.exists && match.exists, "Escape must close only the picker, keeping the editor available")
+        XCTAssertEqual(match.value as? String, "Source application")
+        match.typeKey(.space, modifierFlags: [])
         guard exactDomain.waitForExistence(timeout: 3) else {
             XCTFail("Closing the picker must restore keyboard focus to its trigger")
             return
         }
-        application.typeKey(.escape, modifierFlags: [])
+        application.popovers.firstMatch.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(save.exists && match.exists)
         XCTAssertTrue(save.isHittable, "The footer must remain available for the taller source-application form")
         try attachWindowScreenshot("review-source-rule-editor", application: application, appearance: .light)
         application.buttons["Cancel"].firstMatch.click()
@@ -184,9 +187,9 @@ final class AppShellUITests: PrismUITestCase {
 
         unmatched.click()
         XCTAssertTrue(application.buttons["Last used"].firstMatch.waitForExistence(timeout: 3))
-        application.activate()
-        application.typeKey(.downArrow, modifierFlags: [])
-        application.typeKey(.return, modifierFlags: [])
+        let choices = application.popovers.firstMatch
+        choices.typeKey(.downArrow, modifierFlags: [])
+        choices.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(waitUntil(timeout: 3) { unmatched.value as? String == "Last used" })
 
         requireElement("appShell.sidebar.history", in: application).click()

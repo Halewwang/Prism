@@ -87,7 +87,7 @@ struct HistoryView: View {
                 accessibilityIdentifier: "appShell.page.history.heading"
             )
             HStack(spacing: 16) {
-                WorkspaceSearchField(placeholder: "Search URL, source app, or browser", text: $query)
+                WorkspaceSearchField(placeholder: "Search URL, source app, or browser", text: $query, horizontalPadding: 11)
                     .frame(width: 340)
                     .accessibilityIdentifier("history.search")
                 Spacer(minLength: 0)
@@ -115,23 +115,47 @@ struct HistoryView: View {
             } else {
                 ForEach(HistoryListPresentation.grouped(filteredEntries)) { group in
                     VStack(alignment: .leading, spacing: 10) {
-                        WorkspaceSectionHeader(title: group.title(), detail: group.detail)
+                        historyDateHeader(group)
                         SettingsGroup {
                             ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
                                 historyRow(entry)
                                 if index < group.entries.count - 1 {
-                                    SettingsSeparator()
+                                    SettingsSeparator(leadingInset: 66, color: SettingsPalette.borderSubtle)
                                 }
                             }
                         }
                     }
                 }
             }
-            Label("Sensitive URL parameters are hidden. History stays on this Mac.", systemImage: "checkmark.shield")
-                .font(.system(size: 11))
-                .foregroundStyle(SettingsPalette.tertiary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.shield")
+                    .font(.system(size: 14))
+                    .foregroundStyle(SettingsPalette.iconMuted)
+                    .frame(width: 14, height: 14)
+                    .accessibilityHidden(true)
+                Text("Sensitive URL parameters are hidden. History stays on this Mac.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(SettingsPalette.tertiary)
+            }
+            .frame(minHeight: 19)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
         }
+    }
+
+    private func historyDateHeader(_ group: HistoryDayGroup) -> some View {
+        HStack {
+            Text(group.title())
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(SettingsPalette.secondary)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 8)
+            Text(group.detail)
+                .font(.system(size: 12))
+                .foregroundStyle(SettingsPalette.muted)
+        }
+        .padding(.horizontal, 4)
+        .frame(height: 19)
     }
 
     private var resultFilterButtons: some View {
@@ -224,10 +248,13 @@ struct HistoryView: View {
                     Text("Clearing…")
                 }
             } else {
-                Label("history.clearButton", systemImage: "trash")
+                HStack(spacing: 6) {
+                    Image(systemName: "trash").font(.system(size: 16)).frame(width: 16, height: 16)
+                    Text("history.clearButton")
+                }
             }
         }
-        .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 36))
+        .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 36, horizontalPadding: 13, fontSize: 14))
         .disabled(!model.canClear)
         .accessibilityIdentifier("history.clear")
         .accessibilityValue(model.isClearing ? "Clearing" : "Ready")

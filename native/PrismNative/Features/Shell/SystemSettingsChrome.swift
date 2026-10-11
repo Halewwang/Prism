@@ -76,6 +76,7 @@ struct WorkspaceSectionHeader: View {
 struct WorkspaceSearchField: View {
     let placeholder: String
     @Binding var text: String
+    var horizontalPadding: CGFloat = 20
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -103,7 +104,7 @@ struct WorkspaceSearchField: View {
                 .accessibilityIdentifier("workspace.search.clear.\(placeholder)")
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, horizontalPadding)
         .frame(height: 35)
         .background(SettingsPalette.group, in: RoundedRectangle(cornerRadius: 8))
         .overlay {

@@ -28,7 +28,7 @@ struct HistoryRow: View {
         HStack(spacing: 14) {
             Button { showsDetails = true } label: {
                 detailsButtonContent
-                    .frame(minHeight: 84)
+                    .frame(minHeight: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -37,9 +37,15 @@ struct HistoryRow: View {
             .accessibilityLabel(Text(rowAccessibilityLabel))
             .accessibilityHint(Text("View Details"))
             .accessibilityIdentifier("\(accessibilityPrefix).url")
-            if isHovered || isPerformingAction {
+            ZStack {
+                Color.clear.accessibilityHidden(true)
                 inlineRecoveryButton
             }
+            .frame(width: 28, height: 28)
+            Text(HistoryListPresentation.eventDate(for: entry), format: .dateTime.hour().minute())
+                .font(.system(size: 12))
+                .foregroundStyle(SettingsPalette.muted)
+                .frame(width: 40, height: 17, alignment: .trailing)
             Menu {
                 Button("View Details") { showsDetails = true }
                 Divider()
@@ -47,18 +53,22 @@ struct HistoryRow: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 16))
-                    .foregroundStyle(SettingsPalette.muted)
-                    .frame(width: 16, height: 28)
+                    .foregroundStyle(isHovered ? SettingsPalette.iconStrong : SettingsPalette.iconMuted)
+                    .frame(width: 28, height: 28)
+                    .background(isHovered ? SettingsPalette.sidebar : .clear, in: RoundedRectangle(cornerRadius: 8))
                     .contentShape(Rectangle())
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .frame(width: 28, height: 28)
             .accessibilityLabel("More actions for \(urlText)")
             .accessibilityIdentifier("\(accessibilityPrefix).more")
         }
-        .padding(.horizontal, 20)
-        .frame(minHeight: 84)
+        .padding(.leading, 20)
+        .padding(.trailing, 16)
+        .padding(.vertical, 14)
+        .frame(minHeight: 72)
         .background(isHovered ? SettingsPalette.elevated : .clear)
         .onHover { isHovered = $0 }
         .accessibilityAction(named: Text("View Details")) { showsDetails = true }
@@ -73,58 +83,77 @@ struct HistoryRow: View {
 
     private var detailsButtonContent: some View {
         HStack(spacing: 14) {
-            Image(systemName: "globe")
-                .font(.system(size: 16))
-                .foregroundStyle(SettingsPalette.tertiary)
-                .frame(width: 34, height: 34)
-                .background(SettingsPalette.iconWell, in: RoundedRectangle(cornerRadius: 12))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
+            initialIcon(presentation.safeHost ?? "?", side: 32)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
                     Text(presentation.safeHost ?? localized("URL not saved"))
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(SettingsPalette.primary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(entry.result == .cancelled ? SettingsPalette.secondary : SettingsPalette.primary)
                         .lineLimit(1)
                         .layoutPriority(1)
                     if let safeURL = presentation.safeURL, !safeURL.path.isEmpty, safeURL.path != "/" {
                         Text(safeURL.path)
                             .font(.system(size: 12))
-                            .foregroundStyle(SettingsPalette.tertiary)
+                            .foregroundStyle(SettingsPalette.muted)
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
                 }
-                .frame(height: 22)
-                HStack(spacing: 7) {
+                .frame(height: 20)
+                HStack(spacing: 6) {
+                    initialIcon(entry.sourceDisplayName == "Unknown" ? "?" : displayedSource, side: 16)
                     Text(displayedSource).lineLimit(1)
                     Image(systemName: "arrow.right")
                         .font(.system(size: 12))
-                        .foregroundStyle(SettingsPalette.muted)
+                        .foregroundStyle(SettingsPalette.iconMuted)
+                        .frame(width: 12, height: 12)
                         .accessibilityHidden(true)
-                    Image(systemName: "safari")
-                        .font(.system(size: 14))
-                        .foregroundStyle(entry.targetBrowserID == nil ? SettingsPalette.muted : SettingsPalette.primary)
-                        .accessibilityHidden(true)
-                    Text(targetText).lineLimit(1)
-                    Text("·")
-                    Text(LocalizedStringKey(methodText))
-                        .font(.system(size: 12))
+                    if entry.targetBrowserID == nil {
+                        Image(systemName: "circle.dashed")
+                            .font(.system(size: 14))
+                            .foregroundStyle(SettingsPalette.iconMuted)
+                            .frame(width: 14, height: 14)
+                            .accessibilityHidden(true)
+                    } else {
+                        initialIcon(targetText, side: 16)
+                    }
+                    Text(targetText)
+                        .foregroundStyle(entry.targetBrowserID == nil ? SettingsPalette.muted : SettingsPalette.tertiary)
                         .lineLimit(1)
+                    Text(entry.method == nil
+                         ? String(localized: "history.method.unmatched", defaultValue: "Unmatched")
+                         : localized(methodText))
+                        .font(.system(size: 11))
+                        .foregroundStyle(SettingsPalette.muted)
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .frame(height: 18)
+                        .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: 4))
                 }
-                .font(.system(size: 13))
+                .font(.system(size: 12))
                 .foregroundStyle(SettingsPalette.tertiary)
-                .frame(height: 19)
+                .frame(height: 18)
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .trailing, spacing: 7) {
-                statusLabel.frame(height: 17)
-                Text(HistoryListPresentation.eventDate(for: entry), format: .dateTime.hour().minute())
-                    .font(.system(size: 12))
-                    .foregroundStyle(SettingsPalette.tertiary)
-                    .frame(height: 17)
+            ZStack(alignment: .trailing) {
+                Color.clear.accessibilityHidden(true)
+                if entry.result != .success || isPerformingAction {
+                    statusLabel
+                }
             }
+            .frame(width: 72, height: 22)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func initialIcon(_ name: String, side: CGFloat) -> some View {
+        Text(String(name.first ?? "?").uppercased())
+            .font(.system(size: side == 32 ? 13 : 9, weight: .semibold))
+            .foregroundStyle(SettingsPalette.secondary)
+            .frame(width: side, height: side)
+            .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: side == 32 ? 8 : 4))
+            .overlay(RoundedRectangle(cornerRadius: side == 32 ? 8 : 4).stroke(SettingsPalette.border, lineWidth: 1))
+            .accessibilityHidden(true)
     }
 
     private var details: some View {
@@ -447,13 +476,17 @@ struct HistoryRow: View {
                 ProgressView().controlSize(.mini)
             } else {
                 Image(systemName: statusSymbol)
-                    .font(.system(size: 14))
+                    .font(.system(size: 12))
+                    .frame(width: 12, height: 12)
                     .accessibilityHidden(true)
             }
             Text(LocalizedStringKey(resultText))
         }
-        .font(.system(size: 12))
-        .foregroundStyle(statusColor)
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(entry.result == .failure ? SettingsPalette.danger : SettingsPalette.secondary)
+        .padding(.horizontal, 8)
+        .frame(height: 22)
+        .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: 5))
         .accessibilityLabel("Result: \(resultText)")
     }
 
@@ -469,21 +502,42 @@ struct HistoryRow: View {
     private var inlineRecoveryButton: some View {
         if entry.result == .failure {
             Button(action: retry) {
-                actionLabel(idleTitle: "Retry", busyTitle: "Retrying…", isBusy: activity == .retrying)
+                recoveryIcon(isBusy: activity == .retrying)
             }
-            .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 28, horizontalPadding: 12, fontSize: 11))
+            .buttonStyle(.plain)
             .disabled(!isRetryAvailable || isPerformingAction)
-            .help(isRetryAvailable ? localized("Retry with the browser selected for this request") : localized("The original full URL is no longer available for retry"))
+            .opacity(isRetryAvailable && !isPerformingAction ? 1 : 0.4)
+            .help(isRetryAvailable ? localized("Retry") : localized("The original full URL is no longer available for retry"))
+            .accessibilityLabel(activity == .retrying ? "Retrying…" : "Retry")
+            .accessibilityHint(isRetryAvailable ? "Retry with the browser selected for this request" : "The original full URL is no longer available for retry")
             .accessibilityIdentifier("\(accessibilityPrefix).inlineRetry")
         } else if entry.result == .cancelled {
             Button(action: reopen) {
-                actionLabel(idleTitle: "Reopen", busyTitle: "Reopening…", isBusy: activity == .reopening)
+                recoveryIcon(isBusy: activity == .reopening)
             }
-            .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 28, horizontalPadding: 12, fontSize: 11))
+            .buttonStyle(.plain)
             .disabled(!canReopen || isPerformingAction)
-            .help(canReopen ? localized("Reopen the saved safe URL") : reopenDisabledReason)
+            .opacity(canReopen && !isPerformingAction ? 1 : 0.4)
+            .help(canReopen ? localized("Reopen") : reopenDisabledReason)
+            .accessibilityLabel(activity == .reopening ? "Reopening…" : "Reopen")
+            .accessibilityHint(canReopen ? "Reopen the saved safe URL" : reopenDisabledReason)
             .accessibilityIdentifier("\(accessibilityPrefix).inlineReopen")
         }
+    }
+
+    private func recoveryIcon(isBusy: Bool) -> some View {
+        ZStack {
+            if isBusy {
+                ProgressView().controlSize(.mini)
+            } else {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 16))
+            }
+        }
+        .foregroundStyle(SettingsPalette.iconStrong)
+        .frame(width: 28, height: 28)
+        .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: 8))
+        .contentShape(Rectangle())
     }
 
     private var urlText: String {

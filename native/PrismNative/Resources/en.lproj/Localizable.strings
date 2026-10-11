@@ -475,3 +475,5 @@
 "Your History remains unchanged. Try reading it again." = "Your History remains unchanged. Try reading it again.";
 "rules.empty.title" = "Start with your first rule";
 "rules.empty.message" = "Send work links to your work browser,\nand everyday browsing to your favorite apps.";
+
+"history.method.unmatched" = "Unmatched";

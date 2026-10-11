@@ -378,8 +378,7 @@ private struct WorkspacePickerKeyboardMonitor: NSViewRepresentable {
             else { return false }
 
             // Let an input method finish composing search text before selecting an option.
-            if event.keyCode != 53,
-               let input = NSApp.keyWindow?.firstResponder as? NSTextInputClient,
+            if let input = NSApp.keyWindow?.firstResponder as? NSTextInputClient,
                input.hasMarkedText() {
                 return false
             }

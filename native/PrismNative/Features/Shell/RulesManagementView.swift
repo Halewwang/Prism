@@ -202,7 +202,7 @@ struct RulesManagementView: View {
                     Text(String(localized: "rules.page.newRule", defaultValue: "New Rule"))
                 }
             }
-                .buttonStyle(WorkspaceButtonStyle(kind: .primary, height: 56, horizontalPadding: 20, fontSize: 14))
+                .buttonStyle(WorkspaceButtonStyle(kind: .primary, height: 36, horizontalPadding: 14, fontSize: 14))
                 .disabled(browsers.allSatisfy { $0.availability != .available })
                 .accessibilityIdentifier("rules.create")
         }

@@ -5,10 +5,12 @@ import PrismCore
 protocol BrowserCataloging: AnyObject {
     func scan() async throws -> [BrowserDescriptor]
     func scanForSelector() async throws -> [BrowserDescriptor]
+    func recordBrowserUse(_ id: BrowserID) async
 }
 
 extension BrowserCataloging {
     func scanForSelector() async throws -> [BrowserDescriptor] { try await scan() }
+    func recordBrowserUse(_: BrowserID) async {}
 }
 
 enum BrowserCatalogError: Error, Equatable {
@@ -95,8 +97,22 @@ final class BrowserCatalogService: BrowserCataloging {
     }
 
     func scanForSelector() async throws -> [BrowserDescriptor] {
+        let installed = try await scan()
         let hidden = Set(try browserPreferences?.hiddenBrowserIDs() ?? [])
-        return try await scan().filter { !hidden.contains($0.id) }
+        let recentIDs = try recentIDsForSelector(installedIDs: installed.map(\.id))
+        let visible = installed.filter { !hidden.contains($0.id) }
+        guard !recentIDs.isEmpty else { return visible }
+        return applyingMostRecentOrder(to: visible, recentIDs: recentIDs)
+    }
+
+    func recordBrowserUse(_ id: BrowserID) async {
+        guard let browserPreferences else { return }
+        do {
+            let recent = try browserPreferences.recentBrowserIDs()
+            try browserPreferences.saveRecentBrowserIDs(BrowserMostRecentOrder.remembering(id, recentIDs: recent))
+        } catch {
+            return
+        }
     }
 
     func saveCustomBrowser(at applicationURL: URL) throws -> BrowserDescriptor {
@@ -191,6 +207,45 @@ final class BrowserCatalogService: BrowserCataloging {
     private func resolvedApplicationURL(_ url: URL) -> URL {
         guard url.isFileURL else { return url }
         return url.resolvingSymlinksInPath().standardizedFileURL
+    }
+
+    private func recentIDsForSelector(installedIDs: [BrowserID]) throws -> [BrowserID] {
+        guard let browserPreferences else { return [] }
+        let stored = try browserPreferences.recentBrowserIDs()
+        let pruned = BrowserMostRecentOrder.pruned(recentIDs: stored, installedIDs: installedIDs)
+        if pruned != stored {
+            do {
+                try browserPreferences.saveRecentBrowserIDs(pruned)
+            } catch {
+                // The selector still omits browsers that are no longer installed.
+            }
+        }
+        return pruned
+    }
+
+    private func applyingMostRecentOrder(
+        to browsers: [BrowserDescriptor],
+        recentIDs: [BrowserID]
+    ) -> [BrowserDescriptor] {
+        let orderedIDs = BrowserMostRecentOrder.orderedIDs(existing: browsers.map(\.id), recentIDs: recentIDs)
+        var byID: [BrowserID: BrowserDescriptor] = [:]
+        for browser in browsers where byID[browser.id] == nil {
+            byID[browser.id] = browser
+        }
+        return orderedIDs.enumerated().compactMap { index, id in
+            guard let browser = byID[id] else { return nil }
+            return BrowserDescriptor(
+                id: browser.id,
+                bundleIdentifier: browser.bundleIdentifier,
+                displayName: browser.displayName,
+                applicationURL: browser.applicationURL,
+                securityScopedBookmark: browser.securityScopedBookmark,
+                origin: browser.origin,
+                availability: browser.availability,
+                selectorOrder: index,
+                profile: browser.profile
+            )
+        }
     }
 
     private func ordered(

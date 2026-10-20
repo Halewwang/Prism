@@ -308,6 +308,7 @@ final class SelectorViewModel {
         selectBrowser(id: id)
         isPerformingAction = true
         defer { isPerformingAction = false }
+        await browserCatalog.recordBrowserUse(id)
         switch presentationContext {
         case .normal, .noAvailableBrowsers, .ruleSkipped:
             await routingCoordinator.select(browserID: id, for: requestID)

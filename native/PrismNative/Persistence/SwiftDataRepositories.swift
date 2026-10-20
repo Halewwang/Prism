@@ -40,6 +40,8 @@ protocol BrowserPreferenceRepository {
     func saveOrder(_ ids: [BrowserID]) throws
     func hiddenBrowserIDs() throws -> [BrowserID]
     func saveHiddenBrowserIDs(_ ids: [BrowserID]) throws
+    func recentBrowserIDs() throws -> [BrowserID]
+    func saveRecentBrowserIDs(_ ids: [BrowserID]) throws
     func customBrowsers() throws -> [BrowserDescriptor]
     func upsertCustomBrowser(_ browser: BrowserDescriptor) throws
     func deleteCustomBrowser(id: BrowserID) throws
@@ -322,6 +324,18 @@ final class SwiftDataBrowserPreferenceRepository: BrowserPreferenceRepository {
     }
 
     func saveHiddenBrowserIDs(_ ids: [BrowserID]) throws {
+        try updatePrimaryOrderRecord { try $0.replaceHiddenBrowserIDs(with: ids) }
+    }
+
+    func recentBrowserIDs() throws -> [BrowserID] {
+        try context.fetch(FetchDescriptor<BrowserOrderRecord>()).first(where: { $0.key == "primary" })?.recentBrowserIDs() ?? []
+    }
+
+    func saveRecentBrowserIDs(_ ids: [BrowserID]) throws {
+        try updatePrimaryOrderRecord { try $0.replaceRecentBrowserIDs(with: ids) }
+    }
+
+    private func updatePrimaryOrderRecord(_ update: (BrowserOrderRecord) throws -> Void) throws {
         do {
             let record: BrowserOrderRecord
             if let existing = try context.fetch(FetchDescriptor<BrowserOrderRecord>()).first(where: { $0.key == "primary" }) {
@@ -330,7 +344,7 @@ final class SwiftDataBrowserPreferenceRepository: BrowserPreferenceRepository {
                 record = try BrowserOrderRecord(ids: [])
                 context.insert(record)
             }
-            try record.replaceHiddenBrowserIDs(with: ids)
+            try update(record)
             try context.save()
         } catch {
             context.rollback()
@@ -492,6 +506,7 @@ private extension HistoryEntry {
 final class InMemoryBrowserPreferenceRepository: BrowserPreferenceRepository {
     private var orderedIDs: [BrowserID] = []
     private var hiddenIDs: [BrowserID] = []
+    private var recentIDs: [BrowserID] = []
     private var browsers: [BrowserID: BrowserDescriptor] = [:]
 
     func orderedBrowserIDs() throws -> [BrowserID] {
@@ -505,6 +520,10 @@ final class InMemoryBrowserPreferenceRepository: BrowserPreferenceRepository {
     func hiddenBrowserIDs() throws -> [BrowserID] { hiddenIDs }
 
     func saveHiddenBrowserIDs(_ ids: [BrowserID]) throws { hiddenIDs = ids }
+
+    func recentBrowserIDs() throws -> [BrowserID] { recentIDs }
+
+    func saveRecentBrowserIDs(_ ids: [BrowserID]) throws { recentIDs = ids }
 
     func customBrowsers() throws -> [BrowserDescriptor] {
         browsers.values.sorted { $0.selectorOrder < $1.selectorOrder }

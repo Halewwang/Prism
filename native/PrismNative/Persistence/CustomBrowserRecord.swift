@@ -65,19 +65,40 @@ final class BrowserOrderRecord {
     }
 
     func replace(with ids: [BrowserID]) throws {
-        let hidden = try hiddenBrowserIDs()
-        orderedIDsPayload = try JSONEncoder().encode(VersionedBrowserOrder(version: 1, ids: ids.map(\.rawValue), hiddenIDs: hidden.map(\.rawValue)))
+        orderedIDsPayload = try Self.encode(ids: ids, hiddenIDs: try hiddenBrowserIDs(), recentIDs: try recentBrowserIDs())
     }
 
     func hiddenBrowserIDs() throws -> [BrowserID] {
-        let payload = try JSONDecoder().decode(VersionedBrowserOrder.self, from: orderedIDsPayload)
-        guard payload.version == 1 else { throw PersistenceRecordError.invalidPayload }
+        let payload = try decodedPayload()
         return (payload.hiddenIDs ?? []).map(BrowserID.init(rawValue:))
     }
 
     func replaceHiddenBrowserIDs(with ids: [BrowserID]) throws {
-        let order = try browserIDs()
-        orderedIDsPayload = try JSONEncoder().encode(VersionedBrowserOrder(version: 1, ids: order.map(\.rawValue), hiddenIDs: ids.map(\.rawValue)))
+        orderedIDsPayload = try Self.encode(ids: try browserIDs(), hiddenIDs: ids, recentIDs: try recentBrowserIDs())
+    }
+
+    func recentBrowserIDs() throws -> [BrowserID] {
+        let payload = try decodedPayload()
+        return (payload.recentIDs ?? []).map(BrowserID.init(rawValue:))
+    }
+
+    func replaceRecentBrowserIDs(with ids: [BrowserID]) throws {
+        orderedIDsPayload = try Self.encode(ids: try browserIDs(), hiddenIDs: try hiddenBrowserIDs(), recentIDs: ids)
+    }
+
+    private func decodedPayload() throws -> VersionedBrowserOrder {
+        let payload = try JSONDecoder().decode(VersionedBrowserOrder.self, from: orderedIDsPayload)
+        guard payload.version == 1 else { throw PersistenceRecordError.invalidPayload }
+        return payload
+    }
+
+    private static func encode(ids: [BrowserID], hiddenIDs: [BrowserID], recentIDs: [BrowserID]) throws -> Data {
+        try JSONEncoder().encode(VersionedBrowserOrder(
+            version: 1,
+            ids: ids.map(\.rawValue),
+            hiddenIDs: hiddenIDs.map(\.rawValue),
+            recentIDs: recentIDs.map(\.rawValue)
+        ))
     }
 }
 
@@ -85,4 +106,5 @@ private struct VersionedBrowserOrder: Codable {
     let version: Int
     let ids: [String]
     var hiddenIDs: [String]? = nil
+    var recentIDs: [String]? = nil
 }

@@ -19,10 +19,15 @@ struct BrowserChoicePreferencesTests {
         let record = try BrowserOrderRecord(ids: ["a", "b"])
         record.orderedIDsPayload = Data(#"{"version":1,"ids":["a","b"]}"#.utf8)
         #expect(try record.hiddenBrowserIDs().isEmpty)
+        #expect(try record.recentBrowserIDs().isEmpty)
         try record.replaceHiddenBrowserIDs(with: ["b"])
         #expect(try record.browserIDs() == ["a", "b"])
         try record.replace(with: ["b", "a"])
         #expect(try record.hiddenBrowserIDs() == ["b"])
+        try record.replaceRecentBrowserIDs(with: ["b", "a"])
+        try record.replaceHiddenBrowserIDs(with: [])
+        #expect(try record.browserIDs() == ["b", "a"])
+        #expect(try record.recentBrowserIDs() == ["b", "a"])
     }
 
     @Test func preferencesSurviveSeparateRepositoryReadsAndIndependentUpdates() throws {
@@ -30,14 +35,18 @@ struct BrowserChoicePreferencesTests {
         let repository = SwiftDataBrowserPreferenceRepository(container: container)
         try repository.saveOrder(["a", "b"])
         try repository.saveHiddenBrowserIDs(["b"])
+        try repository.saveRecentBrowserIDs(["b", "a"])
         let second = SwiftDataBrowserPreferenceRepository(container: container)
         #expect(try second.orderedBrowserIDs() == ["a", "b"])
         #expect(try second.hiddenBrowserIDs() == ["b"])
+        #expect(try second.recentBrowserIDs() == ["b", "a"])
         try second.saveOrder(["b", "a"])
         let third = SwiftDataBrowserPreferenceRepository(container: container)
         #expect(try third.hiddenBrowserIDs() == ["b"])
+        #expect(try third.recentBrowserIDs() == ["b", "a"])
         try third.saveHiddenBrowserIDs([])
         #expect(try third.orderedBrowserIDs() == ["b", "a"])
+        #expect(try third.recentBrowserIDs() == ["b", "a"])
     }
 
     @Test func hiddenProfileIsAbsentFromChooserButAvailableToRulesAndFallback() async throws {

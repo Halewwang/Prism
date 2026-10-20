@@ -97,6 +97,50 @@ import XCTest
     #expect(browsers.map(\.selectorOrder) == [0, 1, 2])
 }
 
+@Test @MainActor func selectorListsMostRecentlyUsedBrowsersFirst() async throws {
+    let fixtures = try TemporaryApplicationBundles([
+        ("Safari.app", "com.apple.Safari"),
+        ("Google Chrome.app", "com.google.Chrome"),
+        ("Firefox.app", "org.mozilla.firefox")
+    ])
+    defer { fixtures.remove() }
+
+    let repository = InMemoryBrowserPreferenceRepository()
+    try repository.saveOrder(["com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox"])
+    let catalog = BrowserCatalogService(
+        workspace: StubWorkspaceClient(applicationURLs: fixtures.urls),
+        browserPreferences: repository,
+        profileDiscovery: ChromiumProfileDiscovery(userDataDirectories: [:])
+    )
+
+    #expect(try await catalog.scanForSelector().map(\.id) == [
+        "com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox"
+    ])
+
+    await catalog.recordBrowserUse("com.google.Chrome")
+    await catalog.recordBrowserUse("org.mozilla.firefox")
+    let ordered = try await catalog.scanForSelector()
+    #expect(ordered.map(\.id) == ["org.mozilla.firefox", "com.google.Chrome", "com.apple.Safari"])
+    #expect(ordered.map(\.selectorOrder) == [0, 1, 2])
+    #expect(try repository.orderedBrowserIDs() == ["com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox"])
+
+    let withoutFirefox = try TemporaryApplicationBundles([
+        ("Safari.app", "com.apple.Safari"),
+        ("Google Chrome.app", "com.google.Chrome"),
+        ("Edge.app", "com.microsoft.edgemac")
+    ])
+    defer { withoutFirefox.remove() }
+    let next = BrowserCatalogService(
+        workspace: StubWorkspaceClient(applicationURLs: withoutFirefox.urls),
+        browserPreferences: repository,
+        profileDiscovery: ChromiumProfileDiscovery(userDataDirectories: [:])
+    )
+    #expect(try await next.scanForSelector().map(\.id) == [
+        "com.google.Chrome", "com.apple.Safari", "com.microsoft.edgemac"
+    ])
+    #expect(try repository.recentBrowserIDs() == ["com.google.Chrome"])
+}
+
 @Test @MainActor func catalogSavesCustomBrowserOnlyWhenItHandlesHTTPAndHTTPS() throws {
     let fixtures = try TemporaryApplicationBundles([
         ("Custom Browser.app", "com.example.custom")

@@ -226,6 +226,18 @@ struct SelectorViewModelTests {
         #expect(model.requestID == fixture.request.id)
     }
 
+    @Test func selectingBrowserWaitsForConfirmedRoutingBeforeRememberingUse() async {
+        let catalog = MutableBrowserCatalog(results: [])
+        let fixture = SelectorFixture(browserCount: 3, browserCatalog: catalog)
+
+        await fixture.model.activateBrowser(id: fixture.browsers[1].id)
+
+        #expect(fixture.routing.calls == [
+            .select(browserID: fixture.browsers[1].id, requestID: fixture.request.id)
+        ])
+        #expect(catalog.recordedBrowserUses.isEmpty)
+    }
+
     @Test func pendingBadgeReadsLiveCountAndAppearsOnlyFromTwo() async {
         let pending = MutablePendingCountProvider(count: 1)
         let fixture = SelectorFixture(browserCount: 3, pendingCountProvider: pending)
@@ -555,6 +567,7 @@ private final class RecordingRoutingCoordinator: LinkRoutingCoordinating {
 @MainActor
 private final class MutableBrowserCatalog: BrowserCataloging {
     private var results: [Result<[BrowserDescriptor], Error>]
+    private(set) var recordedBrowserUses: [BrowserID] = []
 
     init(results: [Result<[BrowserDescriptor], Error>]) {
         self.results = results
@@ -563,6 +576,10 @@ private final class MutableBrowserCatalog: BrowserCataloging {
     func scan() async throws -> [BrowserDescriptor] {
         guard !results.isEmpty else { return [] }
         return try results.removeFirst().get()
+    }
+
+    func recordBrowserUse(_ id: BrowserID) async {
+        recordedBrowserUses.append(id)
     }
 }
 

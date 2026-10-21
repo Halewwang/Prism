@@ -710,6 +710,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
             return false
         }
 
+        await browserCatalog.recordBrowserUse(browser.id)
         let successfulHistory = makeSuccessfulHistory(from: startedHistory, context: context)
         do {
             try await queue.markCompleted(

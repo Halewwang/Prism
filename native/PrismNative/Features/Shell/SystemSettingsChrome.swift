@@ -12,7 +12,7 @@ struct PageColumn<Content: View>: View {
                 }
                 .frame(maxWidth: 880, alignment: .leading)
                 .padding(.horizontal, WorkspaceLayout.contentInset)
-                .padding(.top, 32)
+                .padding(.top, 24)
                 .padding(.bottom, 24)
                 .frame(width: proxy.size.width, alignment: .topLeading)
             }

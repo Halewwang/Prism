@@ -72,7 +72,7 @@ struct SettingsManagementView: View {
     }
 
     private var settingsCards: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 20) {
             settingsSection("Link Handling", symbol: "arrow.triangle.branch") {
                 defaultHandlerRow
                 settingsSeparator
@@ -440,8 +440,8 @@ struct SettingsManagementView: View {
                 .layoutPriority(1)
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 13)
-        .frame(minHeight: 67)
+        .padding(.vertical, 10)
+        .frame(minHeight: 60)
     }
 
     private var automaticRulesEnabled: Binding<Bool> {

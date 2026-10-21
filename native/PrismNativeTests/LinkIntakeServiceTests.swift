@@ -1021,6 +1021,37 @@ import Testing
     #expect(Set(requests.map(\.id)).count == 10)
 }
 
+@Test(arguments: [false, true]) @MainActor func successfulHandoffsRememberBrowserForNextSelector(automatic: Bool) async throws {
+    let harness = RoutingHarness(
+        automaticBrowserID: automatic ? "com.apple.Safari" : nil,
+        launchResults: [.success]
+    )
+    let request = LinkRequest.fixture(id: fixedUUID(401))
+    try await harness.queue.enqueue(request)
+
+    await harness.coordinator.processNext()
+    if !automatic {
+        await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id)
+    }
+
+    #expect(harness.launcher.handoffCount == 1)
+    #expect(harness.catalog.recordedBrowserUses == ["com.apple.Safari"])
+}
+
+@Test @MainActor func failedManualHandoffRemembersBrowserOnlyAfterSuccessfulRetry() async throws {
+    let harness = RoutingHarness(launchResults: [.failure, .success])
+    let request = LinkRequest.fixture(id: fixedUUID(402))
+    try await harness.queue.enqueue(request)
+    await harness.coordinator.processNext()
+
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id)
+    #expect(harness.catalog.recordedBrowserUses.isEmpty)
+
+    await harness.coordinator.retry(browserID: "com.apple.Safari", for: request.id)
+    #expect(harness.launcher.handoffCount == 2)
+    #expect(harness.catalog.recordedBrowserUses == ["com.apple.Safari"])
+}
+
 @Test @MainActor func automaticLaunchFailureKeepsTheSameRequestRecoverable() async throws {
     let harness = RoutingHarness(automaticBrowserID: "com.apple.Safari", launchResults: [.failure])
     let request = LinkRequest.fixture(id: fixedUUID(40), url: "https://example.com/fail")
@@ -1085,6 +1116,7 @@ import Testing
     #expect(harness.presenter.context == .outcomeUnknown(browserID: "com.apple.Safari"))
     #expect(harness.warning.last == .recoveryStoreUnavailable)
     #expect((await harness.queue.snapshot()).first?.state == .launching)
+    #expect(harness.catalog.recordedBrowserUses == ["com.apple.Safari"])
 }
 
 @Test @MainActor func uncertainRetryPersistenceFailureStillNeverHandsOffAgain() async throws {
@@ -1900,6 +1932,7 @@ private final class BusyThenDrainedRoutingCoordinator: LinkRoutingCoordinating {
 private final class StubBrowserCatalog: BrowserCataloging {
     var browsers: [BrowserDescriptor]
     var error: Error?
+    private(set) var recordedBrowserUses: [BrowserID] = []
 
     init(browsers: [BrowserDescriptor]) {
         self.browsers = browsers
@@ -1908,6 +1941,10 @@ private final class StubBrowserCatalog: BrowserCataloging {
     func scan() async throws -> [BrowserDescriptor] {
         if let error { throw error }
         return browsers
+    }
+
+    func recordBrowserUse(_ id: BrowserID) async {
+        recordedBrowserUses.append(id)
     }
 }
 

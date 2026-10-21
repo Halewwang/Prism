@@ -47,13 +47,13 @@ struct BrowserManagementSheet: View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(alignment: .top) {
                 Text("Available browsers")
-                    .font(.system(size: 23, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(SettingsPalette.secondary)
                     .frame(height: 33, alignment: .leading)
                 Spacer()
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14))
+                        .font(.system(size: 13))
                         .frame(width: 24, height: 33)
                 }
                     .buttonStyle(WorkspaceButtonStyle(kind: .quiet, height: 33))
@@ -166,7 +166,7 @@ struct BrowserManagementSheet: View {
             ApplicationIconView(bundleIdentifier: browser.bundleIdentifier, applicationURL: browser.applicationURL, fallbackSymbol: "safari", side: 28)
             VStack(alignment: .leading, spacing: 6) {
                 Text(browser.displayName)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(SettingsPalette.secondary)
                 Text(browser.origin == .custom && browser.availability != .available
                      ? String(localized: "browsers.reselectApplication") : browser.applicationURL.path)

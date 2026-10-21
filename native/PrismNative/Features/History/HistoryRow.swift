@@ -95,7 +95,7 @@ struct HistoryRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(presentation.safeHost ?? localized("URL not saved"))
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(entry.result == .cancelled ? SettingsPalette.secondary : SettingsPalette.primary)
                         .lineLimit(1)
                         .layoutPriority(1)
@@ -185,7 +185,7 @@ struct HistoryRow: View {
     private var detailsHeader: some View {
         HStack {
             Text("Link Details")
-                .font(.system(size: 23, weight: .semibold))
+                .font(.system(size: 20, weight: .semibold))
                 .frame(height: 33)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
@@ -264,7 +264,7 @@ struct HistoryRow: View {
                 Text(entry.result == .failure
                      ? String(localized: "history.failure.title", defaultValue: "This link could not be opened")
                      : localized(resultText))
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(statusColor)
                     .frame(minHeight: 20, alignment: .leading)
                 if entry.result == .failure {
@@ -325,7 +325,7 @@ struct HistoryRow: View {
     private var routingExplanationSection: some View {
         VStack(alignment: .leading, spacing: 10) {
           Text(String(localized: "history.explanation.title", defaultValue: "Why this browser?"))
-              .font(.system(size: 14, weight: .semibold))
+              .font(.system(size: 13, weight: .semibold))
           VStack(alignment: .leading, spacing: 10) {
             Text("\(displayedSource) → \(localized(methodText)) → \(targetText)")
                 .font(.system(size: 13))

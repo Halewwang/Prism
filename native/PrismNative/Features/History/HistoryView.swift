@@ -50,19 +50,20 @@ struct HistoryView: View {
             isPresented: Binding(
                 get: { model.confirmation != nil },
                 set: { if !$0 { model.cancelConfirmation() } }
-            )
-        ) {
-            if case .delete = model.confirmation {
+            ),
+            presenting: model.confirmation
+        ) { pending in
+            if case .delete = pending {
                 Button("Delete", role: .destructive) {
-                    Task { await model.confirmPendingAction() }
+                    Task { await model.confirmPendingAction(pending) }
                 }
-            } else if model.confirmation == .clear {
+            } else if pending == .clear {
                 Button("Clear History", role: .destructive) {
-                    Task { await model.confirmPendingAction() }
+                    Task { await model.confirmPendingAction(pending) }
                 }
             }
             Button("Cancel", role: .cancel) { model.cancelConfirmation() }
-        } message: {
+        } message: { _ in
             Text(LocalizedStringKey(confirmationMessage))
         }
     }
@@ -97,7 +98,7 @@ struct HistoryView: View {
                 resultFilterButtons
                 Spacer(minLength: 0)
                 Text(String(format: String(localized: "%d records"), filteredEntries.count))
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(SettingsPalette.tertiary)
                     .accessibilityIdentifier("history.recordCount")
             }
@@ -134,7 +135,7 @@ struct HistoryView: View {
                     .frame(width: 14, height: 14)
                     .accessibilityHidden(true)
                 Text("Sensitive URL parameters are hidden. History stays on this Mac.")
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(SettingsPalette.tertiary)
             }
             .frame(minHeight: 19)
@@ -254,7 +255,7 @@ struct HistoryView: View {
                 }
             }
         }
-        .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 36, horizontalPadding: 13, fontSize: 14))
+        .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 36, horizontalPadding: 13, fontSize: 13))
         .disabled(!model.canClear)
         .accessibilityIdentifier("history.clear")
         .accessibilityValue(model.isClearing ? "Clearing" : "Ready")

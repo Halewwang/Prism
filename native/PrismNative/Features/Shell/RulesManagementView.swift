@@ -55,7 +55,7 @@ struct RulesManagementView: View {
                     .font(.system(size: 16))
                     .foregroundStyle(SettingsPalette.primary)
                 Text("URL rules are matched first, followed by source applications. Rules in each group run in order.")
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
             }
             .foregroundStyle(SettingsPalette.tertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -84,8 +84,7 @@ struct RulesManagementView: View {
                 )) { _ in beginCreatingRule() }
                 .disabled(browsers.allSatisfy { $0.availability != .available })
             } else {
-                ruleGroup(title: "URL Rules", groupPriority: "01", rules: filteredURLRules, orderedRules: urlRules)
-                ruleGroup(title: "Source Application Rules", groupPriority: "02", rules: filteredSourceRules, orderedRules: sourceRules)
+                ruleList
             }
             unmatchedBehaviorCard
         }
@@ -144,7 +143,7 @@ struct RulesManagementView: View {
             VStack(alignment: .leading, spacing: 22) {
                 HStack {
                     Text(String(localized: "rules.preview.title", defaultValue: "Test routing rules"))
-                        .font(.system(size: 23, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                     Spacer()
                     Button { showsRoutingPreview = false } label: {
                         Image(systemName: "xmark").font(.system(size: 16))
@@ -202,7 +201,7 @@ struct RulesManagementView: View {
                     Text(String(localized: "rules.page.newRule", defaultValue: "New Rule"))
                 }
             }
-                .buttonStyle(WorkspaceButtonStyle(kind: .primary, height: 36, horizontalPadding: 14, fontSize: 14))
+                .buttonStyle(WorkspaceButtonStyle(kind: .primary, height: 36, horizontalPadding: 14, fontSize: 13))
                 .disabled(browsers.allSatisfy { $0.availability != .available })
                 .accessibilityIdentifier("rules.create")
         }
@@ -215,10 +214,10 @@ struct RulesManagementView: View {
                 .foregroundStyle(SettingsPalette.muted)
             VStack(alignment: .leading, spacing: 4) {
                 Text("No matching rule")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(SettingsPalette.tertiary)
                 Text(LocalizedStringKey(unmatchedBehaviorDescription))
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(SettingsPalette.tertiary)
             }
             Spacer(minLength: 12)
@@ -283,56 +282,37 @@ struct RulesManagementView: View {
         rules.filter(\.isSourceRule)
     }
 
-    private var filteredURLRules: [RoutingRule] {
-        filteredRules.filter { !$0.isSourceRule }
-    }
-
-    private var filteredSourceRules: [RoutingRule] {
-        filteredRules.filter(\.isSourceRule)
-    }
-
-    private func ruleGroup(
-        title: String,
-        groupPriority: String,
-        rules: [RoutingRule],
-        orderedRules: [RoutingRule]
-    ) -> some View {
+    private var ruleList: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text(LocalizedStringKey(title))
-                    .font(.system(size: 15, weight: .semibold))
+                Text("Rules")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(SettingsPalette.secondary)
                     .accessibilityAddTraits(.isHeader)
-                    .frame(height: 22)
                 Spacer()
-                Text("\(String(localized: "Priority")) \(groupPriority) · \(String(format: String(localized: "%d rules"), rules.count))")
+                Text(String(format: String(localized: "%d rules"), filteredRules.count))
                     .font(.system(size: 12))
                     .foregroundStyle(SettingsPalette.tertiary)
             }
             SettingsGroup {
-                if rules.isEmpty {
-                    Text("No rules in this group")
-                        .font(.system(size: 13))
-                        .foregroundStyle(SettingsPalette.secondary)
-                        .padding(.horizontal, 20)
-                        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-                } else {
-                    ForEach(Array(rules.enumerated()), id: \.element.id) { index, rule in
-                        let orderedIndex = orderedRules.firstIndex(where: { $0.id == rule.id }) ?? index
-                        ruleRow(
-                            rule,
-                            priority: displayedPriority(for: rule, in: orderedRules, fallback: index + 1),
-                            canMoveUp: searchText.isEmpty && orderedIndex > 0,
-                            canMoveDown: searchText.isEmpty && orderedIndex < orderedRules.count - 1,
-                            moveUp: { move(orderedRules, from: orderedIndex, to: orderedIndex - 1) },
-                            moveDown: { move(orderedRules, from: orderedIndex, to: orderedIndex + 1) }
-                        )
-                        if index < rules.count - 1 {
-                            SettingsSeparator()
-                        }
+                ForEach(Array(filteredRules.enumerated()), id: \.element.id) { index, rule in
+                    let orderedRules = rule.isSourceRule ? sourceRules : urlRules
+                    let orderedIndex = orderedRules.firstIndex(where: { $0.id == rule.id }) ?? 0
+                    ruleRow(
+                        rule,
+                        priority: orderedIndex + 1,
+                        canMoveUp: searchText.isEmpty && orderedIndex > 0,
+                        canMoveDown: searchText.isEmpty && orderedIndex < orderedRules.count - 1,
+                        moveUp: { move(orderedRules, from: orderedIndex, to: orderedIndex - 1) },
+                        moveDown: { move(orderedRules, from: orderedIndex, to: orderedIndex + 1) }
+                    )
+                    if index < filteredRules.count - 1 {
+                        SettingsSeparator()
                     }
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("rules.list")
         }
     }
 
@@ -363,13 +343,24 @@ struct RulesManagementView: View {
                 .background(SettingsPalette.iconWell, in: RoundedRectangle(cornerRadius: 8))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
-                Text(rule.displayName)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(rule.isEnabled ? SettingsPalette.primary : SettingsPalette.tertiary)
-                    .lineLimit(1)
-                    .frame(height: 22)
+                HStack(spacing: 7) {
+                    Text(rule.displayName)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(rule.isEnabled ? SettingsPalette.primary : SettingsPalette.tertiary)
+                        .lineLimit(1)
+                    Text(rule.isSourceRule
+                         ? String(localized: "rules.category.application", defaultValue: "Application")
+                         : String(localized: "rules.category.url", defaultValue: "URL"))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(SettingsPalette.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(SettingsPalette.iconWell, in: RoundedRectangle(cornerRadius: 4))
+                        .fixedSize()
+                }
+                .frame(height: 20)
                 Text(matchDetail(rule))
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(SettingsPalette.tertiary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -377,6 +368,7 @@ struct RulesManagementView: View {
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("rules.rule.\(rule.id.uuidString).description")
             .help(ruleSupportDescription(rule))
             .accessibilityHint(ruleSupportDescription(rule))
             Image(systemName: "arrow.right")
@@ -389,11 +381,11 @@ struct RulesManagementView: View {
                     .foregroundStyle(rule.isEnabled ? SettingsPalette.primary : SettingsPalette.muted)
                     .accessibilityHidden(true)
                 Text(browserName(for: rule.targetBrowserID))
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundStyle(SettingsPalette.tertiary)
                     .lineLimit(1)
             }
-            .frame(width: 155, alignment: .leading)
+            .frame(width: 130, alignment: .leading)
             Toggle("Enable rule", isOn: Binding(
                 get: { rule.isEnabled },
                 set: { _ in toggle(rule) }
@@ -433,7 +425,7 @@ struct RulesManagementView: View {
             .accessibilityIdentifier("rules.rule.\(rule.id.uuidString).actions")
         }
         .padding(.horizontal, 18)
-        .frame(minHeight: 82)
+        .frame(minHeight: 74)
         .background(hoveredRuleID == rule.id ? SettingsPalette.elevated : .clear)
         .onHover { hoveredRuleID = $0 ? rule.id : nil }
     }
@@ -621,14 +613,6 @@ struct RulesManagementView: View {
     private func nextPriority(for rule: RoutingRule) -> Int {
         (rule.isSourceRule ? sourceRules : urlRules).count
     }
-
-    private func displayedPriority(
-        for rule: RoutingRule,
-        in orderedRules: [RoutingRule],
-        fallback: Int
-    ) -> Int {
-        (orderedRules.firstIndex(where: { $0.id == rule.id }) ?? fallback - 1) + 1
-    }
 }
 
 private struct RuleEditorSheet: View {
@@ -663,7 +647,7 @@ private struct RuleEditorSheet: View {
         VStack(alignment: .leading, spacing: 22) {
             HStack {
                 Text(draft.existingRule == nil ? String(localized: "rules.page.newRule", defaultValue: "New Rule") : String(localized: "Edit Rule"))
-                    .font(.system(size: 23, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(SettingsPalette.primary)
                     .frame(height: 33)
                 Spacer()

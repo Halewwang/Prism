@@ -477,3 +477,6 @@
 "rules.empty.message" = "Send work links to your work browser,\nand everyday browsing to your favorite apps.";
 
 "history.method.unmatched" = "Unmatched";
+
+"rules.category.url" = "URL";
+"rules.category.application" = "Application";

@@ -270,8 +270,8 @@ final class HistoryViewModel {
         confirmation = nil
     }
 
-    func confirmPendingAction() async {
-        let pending = confirmation
+    func confirmPendingAction(_ confirmedAction: HistoryConfirmation? = nil) async {
+        let pending = confirmedAction ?? confirmation
         confirmation = nil
         switch pending {
         case let .delete(entry):

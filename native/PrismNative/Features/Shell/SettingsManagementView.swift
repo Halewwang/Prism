@@ -423,7 +423,7 @@ struct SettingsManagementView: View {
         HStack(alignment: .center, spacing: 20) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(LocalizedStringKey(title))
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(SettingsPalette.secondary)
                     .frame(minHeight: 20, alignment: .leading)
                 if !detail.isEmpty {

@@ -115,7 +115,7 @@ struct PageStateView: View {
             stateSymbol
 
             Text(LocalizedStringKey(model.title))
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(SettingsPalette.tertiary)
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("\(model.accessibilityIdentifier).title")

@@ -89,6 +89,18 @@ final class AppShellUITests: PrismUITestCase {
 
         requireElement("appShell.sidebar.rules", in: application).click()
         _ = requireElement("appShell.page.rules.heading", in: application)
+        let list = requireElement("rules.list", in: application)
+        let ruleActions = list.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "rules.rule.", ".actions")
+        )
+        XCTAssertEqual(ruleActions.count, 3, "URL and application rules must share one list")
+        XCTAssertTrue(accessibilityText(of: requireElement("rules.rule.00000000-0000-0000-0000-000000000301.description", in: application)).contains("URL"))
+        XCTAssertTrue(accessibilityText(of: requireElement("rules.rule.00000000-0000-0000-0000-000000000303.description", in: application)).contains("Application"))
+        let sourceActions = requireElement("rules.rule.00000000-0000-0000-0000-000000000303.actions", in: application)
+        sourceActions.click()
+        XCTAssertFalse(requireElement("rules.rule.00000000-0000-0000-0000-000000000303.moveUp", in: application).isEnabled)
+        XCTAssertFalse(requireElement("rules.rule.00000000-0000-0000-0000-000000000303.moveDown", in: application).isEnabled)
+        application.typeKey(.escape, modifierFlags: [])
         let documentationActions = requireElement(
             "rules.rule.00000000-0000-0000-0000-000000000301.actions",
             in: application
@@ -199,6 +211,24 @@ final class AppShellUITests: PrismUITestCase {
 }
 
 final class HistoryUITests: PrismUITestCase {
+    func testClearHistoryConfirmationClearsRowsAndCancellationPreservesThem() {
+        let application = launchFixture("history", appearance: .light)
+        requireButton("history.clear", in: application).click()
+        let cancel = application.sheets.buttons["Cancel"].firstMatch
+        XCTAssertTrue(cancel.waitForExistence(timeout: 3))
+        cancel.click()
+        XCTAssertEqual(accessibilityText(of: requireElement("history.recordCount", in: application)), "2 records")
+
+        requireButton("history.clear", in: application).click()
+        let confirm = application.sheets.buttons["Clear History"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        confirm.click()
+
+        let emptyTitle = requireElement("pageState.empty.title", in: application)
+        XCTAssertTrue(accessibilityText(of: emptyTitle).hasPrefix("Handled links will appear here"))
+        XCTAssertFalse(application.descendants(matching: .any)["history.recordCount"].exists)
+    }
+
     func testHistoryContentUsesUniqueRowActionsInLightAndDarkAppearance() throws {
         let light = try verifyHistoryContent(appearance: .light)
         terminateFixture(light)

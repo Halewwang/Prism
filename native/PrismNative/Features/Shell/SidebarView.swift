@@ -51,7 +51,7 @@ struct SidebarView: View {
                                 .frame(width: 18)
                                 .accessibilityHidden(true)
                             Text(LocalizedStringKey(destination.title))
-                                .font(.system(size: 15, weight: selection == destination.route ? .semibold : .medium))
+                                .font(.system(size: 13, weight: selection == destination.route ? .semibold : .medium))
                             Spacer(minLength: 0)
                         }
                         .foregroundStyle(selection == destination.route ? SettingsPalette.primary : SettingsPalette.secondary)
@@ -98,11 +98,11 @@ struct SidebarView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Prism")
-                    .font(.system(size: 21, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(SettingsPalette.primary)
                     .frame(height: 30, alignment: .leading)
                 Text("Your links, in the right place")
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .foregroundStyle(SettingsPalette.tertiary)
                     .frame(height: 17, alignment: .leading)
                     .lineLimit(1)
@@ -125,12 +125,12 @@ struct SidebarView: View {
                     .frame(width: 6, height: 6)
                     .accessibilityHidden(true)
                 Text(environment.settings.automaticRulesEnabled ? "Automatic routing is on" : "Automatic routing is paused")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(SettingsPalette.secondary)
                     .frame(height: 19, alignment: .leading)
             }
             Text("Records stay on this Mac")
-                .font(.system(size: 12))
+                .font(.system(size: 11))
                 .foregroundStyle(SettingsPalette.tertiary)
                 .frame(height: 17, alignment: .leading)
         }

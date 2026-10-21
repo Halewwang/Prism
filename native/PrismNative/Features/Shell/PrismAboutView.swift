@@ -48,7 +48,7 @@ private struct PrismAboutView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Prism")
-                        .font(.system(size: 23, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(SettingsPalette.secondary)
                         .frame(height: 33, alignment: .leading)
                     Text("Smart browser routing for macOS")

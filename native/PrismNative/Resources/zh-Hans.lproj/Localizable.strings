@@ -528,3 +528,6 @@
 "rules.empty.message" = "让工作链接进入工作浏览器，\n将日常浏览留给你喜欢的应用。";
 
 "history.method.unmatched" = "未匹配";
+
+"rules.category.url" = "网址";
+"rules.category.application" = "应用";

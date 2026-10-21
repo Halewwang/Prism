@@ -74,12 +74,12 @@ struct RecoveryBanner: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(LocalizedStringKey(model.title))
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(SettingsPalette.primary)
                     .accessibilityLabel(model.title)
                     .accessibilityIdentifier("\(model.accessibilityIdentifier).title")
                 Text(LocalizedStringKey(model.message))
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(SettingsPalette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel(model.message)

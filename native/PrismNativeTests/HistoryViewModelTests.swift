@@ -228,6 +228,43 @@ struct HistoryViewModelTests {
         #expect(repository.clearCount == 0)
     }
 
+    @Test(arguments: [false, true])
+    func confirmedActionSurvivesDialogDismissal(clearAll: Bool) async throws {
+        let entry = historyVMEntry(result: .success)
+        let repository = HistoryVMRepository(entries: [entry])
+        let fixture = makeHistoryVM(repository: repository)
+        await fixture.model.load()
+
+        if clearAll {
+            fixture.model.requestClear()
+        } else {
+            fixture.model.requestDelete(entry)
+        }
+        let confirmedAction = try #require(fixture.model.confirmation)
+        fixture.model.cancelConfirmation()
+
+        await fixture.model.confirmPendingAction(confirmedAction)
+
+        #expect(fixture.model.state == .empty)
+        #expect(fixture.model.entries.isEmpty)
+        #expect(repository.clearCount == (clearAll ? 1 : 0))
+        #expect(repository.deleteCount == (clearAll ? 0 : 1))
+    }
+
+    @Test func dismissingClearDialogWithoutConfirmingPreservesHistory() async {
+        let entry = historyVMEntry(result: .success)
+        let repository = HistoryVMRepository(entries: [entry])
+        let fixture = makeHistoryVM(repository: repository)
+        await fixture.model.load()
+        fixture.model.requestClear()
+        fixture.model.cancelConfirmation()
+
+        await fixture.model.confirmPendingAction()
+
+        #expect(fixture.model.entries == [entry])
+        #expect(repository.clearCount == 0)
+    }
+
     @Test func historyMaintenanceKeepsItsBusyStateVisibleAndDisablesFurtherDestructiveActions() async {
         let entry = historyVMEntry(id: historyVMFixedUUID(107), result: .success)
         let deleteCoordinator = HistoryVMCoordinator()

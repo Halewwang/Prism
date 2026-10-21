@@ -30,12 +30,12 @@ struct SystemSettingsPageHeader: View {
         VStack(alignment: .leading, spacing: 7) {
             Text(LocalizedStringKey(title))
                 .font(WorkspaceLayout.pageTitleFont)
-                .frame(minHeight: 39, alignment: .leading)
+                .frame(minHeight: 29, alignment: .leading)
                 .foregroundStyle(SettingsPalette.primary)
                 .accessibilityIdentifier(accessibilityIdentifier)
                 .accessibilityAddTraits(.isHeader)
             Text(LocalizedStringKey(subtitle))
-                .font(.system(size: 14))
+                .font(.system(size: 12))
                 .foregroundStyle(SettingsPalette.tertiary)
                 .frame(minHeight: 20, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
@@ -53,13 +53,13 @@ struct WorkspaceSectionHeader: View {
         HStack(spacing: 7) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .frame(width: 16, height: 16)
                     .foregroundStyle(SettingsPalette.iconDefault)
                     .accessibilityHidden(true)
             }
             Text(LocalizedStringKey(title))
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             if let detail {
@@ -88,7 +88,7 @@ struct WorkspaceSearchField: View {
                 .accessibilityHidden(true)
             TextField(LocalizedStringKey(placeholder), text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 14))
+                .font(.system(size: 13))
                 .focused($isFocused)
             if !text.isEmpty {
                 Button {

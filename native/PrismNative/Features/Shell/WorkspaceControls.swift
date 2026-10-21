@@ -68,7 +68,7 @@ struct WorkspaceInputField: View {
     var body: some View {
         TextField(LocalizedStringKey(placeholder), text: $text)
             .textFieldStyle(.plain)
-            .font(.system(size: 14))
+            .font(.system(size: 13))
             .focused($isFocused)
             .padding(.horizontal, 14)
             .frame(height: 44)
@@ -107,11 +107,11 @@ struct WorkspacePicker<Value: Hashable>: View {
                     .lineLimit(1)
                 if !compact { Spacer(minLength: 0) }
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: compact ? 12 : 14, weight: .regular))
+                    .font(.system(size: compact ? 12 : 13, weight: .regular))
                     .foregroundStyle(SettingsPalette.iconMuted)
                     .frame(width: 14, height: 14)
             }
-            .font(.system(size: compact ? 13 : 14))
+            .font(.system(size: compact ? 12 : 13))
             .foregroundStyle(compact ? SettingsPalette.tertiary : SettingsPalette.secondary)
             .padding(.horizontal, compact ? 10 : 14)
             .frame(height: compact ? 31 : 44)

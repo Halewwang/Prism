@@ -1,13 +1,13 @@
 import SwiftUI
 
 enum WorkspaceLayout {
-    static let contentInset: CGFloat = 36
+    static let contentInset: CGFloat = 28
     static let headerVerticalInset: CGFloat = 28
     static let pageTitleFont = Font.system(size: 27, weight: .semibold)
     static let sidebarSurface = SettingsPalette.sidebar
     static let contentSurface = SettingsPalette.canvas
-    static let windowContentWidth: CGFloat = 1120
-    static let windowContentHeight: CGFloat = 900
+    static let windowContentWidth: CGFloat = 960
+    static let windowContentHeight: CGFloat = 720
     static let sidebarWidth: CGFloat = 218
     static let windowControlClearance: CGFloat = 24
 }

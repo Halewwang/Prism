@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 
 struct PageColumn<Content: View>: View {
+    let title: String
+    let accessibilityIdentifier: String
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -10,37 +12,17 @@ struct PageColumn<Content: View>: View {
                 VStack(alignment: .leading, spacing: 24) {
                     content()
                 }
-                .frame(maxWidth: 880, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, WorkspaceLayout.contentInset)
                 .padding(.top, 24)
                 .padding(.bottom, 24)
                 .frame(width: proxy.size.width, alignment: .topLeading)
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(Text(LocalizedStringKey(title)))
+            .accessibilityIdentifier(accessibilityIdentifier)
         }
         .background(SettingsPalette.canvas)
-    }
-}
-
-struct SystemSettingsPageHeader: View {
-    let title: String
-    let subtitle: String
-    let accessibilityIdentifier: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(LocalizedStringKey(title))
-                .font(WorkspaceLayout.pageTitleFont)
-                .frame(minHeight: 29, alignment: .leading)
-                .foregroundStyle(SettingsPalette.primary)
-                .accessibilityIdentifier(accessibilityIdentifier)
-                .accessibilityAddTraits(.isHeader)
-            Text(LocalizedStringKey(subtitle))
-                .font(.system(size: 12))
-                .foregroundStyle(SettingsPalette.tertiary)
-                .frame(minHeight: 20, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

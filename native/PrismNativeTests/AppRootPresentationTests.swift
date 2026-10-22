@@ -22,7 +22,7 @@ struct AppRootPresentationTests {
         window.contentView = hostingView
         hostingView.layoutSubtreeIfNeeded()
 
-        let expectedSize = NSSize(width: 960, height: 720)
+        let expectedSize = NSSize(width: 800, height: 720)
         #expect(window.contentMinSize == expectedSize)
         #expect(window.contentMaxSize == expectedSize)
         #expect(window.contentView?.frame.size == expectedSize)

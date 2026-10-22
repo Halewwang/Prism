@@ -1,6 +1,52 @@
 import XCTest
 
 final class AppShellUITests: PrismUITestCase {
+    func testFloatingNavigationKeepsPagesSelectedAndRulesUseTheWindowWidth() throws {
+        let application = launchFixture("workspace", appearance: .light)
+        let window = requireMainWindow(in: application)
+        XCTAssertEqual(window.frame.width, 800, accuracy: 1)
+        let history = requireElement("appShell.sidebar.history", in: application)
+        let rules = requireElement("appShell.sidebar.rules", in: application)
+        let settings = requireElement("appShell.sidebar.settings", in: application)
+        let brand = requireElement("appShell.sidebar.brand", in: application)
+
+        XCTAssertEqual(history.frame.midY, rules.frame.midY, accuracy: 2)
+        XCTAssertEqual(rules.frame.midY, settings.frame.midY, accuracy: 2)
+        XCTAssertLessThan(brand.frame.maxX, history.frame.minX)
+        XCTAssertEqual(brand.frame.minX, window.frame.minX + 10, accuracy: 1)
+        XCTAssertEqual(
+            min(brand.frame.minY - window.frame.minY, window.frame.maxY - brand.frame.maxY),
+            10,
+            accuracy: 1
+        )
+        XCTAssertEqual(window.buttons["_XCUI:CloseWindow"].frame.midY, brand.frame.midY, accuracy: 2)
+        XCTAssertGreaterThanOrEqual(window.buttons["_XCUI:CloseWindow"].frame.minX, brand.frame.minX)
+        XCTAssertLessThan(window.buttons["_XCUI:CloseWindow"].frame.maxX, brand.frame.maxX)
+
+        rules.click()
+        let list = requireElement("rules.list", in: application)
+        XCTAssertTrue(window.buttons["_XCUI:CloseWindow"].isHittable)
+        XCTAssertTrue(window.buttons["_XCUI:MinimizeWindow"].isHittable)
+        XCTAssertTrue(rules.isSelected)
+        XCTAssertFalse(history.isSelected)
+        XCTAssertEqual(list.frame.minX, window.frame.minX + 16, accuracy: 2)
+        XCTAssertGreaterThan(list.frame.width, window.frame.width - 40)
+        XCTAssertFalse(application.staticTexts["appShell.page.rules.heading"].exists)
+
+        settings.click()
+        _ = requireElement("appShell.page.settings.content", in: application)
+        XCTAssertTrue(window.buttons["_XCUI:CloseWindow"].isHittable)
+        XCTAssertTrue(window.buttons["_XCUI:MinimizeWindow"].isHittable)
+        XCTAssertFalse(window.buttons["_XCUI:ZoomWindow"].isEnabled)
+        XCTAssertTrue(settings.isSelected)
+        XCTAssertFalse(rules.isSelected)
+        XCTAssertTrue(requireElement("settings.automaticRules", in: application).isHittable)
+        try attachWindowScreenshot("floating-navigation-settings", application: application, appearance: .light)
+
+        window.buttons["_XCUI:CloseWindow"].click()
+        XCTAssertTrue(waitUntil(timeout: 3) { application.windows.count == 0 })
+    }
+
     func testSourceRuleEditorKeepsFooterVisibleAndPickerRestoresKeyboardFocus() throws {
         let application = launchFixture("workspace", appearance: .light)
         requireElement("appShell.sidebar.rules", in: application).click()
@@ -50,12 +96,12 @@ final class AppShellUITests: PrismUITestCase {
     func testShellExposesRealRulesBrowsersAndSettingsPages() throws {
         let application = launchFixture("history", appearance: .light)
 
-        _ = requireElement("appShell.page.history.heading", in: application)
+        _ = requireElement("appShell.page.history.content", in: application)
         _ = requireElement("appShell.sidebar.brand", in: application)
         XCTAssertFalse(application.buttons["appShell.openSettings"].exists)
 
         requireElement("appShell.sidebar.rules", in: application).click()
-        _ = requireElement("appShell.page.rules.heading", in: application)
+        _ = requireElement("appShell.page.rules.content", in: application)
         _ = requirePageStateTitle("Start with your first rule", kind: "empty", in: application)
         _ = requireButton("rules.emptyCreate", in: application)
         _ = requireButton("rules.create", in: application)
@@ -66,7 +112,7 @@ final class AppShellUITests: PrismUITestCase {
         )
 
         requireElement("appShell.sidebar.settings", in: application).click()
-        _ = requireElement("appShell.page.settings.heading", in: application)
+        _ = requireElement("appShell.page.settings.content", in: application)
         _ = requireElement("settings.showMenuBarItem", in: application)
         _ = requireElement("settings.automaticRules", in: application)
         _ = requireElement("settings.historyEnabled", in: application)
@@ -88,7 +134,7 @@ final class AppShellUITests: PrismUITestCase {
         let application = launchFixture("workspace", appearance: .dark)
 
         requireElement("appShell.sidebar.rules", in: application).click()
-        _ = requireElement("appShell.page.rules.heading", in: application)
+        _ = requireElement("appShell.page.rules.content", in: application)
         let list = requireElement("rules.list", in: application)
         let ruleActions = list.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "rules.rule.", ".actions")
@@ -136,7 +182,7 @@ final class AppShellUITests: PrismUITestCase {
     func testRuleEditorValidatesConditionAndCancellationDoesNotCreateRule() {
         let application = launchFixture("workspace", appearance: .light)
         requireElement("appShell.sidebar.rules", in: application).click()
-        _ = requireElement("appShell.page.rules.heading", in: application)
+        _ = requireElement("appShell.page.rules.content", in: application)
         _ = requireElement("rules.rule.00000000-0000-0000-0000-000000000301.actions", in: application)
         let ruleActions = application.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "rules.rule.", ".actions")
@@ -163,18 +209,18 @@ final class AppShellUITests: PrismUITestCase {
     func testRepeatedActivationPreservesRouteAndNeverDuplicatesTheMainWindow() {
         let application = launchFixture("history", appearance: .light)
         requireElement("appShell.sidebar.settings", in: application).click()
-        _ = requireElement("appShell.page.settings.heading", in: application)
+        _ = requireElement("appShell.page.settings.content", in: application)
 
         application.activate()
         application.activate()
-        _ = requireElement("appShell.page.settings.heading", in: application)
+        _ = requireElement("appShell.page.settings.content", in: application)
         XCTAssertEqual(application.windows.count, 1)
 
         requireElement("appShell.sidebar.history", in: application).click()
-        _ = requireElement("appShell.page.history.heading", in: application)
+        _ = requireElement("appShell.page.history.content", in: application)
         application.activate()
         application.activate()
-        _ = requireElement("appShell.page.history.heading", in: application)
+        _ = requireElement("appShell.page.history.content", in: application)
         XCTAssertEqual(application.windows.count, 1)
     }
 
@@ -246,7 +292,7 @@ final class HistoryUITests: PrismUITestCase {
         terminateFixture(failed)
 
         let noURL = launchFixture("history-no-url", appearance: .dark)
-        _ = requireElement("appShell.page.history.heading", in: noURL)
+        _ = requireElement("appShell.page.history.content", in: noURL)
         requireElement("history.row.00000000-0000-0000-0000-000000000203.more", in: noURL).click()
         let reopen = requireElement(
             "history.row.00000000-0000-0000-0000-000000000203.reopen",
@@ -270,7 +316,7 @@ final class HistoryUITests: PrismUITestCase {
 
     func testQueueOwnedFailedHistoryRowDisablesClearAndKeepsTheRecoveryActionVisible() {
         let application = launchFixture("history-actions", appearance: .light)
-        _ = requireElement("appShell.page.history.heading", in: application)
+        _ = requireElement("appShell.page.history.content", in: application)
         let clear = requireElement("history.clear", in: application)
         XCTAssertFalse(clear.isEnabled, "Clear must remain disabled while any History row is queue-owned")
 
@@ -290,7 +336,7 @@ final class HistoryUITests: PrismUITestCase {
 
     func testUnsafeLegacyURLNeverAppearsInHistoryOrMoreActionsAndCannotReopen() {
         let application = launchFixture("history-unsafe-url", appearance: .dark)
-        _ = requireElement("appShell.page.history.heading", in: application)
+        _ = requireElement("appShell.page.history.content", in: application)
         let safeURL = requireElement(
             "history.row.00000000-0000-0000-0000-000000000206.url",
             in: application
@@ -347,7 +393,7 @@ final class HistoryUITests: PrismUITestCase {
 
     private func verifyHistoryContent(appearance: PrismUITestAppearance) throws -> XCUIApplication {
         let application = launchFixture("history", appearance: appearance)
-        _ = requireElement("appShell.page.history.heading", in: application)
+        _ = requireElement("appShell.page.history.content", in: application)
         _ = requireElement(
             "history.row.00000000-0000-0000-0000-000000000201.more",
             in: application

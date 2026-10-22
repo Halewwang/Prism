@@ -2,9 +2,9 @@ import { motion, useReducedMotion } from 'framer-motion';
 import './product-sections.css';
 
 const shortcuts = [
-  ['1, 2…', 'Press a browser’s number to open it'],
-  ['← →', 'Use arrow keys, then Return to open'],
-  ['esc', 'Press Escape to cancel'],
+  ['1, 2…', 'Open with a browser’s number'],
+  ['← →', 'Choose with arrows, then press Return'],
+  ['Esc', 'Cancel the picker'],
 ];
 
 export const NewFeatures = () => {
@@ -42,7 +42,7 @@ export const NewFeatures = () => {
         >
           <p className="product-label">02 / CHOOSE YOUR FALLBACK</p>
           <h2 id="picker-heading">No matching rule?<br />Choose what happens.</h2>
-          <p className="picker-description">Show the browser picker, use your preferred browser, or reuse the last successfully used browser. The picker appears near your pointer when you choose that fallback.</p>
+          <p className="picker-description">Use the picker, a preferred browser, or the last browser that opened a link. The picker appears near your pointer.</p>
           <ul className="picker-shortcuts" aria-label="Browser picker keyboard shortcuts">
             {shortcuts.map(([keys, description]) => (
               <li key={keys}>

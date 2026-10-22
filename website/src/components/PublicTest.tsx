@@ -1,17 +1,19 @@
+import { useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowDownToLine } from 'lucide-react';
 import { release } from '../release';
 
 export const PublicTest = () => {
   const reduceMotion = useReducedMotion();
+  const guideRef = useRef<HTMLDetailsElement>(null);
 
   return (
     <>
       <section id="download" className="closing-download" aria-labelledby="download-title">
         <motion.div className="page-width closing-inner" initial={reduceMotion ? false : { opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }}>
-          <p className="mono-label">03 / Download the macOS public test</p>
+          <p className="mono-label">03 / Try Prism on macOS</p>
           <div className="closing-row">
-            <h2 id="download-title">Set your default.<br />Choose your browsers.</h2>
+            <h2 id="download-title">Choose where<br />your links open.</h2>
             <div className="closing-actions">
               <a className="download-button download-button-dark" href={release.downloadUrl}>
                 Download public test <ArrowDownToLine size={18} aria-hidden="true" />
@@ -27,15 +29,15 @@ export const PublicTest = () => {
           <p>v{release.version} · Build {release.build}</p>
         </div>
         <div className="installation-content">
-          <p>v{release.version} (build {release.build}) uses ad hoc signing, without Developer ID signing or Apple notarization. Verify the checksum and follow the first-open guide. Chrome and Edge profile targets are experimental. The Intel binary is included but has not been verified on a physical Intel Mac.</p>
+          <p>This public test uses ad hoc signing, without Developer ID signing or Apple notarization. Verify the checksum before installing. Chrome and Edge profile targets are experimental; the Intel build has not been tested on a physical Intel Mac.</p>
           <div className="support-links">
-            <a href="#installation-guide">Installation guide ↗</a>
+            <a href="#installation-guide" onClick={() => guideRef.current?.setAttribute('open', '')}>Installation guide ↗</a>
             <a href={release.notesUrl}>Release notes ↗</a>
             <a href={release.issuesUrl}>Report an issue ↗</a>
           </div>
-          <details className="installation-guide">
+          <details id="installation-guide" ref={guideRef} className="installation-guide">
             <summary>Installation guide &amp; test limits</summary>
-            <div id="installation-guide" className="installation-instructions">
+            <div className="installation-instructions">
               <p>v{release.version}, build {release.build} requires {release.minimumSystem}. The Universal download includes Apple Silicon and Intel binaries.</p>
               <ol>
                 <li>Download the DMG and <a href={release.checksumsUrl}>SHA256SUMS.txt</a>. In the download folder, run <code>shasum -a 256 -c SHA256SUMS.txt</code> to check file integrity.</li>

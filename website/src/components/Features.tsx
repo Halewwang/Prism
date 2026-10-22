@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import './product-sections.css';
 
@@ -39,7 +39,45 @@ const workspaceViews = [
 export const Features = () => {
   const reduceMotion = useReducedMotion();
   const [activeView, setActiveView] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [imageState, setImageState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const showcase = useRef<HTMLElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
+  const isPlaying = !paused && !reduceMotion;
+  const imagesReady = imageState === 'ready';
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      setInView(entry.isIntersecting && entry.intersectionRatio >= 0.25);
+    }, { threshold: 0.25 });
+    if (showcase.current) observer.observe(showcase.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(imageRefs.current.map((image) => image?.decode())).then(() => {
+      if (!cancelled) setImageState('ready');
+    }).catch(() => {
+      if (!cancelled) setImageState('error');
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying || !inView || !imagesReady) return;
+    const timer = window.setInterval(() => {
+      setActiveView((index) => (index + 1) % workspaceViews.length);
+    }, 3200);
+    return () => window.clearInterval(timer);
+  }, [isPlaying, inView, imagesReady]);
+
+  const selectView = (index: number) => {
+    setPaused(true);
+    setActiveView(index);
+  };
 
   const navigateTabs = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let nextIndex: number;
@@ -51,7 +89,7 @@ export const Features = () => {
       default: return;
     }
     event.preventDefault();
-    setActiveView(nextIndex);
+    selectView(nextIndex);
     tabRefs.current[nextIndex]?.focus();
   };
 
@@ -86,7 +124,7 @@ export const Features = () => {
               ))}
             </div>
             <div className="workspace-toolbar">
-              <div className="workspace-tabs" role="tablist" aria-label="App screenshot views">
+              <div className="workspace-tabs" role="tablist" aria-label="App screenshot views" onFocus={() => setPaused(true)}>
                 {workspaceViews.map((view, index) => (
                   <button
                     key={view.id}
@@ -97,17 +135,34 @@ export const Features = () => {
                     aria-selected={activeView === index}
                     aria-controls={`workspace-panel-${view.id}`}
                     tabIndex={activeView === index ? 0 : -1}
-                    onClick={() => setActiveView(index)}
+                    disabled={!imagesReady}
+                    onClick={() => selectView(index)}
                     onKeyDown={(event) => navigateTabs(event, index)}
                   >
                     {view.label}
                   </button>
                 ))}
               </div>
+              {!reduceMotion && (
+                <button
+                  className="workspace-playback"
+                  type="button"
+                  aria-label={isPlaying ? 'Pause screenshot slideshow' : 'Play screenshot slideshow'}
+                  disabled={imageState === 'error'}
+                  onClick={() => setPaused(!paused)}
+                >
+                  {isPlaying ? 'Pause' : 'Play'}
+                </button>
+              )}
             </div>
           </div>
-          <figure className="workspace-showcase">
+          <figure className="workspace-showcase" ref={showcase}>
             <div className="workspace-mount">
+              {!imagesReady && (
+                <p className="workspace-loading" role="status">
+                  {imageState === 'error' ? 'Screenshots couldn’t load. Reload the page to try again.' : 'Loading screenshots…'}
+                </p>
+              )}
               {workspaceViews.map((view, index) => (
                 <div
                   key={view.id}
@@ -115,15 +170,18 @@ export const Features = () => {
                   id={`workspace-panel-${view.id}`}
                   aria-labelledby={`workspace-tab-${view.id}`}
                   className="workspace-panel"
-                  hidden={activeView !== index}
-                  tabIndex={0}
+                  aria-hidden={!imagesReady || activeView !== index}
+                  inert={!imagesReady || activeView !== index}
+                  tabIndex={imagesReady && activeView === index ? 0 : -1}
+                  onFocus={() => setPaused(true)}
                 >
                   <img
                     src={`/screenshots/1.14.9/prism-${view.id}-en.png`}
+                    ref={(element) => { imageRefs.current[index] = element; }}
                     alt={view.alt}
                     width="1600"
                     height="1440"
-                    loading="lazy"
+                    loading="eager"
                   />
                 </div>
               ))}

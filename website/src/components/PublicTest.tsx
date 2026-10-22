@@ -15,9 +15,10 @@ export const PublicTest = () => (
       </ol>
       <h3 className="font-semibold mt-7 mb-3">Updating This Public Test</h3>
       <p className="text-sm md:text-base text-neutral-600 leading-relaxed">
-        If you use v1.14.0, install this version manually once to get in-app update downloads and verification.
-        Installation and restart are experimental: macOS may block an unnotarized update, causing Prism to restore the previous version.
-        You may need to install the update manually. Prism keeps macOS security checks enabled.
+        Native public tests from v1.14.3 onward can download and verify an update in Settings, then ask you to confirm installation.
+        The option to allow this unnotarized public-test update is off by default and applies only to that installation.
+        If you use v1.14.2 or earlier, install the current version manually once to get this flow.
+        Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.
       </p>
       <h3 className="font-semibold mt-7 mb-3">What Still Needs Real-World Testing</h3>
       <ul className="list-disc pl-5 space-y-2 text-sm md:text-base text-neutral-600 leading-relaxed">

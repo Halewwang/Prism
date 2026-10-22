@@ -8,9 +8,7 @@ export const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12 md:mb-16">
           <div className="col-span-1 lg:col-span-2">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-br from-neutral-800 to-black rounded-lg flex items-center justify-center overflow-hidden">
-                <img src="/app-icon.png" alt="Prism Logo" className="w-full h-full object-cover" />
-              </div>
+              <img src="/brand/titlebar-32.svg" alt="" width={32} height={32} className="w-8 h-8 shrink-0" />
               <span className="text-xl font-semibold text-white">Prism</span>
             </div>
             <p className="text-neutral-400 max-w-sm mb-6 text-sm md:text-base">

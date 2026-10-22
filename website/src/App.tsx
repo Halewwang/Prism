@@ -12,10 +12,10 @@ function App() {
       <Header />
       <main>
         <Hero />
-        <PublicTest />
+        <NewFeatures />
         <Features />
         <HowItWorks />
-        <NewFeatures />
+        <PublicTest />
       </main>
       <Footer />
     </div>

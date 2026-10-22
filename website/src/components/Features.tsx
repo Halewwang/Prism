@@ -9,13 +9,13 @@ const features = [
   },
   {
     icon: <Layout className="w-6 h-6 text-neutral-700" />,
-    title: "Native macOS UI",
-    description: "Built with SwiftUI and AppKit. Manage rules, browser choices, and link history in a native macOS interface."
+    title: "A Compact Native Workspace",
+    description: "Move between History, Rules, and Settings from the top navigation. A compact macOS window leaves more room for your work."
   },
   {
     icon: <Zap className="w-6 h-6 text-neutral-700" />,
     title: "Choose Your Fallback",
-    description: "When no rule matches, show the browser selector, use your preferred browser, or reuse the last browser you chose."
+    description: "When no rule matches, show the browser selector, use your preferred browser, or reuse the last successfully used browser."
   },
   {
     icon: <Shield className="w-6 h-6 text-neutral-700" />,

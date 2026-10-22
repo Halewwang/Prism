@@ -35,23 +35,24 @@ struct WorkspaceBrandView: View {
     let reduceTransparency: Bool
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(nsImage: NSApp.applicationIconImage)
+        HStack(spacing: 8) {
+            Image("PrismTitlebar")
+                .renderingMode(.original)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(width: 16, height: 16)
+                .frame(width: 18, height: 18)
                 .accessibilityHidden(true)
             Text("Prism")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(SettingsPalette.primary)
         }
         .padding(.leading, 2)
-        .frame(width: 78, height: 32, alignment: .leading)
+        .frame(width: 86, height: 32, alignment: .leading)
         // Extend behind the native window controls without moving them.
         .background(alignment: .trailing) {
             Color.clear
-                .frame(width: 160, height: 32)
+                .frame(width: 168, height: 32)
                 .modifier(WorkspaceCapsule(reduceTransparency: reduceTransparency))
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)

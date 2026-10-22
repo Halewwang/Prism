@@ -28,7 +28,7 @@ export const HowItWorks = () => {
         <div className="text-center mb-12 md:mb-16">
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-4">How Prism Works</h2>
           <p className="text-base md:text-lg text-neutral-600 max-w-2xl mx-auto px-4">
-            A seamless experience from the moment you click a link.
+            Set Prism as your default browser. It handles the next step when you open a web link.
           </p>
         </div>
 

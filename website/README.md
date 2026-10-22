@@ -11,12 +11,14 @@ npm run lint
 npm run build
 ```
 
-发布前还需在桌面和移动尺寸验证页面、下载链接、版本说明与截图。`public/app-screenshot-main.png` 和 `public/app-screenshot-popup.png` 来自原生应用；替换素材前确认不含私人链接或历史记录。
+发布前还需在桌面和移动尺寸验证页面、下载链接、版本说明与截图。当前截图位于 `public/screenshots/brand-preview-2026-10-22/`，英文用于官网，中文用于根 README。规则、历史和设置保留完整原生窗口，选择器单独展示；切换截图的按钮与原图链接都应可用。
+
+截图是基于 1.14.8 原生界面的品牌更新开发预览，使用实际 SwiftUI／AppKit 组件与内存示例数据，不包含私人链接或历史记录。更新截图时同步文件路径、alt、版本说明与根 README；截图标记独立于 `src/release.ts`；当前公开安装包仍使用旧图标，不要将开发预览误标为已发布版本。
 
 ## 现有部署
 
-官网地址为 https://prism-browser-switching.vercel.app（GitHub 仓库 homepage）。GitHub Deployments 记录显示现有 Vercel Git 集成为 PR 生成 Preview、为 main 合并生成 Production；无需新建平台或 GitHub Pages。2026-09-30 的主分支部署 `6748889715` 已成功，对应 SHA `98611b4`。
+官网地址为 https://prism-browser-switching.vercel.app（GitHub 仓库 homepage）。现有 Vercel Git 集成为 PR 生成 Preview、为 main 合并生成 Production，沿用现有项目。
 
 官网是独立的 `website/` Vite 项目；Vercel 项目应以 `website` 为 Root Directory，执行 `npm run build`，输出 `dist`，沿用 `website/vercel.json`。仓库根目录保留旧 Electron 页面。云端 Root Directory 无法仅由仓库文件证明，部署后需核对生产 HTML、下载 asset 与版本文案；根 `.vercel/project.json` 只有旧 projectName，不应据此新建或切换项目。发布公测时先上传精确 tag 的 DMG 和校验文件，再发布引用这些文件的官网。
 
-当前截图为 v1.13.1 的公开素材，页面已标注示意；更新至 v1.14.0 真实截图前不能宣称截图展示全部新功能。
+截图只展示界面与示例配置，不代表真实来源覆盖、Intel 实机或实验性 Profile 路由已完成验收。相关限制以公开测试说明为准。

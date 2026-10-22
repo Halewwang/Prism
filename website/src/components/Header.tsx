@@ -21,17 +21,14 @@ export const Header = () => {
     >
       <div className="container mx-auto px-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {/* Logo Placeholder */}
-          <div className="w-8 h-8 bg-gradient-to-br from-gray-800 to-black rounded-lg shadow-md flex items-center justify-center text-white font-bold text-sm overflow-hidden">
-             <img src="/app-icon.png" alt="Prism Logo" className="w-full h-full object-cover" />
-          </div>
+          <img src="/brand/titlebar-32.svg" alt="" width={32} height={32} className="w-8 h-8 shrink-0" />
           <span className="text-xl font-semibold tracking-tight text-neutral-900">Prism</span>
         </div>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-neutral-600">
           <a href="#features" className="hover:text-primary transition-colors">Features</a>
           <a href="#how-it-works" className="hover:text-primary transition-colors">How it Works</a>
-          <a href="#new-features" className="hover:text-primary transition-colors">What's New</a>
+          <a href="#new-features" className="hover:text-primary transition-colors">Interface</a>
         </nav>
 
         <a 

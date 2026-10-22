@@ -1,6 +1,7 @@
-<svg width="76" height="76" viewBox="0 0 76 76" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="33.9883" width="7.55297" height="75.5297" fill="black"/>
-<rect x="75.5297" y="33.9884" width="7.55297" height="75.5297" transform="rotate(90 75.5297 33.9884)" fill="black"/>
-<rect x="67.1375" y="61.6826" width="7.55297" height="75.5297" transform="rotate(135 67.1375 61.6826)" fill="black"/>
-<rect x="61.6826" y="8.39225" width="7.55297" height="75.5297" transform="rotate(45 61.6826 8.39225)" fill="#88FF00"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#000000"/>
+<svg x="204" y="204" width="616" height="616" viewBox="0 0 100 100"><path d="M44.96753 0l10.06494 0 0 100-10.06494 0z" fill="#B8B8B8"/></svg>
+<svg x="204" y="204" width="616" height="616" viewBox="0 0 100 100"><path d="M100 44.96753l0 10.06494-100 0 0-10.06494z" fill="#B8B8B8"/></svg>
+<svg x="204" y="204" width="616" height="616" viewBox="0 0 100 100"><path d="M88.91383 81.79685l-7.11698 7.11698-70.71068-70.71068 7.11698-7.11698z" fill="#B8B8B8"/></svg>
+<svg x="204" y="204" width="616" height="616" viewBox="0 0 100 100"><path d="M81.79685 11.08617l7.11698 7.11698-70.71068 70.71068-7.11698-7.11698z" fill="#88FF00"/></svg>
 </svg>

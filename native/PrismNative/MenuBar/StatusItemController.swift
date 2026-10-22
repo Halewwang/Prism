@@ -4,24 +4,10 @@ import Observation
 enum StatusItemVisuals {
     static func prismMark() -> NSImage {
         let size = NSSize(width: 18, height: 18)
-        let image = NSImage(size: size, flipped: false) { rect in
-            NSGraphicsContext.current?.shouldAntialias = true
-            NSColor.black.setStroke()
-            let mark = NSBezierPath()
-            mark.lineWidth = 1.15
-            mark.lineCapStyle = .round
-            let center = NSPoint(x: rect.midX, y: rect.midY)
-            let radius = min(rect.width, rect.height) / 2 - 1.35
-            for index in 0..<4 {
-                let angle = CGFloat(index) * .pi / 4
-                let dx = cos(angle) * radius
-                let dy = sin(angle) * radius
-                mark.move(to: NSPoint(x: center.x - dx, y: center.y - dy))
-                mark.line(to: NSPoint(x: center.x + dx, y: center.y + dy))
-            }
-            mark.stroke()
-            return true
-        }
+        let image = (NSImage(named: "PrismMenuBar")?.copy() as? NSImage)
+            ?? NSImage(systemSymbolName: "asterisk", accessibilityDescription: "Prism")
+            ?? NSImage(size: size)
+        image.size = size
         image.isTemplate = true
         image.accessibilityDescription = "Prism"
         return image

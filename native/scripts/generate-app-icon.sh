@@ -2,27 +2,14 @@
 set -euo pipefail
 
 if (( $# != 0 )); then
-    print -u2 "usage: ${0:t} (uses the approved repository-root build/icon.png source)"
+    print -u2 "usage: ${0:t} (uses the approved per-pixel assets/brand/png/app-*.png sources)"
     exit 64
 fi
 
 native_directory="${0:A:h}/.."
 repository_root="$(git -C "$native_directory" rev-parse --show-toplevel)"
-source_icon="$repository_root/build/icon.png"
+source_directory="$repository_root/assets/brand/png"
 destination_directory="$native_directory/PrismNative/Resources/Assets.xcassets/AppIcon.appiconset"
-
-if [[ ! -f "$source_icon" ]]; then
-    print -u2 "error: approved icon source is missing: $source_icon"
-    exit 1
-fi
-
-dimensions="$(sips -g pixelWidth -g pixelHeight "$source_icon" 2>/dev/null || true)"
-width="$(awk '/pixelWidth:/ { print $2 }' <<< "$dimensions")"
-height="$(awk '/pixelHeight:/ { print $2 }' <<< "$dimensions")"
-if [[ "$width" != "1024" || "$height" != "1024" ]]; then
-    print -u2 "error: approved icon source must be exactly 1024x1024 pixels: $source_icon"
-    exit 1
-fi
 
 temporary_directory="$(mktemp -d "${TMPDIR:-/tmp}/prism-app-icon.XXXXXX")"
 trap 'rm -rf "$temporary_directory"' EXIT
@@ -45,7 +32,20 @@ renditions=(
 for rendition in "${renditions[@]}"; do
     filename="${rendition%%:*}"
     pixels="${rendition##*:}"
-    sips --resampleHeightWidth "$pixels" "$pixels" "$source_icon" --out "$temporary_directory/$filename" >/dev/null
+    source_icon="$source_directory/app-$pixels.png"
+    if [[ ! -f "$source_icon" ]]; then
+        print -u2 "error: approved icon source is missing: $source_icon"
+        print -u2 "run node scripts/generate-icon-from-svg.js first"
+        exit 1
+    fi
+    dimensions="$(sips -g pixelWidth -g pixelHeight "$source_icon" 2>/dev/null || true)"
+    width="$(awk '/pixelWidth:/ { print $2 }' <<< "$dimensions")"
+    height="$(awk '/pixelHeight:/ { print $2 }' <<< "$dimensions")"
+    if [[ "$width" != "$pixels" || "$height" != "$pixels" ]]; then
+        print -u2 "error: approved icon source must be exactly ${pixels}x${pixels} pixels: $source_icon"
+        exit 1
+    fi
+    cp "$source_icon" "$temporary_directory/$filename"
     mv "$temporary_directory/$filename" "$destination_directory/$filename"
 done
 

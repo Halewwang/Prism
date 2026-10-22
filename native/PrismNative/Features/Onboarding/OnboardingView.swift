@@ -598,10 +598,11 @@ struct OnboardingView: View {
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 18) {
             if presentation.step == .welcome {
-                Image(nsImage: NSApp.applicationIconImage)
+                Image("PrismBrand")
+                    .renderingMode(.original)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 48, height: 48)
+                    .frame(width: 64, height: 64)
                     .accessibilityHidden(true)
             } else if model.testLinkWasAccepted {
                 Image(systemName: "checkmark.circle")

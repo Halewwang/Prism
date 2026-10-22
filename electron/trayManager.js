@@ -32,6 +32,7 @@ export function createTray() {
     }
   }
   
+  icon.setTemplateImage(true);
   tray = new Tray(icon);
   tray.setToolTip('Prism');
   

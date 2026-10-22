@@ -1,23 +1,44 @@
 # Prism for macOS
 
 <div align="center">
-  <img src="website/public/app-icon.png" alt="Prism Logo" width="128" height="128" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/sources/brand-dark-128.svg" />
+    <img src="assets/brand/sources/brand-128.svg" alt="Prism" width="128" height="128" />
+  </picture>
   <h3>链接，自有去处</h3>
-  <p>原生 macOS 浏览器路由工具：按网址规则分流，按已确认的来源应用路由，或由你选择浏览器。</p>
+  <p>为工作链接指定浏览器，让每次打开都少一次选择。<br />Prism 是原生 macOS 浏览器路由工具，按网址规则或系统已确认的来源应用自动分流。<br />没有匹配规则时，由你选择浏览器，也可使用首选或上次使用的浏览器。</p>
   <p><strong>v1.14.8 · 构建 9 · 原生公开测试版</strong><br />macOS 15.0+ · Universal（Apple Silicon / Intel）</p>
   <p>
     <a href="https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.8/Prism-1.14.8-universal-test.dmg">下载原生公开测试版</a>
     · <a href="https://github.com/Halewwang/Prism-Browser-switching/releases/tag/v1.14.8">发布与安装说明</a>
   </p>
+  <p><small>公开测试版使用 ad hoc 签名，尚未完成 Developer ID 签名和 Apple 公证；首次打开可能需要手动允许。详见下方安装说明。</small></p>
 </div>
 
-## 当前版本
+## 界面预览
 
-当前推荐下载是 **v1.14.8 原生公开测试版**，采用 SwiftUI、AppKit 与 SwiftData，支持 macOS 15 或更新版本。一个 Universal 安装包同时包含 `arm64` 和 `x86_64`。
+以下为**品牌更新开发预览**，使用实际原生界面与内存示例数据。当前 v1.14.8 安装包仍使用之前的图标，新标志将随下一次应用更新提供。
 
-本版将历史页的搜索、结果筛选、记录数与清理操作收为单行工具栏；已取消记录的列表行移除重复状态与重开按钮，重开仍可从更多菜单和详情使用。历史列表的更多按钮统一样式，默认浏览器状态移到左侧，操作按钮更紧凑，并补齐相关中文提示。详见 [本版公测说明](docs/public-test-release-1.14.8.md)。
+### 规则：为链接指定去处
 
-此测试版使用 **ad hoc 签名，尚未经过 Developer ID 签名和 Apple 公证**。macOS 可能阻止首次打开，需要你在确认下载来源后手动允许。该构建的签名和公证状态不等同于正式发行版。
+在同一列表管理网址规则与来源应用规则，设置目标浏览器、优先级和启停状态。
+
+![在规则页查看网址与来源应用规则，设置目标浏览器和启停状态](website/public/screenshots/brand-preview-2026-10-22/prism-rules-zh.png)
+
+| 历史：查找和回看 | 设置：按习惯调整 |
+| --- | --- |
+| <img src="website/public/screenshots/brand-preview-2026-10-22/prism-history-zh.png" alt="在历史页搜索链接、筛选处理结果并查看记录" width="360" /> | <img src="website/public/screenshots/brand-preview-2026-10-22/prism-settings-zh.png" alt="在设置页调整默认浏览器、自动分流和历史保留方式" width="360" /> |
+| 搜索网址、来源应用或浏览器，筛选处理结果，回看链接的处理记录。 | 设置默认浏览器、自动分流、未匹配行为和本机历史保留方式。 |
+
+### 浏览器选择器
+
+需要手动选择时，在鼠标附近选定浏览器；也可使用数字键、方向键和 Return 完成选择。
+
+<img src="website/public/screenshots/brand-preview-2026-10-22/prism-selector-zh.png" alt="在浏览器选择器中选择浏览器打开未匹配的链接" width="520" />
+
+## 下载与版本
+
+当前推荐版本为 **v1.14.8 / Build 9 原生公开测试版**，采用 SwiftUI、AppKit 与 SwiftData，支持 macOS 15.0+。Universal 安装包同时包含 `arm64` 和 `x86_64`；本版改动与已知限制见 [公测说明](docs/public-test-release-1.14.8.md)。
 
 请使用上方的精确版本下载链接。GitHub 的 `releases/latest` 目前仍指向旧 Electron 稳定版，不包含原生预发布版本；旧版与原生版的系统要求和功能范围不同。
 
@@ -26,7 +47,7 @@
 - **网址规则**：支持精确域名、域名及其子域名、URL 包含文本三种匹配方式。
 - **来源应用规则**：以应用标识匹配；仅当 macOS 提供的发送者信息被确认为 `confirmed` 时执行自动来源路由。不同应用的链接发送方式不同，不承诺识别所有应用或所有链接。
 - **规则顺序**：先匹配网址规则，再匹配来源应用规则；同组内按你设置的顺序执行。可单独启停规则，也可暂停自动分流。
-- **无匹配时的行为**：显示浏览器选择器、使用首选浏览器，或使用上次选择的浏览器。目标浏览器不可用时会回到选择器。
+- **无匹配时的行为**：显示浏览器选择器、使用首选浏览器，或使用上次成功打开链接的浏览器。目标浏览器不可用时会回到选择器。
 - **原生选择器**：靠近鼠标并限制在屏幕边界内，支持横向滚动、数字键、左右方向键、Return 确认与 Escape 取消。
 - **浏览器管理**：发现本机浏览器，也可手动添加浏览器应用。选择器按最近成功使用顺序排列，也支持隐藏选项；隐藏不影响规则和兜底目标。稳定版 Chrome／Edge 的 Profile 目标为实验功能。
 - **规则预览与纠正**：输入网址并选择可选的模拟已确认来源，使用同一规则引擎预览命中结果，不打开浏览器；新建规则保存后可撤销。历史可跳转纠正当前规则，但不会把当前规则当作当时的完整快照。

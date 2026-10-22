@@ -7,7 +7,7 @@ final class PrismAboutWindowController: NSWindowController {
 
     private init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 666, height: 233),
+            contentRect: NSRect(x: 0, y: 0, width: 666, height: 242),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered, defer: false
         )
@@ -18,7 +18,7 @@ final class PrismAboutWindowController: NSWindowController {
         let hostingView = NSHostingView(rootView: PrismAboutView())
         hostingView.sizingOptions = []
         window.contentView = hostingView
-        window.setFrame(NSRect(origin: window.frame.origin, size: NSSize(width: 666, height: 233 + WorkspaceLayout.windowControlClearance)), display: false)
+        window.setFrame(NSRect(origin: window.frame.origin, size: NSSize(width: 666, height: 242 + WorkspaceLayout.windowControlClearance)), display: false)
         super.init(window: window)
         window.center()
     }
@@ -42,9 +42,10 @@ private struct PrismAboutView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 17) {
             HStack(spacing: 16) {
-                Image(nsImage: NSApp.applicationIconImage)
+                Image("PrismBrand")
+                    .renderingMode(.original)
                     .resizable().scaledToFit()
-                    .frame(width: 54, height: 54)
+                    .frame(width: 64, height: 64)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Prism")
@@ -57,7 +58,7 @@ private struct PrismAboutView: View {
                         .frame(height: 17, alignment: .leading)
                 }
             }
-            .frame(height: 55, alignment: .leading)
+            .frame(height: 64, alignment: .leading)
             Text("Every link opens in the right browser.\nOpen source, local first.")
                 .font(.system(size: 13))
                 .lineSpacing(6)
@@ -80,7 +81,7 @@ private struct PrismAboutView: View {
         }
         .padding(26)
         .padding(.top, WorkspaceLayout.windowControlClearance)
-        .frame(width: 666, height: 233 + WorkspaceLayout.windowControlClearance, alignment: .topLeading)
+        .frame(width: 666, height: 242 + WorkspaceLayout.windowControlClearance, alignment: .topLeading)
         .background(SettingsPalette.elevated)
         .ignoresSafeArea(.container, edges: .top)
     }

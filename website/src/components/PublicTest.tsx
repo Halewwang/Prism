@@ -43,7 +43,7 @@ export const PublicTest = () => {
                 <li>If macOS blocks this trusted download because it cannot verify the developer, go to System Settings → Privacy &amp; Security → Open Anyway, then confirm Open. Follow <a href="https://support.apple.com/en-us/102445">Apple’s first-open guidance</a>. Do not use this step for a malware or damaged-app warning.</li>
               </ol>
               <h3>Updating this public test</h3>
-              <p>Native public tests from v1.14.3 onward can download and verify an update in Settings, then ask you to confirm installation. The option to allow this unnotarized public-test update is off by default and applies only to that installation. If you use v1.14.2 or earlier, install the current version manually once to get this flow. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>
+              <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in Settings, then ask you to confirm installation. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>
               <h3>What still needs real-world testing</h3>
               <ul>
                 <li>Source-app routing only runs for a confirmed sender. Real-app coverage is still incomplete; not every app or link can be identified.</li>

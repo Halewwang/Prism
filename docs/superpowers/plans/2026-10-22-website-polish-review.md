@@ -17,4 +17,6 @@ Replay completed idle → picker → destination → parked picker. Manual selec
 
 Not verified: physical touch hardware, physical Intel/native handoff, screen readers, native browser zoom, localization/RTL, and the browser Animations panel at 10% speed. A CDP slow-motion attempt timed out, so it is not counted as verified. Transparent app screenshots intentionally skip a rectangular image outline. Native picker geometry remains the approved reference.
 
-Approve for the inspected landing-page scope; no known HIGH findings remain. Production publication and current release metadata require a separate post-integration check.
+After rebasing onto current main, build and ESLint passed again. The browser confirmed all three download links target the exact v1.14.11 Universal DMG, no old repository links remain, and the repository-migration manual-upgrade guidance is retained. Native code, app scripts and release manifests have no differences from main.
+
+Approve for the inspected landing-page scope; no known HIGH findings remain. Production publication requires a separate check of the deployed commit and page.

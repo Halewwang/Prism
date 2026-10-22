@@ -61,14 +61,14 @@ export const Hero = () => {
           className="min-w-0 w-full max-w-4xl mx-auto"
         >
           <img
-            src="/screenshots/brand-preview-2026-10-22/prism-rules-en.png"
-            alt="Prism brand refresh preview with circular titlebar logo and URL and source-app rules in one list"
+            src="/screenshots/1.14.9/prism-rules-en.png"
+            alt="Prism 1.14.9 with circular titlebar logo and URL and source-app rules in one list"
             width={1600}
             height={1440}
             fetchPriority="high"
             className="w-full h-auto drop-shadow-2xl"
           />
-          <p className="mt-4 text-center text-xs md:text-sm text-neutral-500">Brand refresh preview · Sample data</p>
+          <p className="mt-4 text-center text-xs md:text-sm text-neutral-500">Prism 1.14.9 · Sample data</p>
         </motion.div>
       </div>
     </section>

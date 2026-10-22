@@ -7,24 +7,24 @@ const workspaceScreens = [
     label: 'Rules',
     title: 'One list. Clear priorities.',
     description: 'Manage URL and source-app rules together, with a type label on each row. URL rules run before confirmed source-app rules; ordering sets priority within each type.',
-    src: '/screenshots/brand-preview-2026-10-22/prism-rules-en.png',
-    alt: 'Prism brand refresh preview Rules window with top navigation and a unified list of URL and source-app rules',
+    src: '/screenshots/1.14.9/prism-rules-en.png',
+    alt: 'Prism 1.14.9 Rules window with top navigation and a unified list of URL and source-app rules',
   },
   {
     id: 'history',
     label: 'History',
     title: 'See where each link went.',
     description: 'Search and filter local records from one compact toolbar. Open a record for routing details and available actions, with sensitive URL parameters hidden.',
-    src: '/screenshots/brand-preview-2026-10-22/prism-history-en.png',
-    alt: 'Prism brand refresh preview History window with a single-row search and filter toolbar above saved link records',
+    src: '/screenshots/1.14.9/prism-history-en.png',
+    alt: 'Prism 1.14.9 History window with a single-row search and filter toolbar above saved link records',
   },
   {
     id: 'settings',
     label: 'Settings',
     title: 'Set your defaults once.',
     description: 'Choose what happens when no rule matches, manage browser choices, and control how much history stays on your Mac.',
-    src: '/screenshots/brand-preview-2026-10-22/prism-settings-en.png',
-    alt: 'Prism brand refresh preview Settings window with default browser status, link handling, and local history preferences',
+    src: '/screenshots/1.14.9/prism-settings-en.png',
+    alt: 'Prism 1.14.9 Settings window with default browser status, link handling, and local history preferences',
   },
 ];
 
@@ -35,13 +35,10 @@ export const NewFeatures = () => {
     <section id="new-features" className="py-16 md:py-24 px-4 md:px-6 scroll-mt-24">
       <div className="container mx-auto max-w-6xl">
         <div className="text-center max-w-2xl mx-auto mb-8 md:mb-10">
-          <span className="text-neutral-600 font-semibold tracking-wider uppercase text-xs md:text-sm">Interface &amp; brand preview</span>
+          <span className="text-neutral-600 font-semibold tracking-wider uppercase text-xs md:text-sm">Inside Prism 1.14.9</span>
           <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mt-2">A small window for your links.</h2>
           <p className="mt-4 text-base md:text-lg text-neutral-600 leading-relaxed">
             Rules, history, and settings share one compact native workspace.
-          </p>
-          <p className="mt-3 text-sm text-neutral-500 leading-relaxed">
-            The refreshed icons shown here will ship in the next app update. The current public-test download uses the previous icons.
           </p>
         </div>
 
@@ -80,7 +77,7 @@ export const NewFeatures = () => {
               className="w-full h-auto drop-shadow-xl"
             />
             <figcaption className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs md:text-sm text-neutral-500">
-              <span>Brand refresh preview · Sample data</span>
+              <span>Prism 1.14.9 · Sample data</span>
               <a
                 href={selectedScreen.src}
                 target="_blank"
@@ -108,8 +105,8 @@ export const NewFeatures = () => {
           </div>
           <figure className="min-w-0">
             <img
-              src="/screenshots/brand-preview-2026-10-22/prism-selector-en.png"
-              alt="Prism brand refresh preview browser selector with numbered browser choices for a sample link"
+              src="/screenshots/1.14.9/prism-selector-en.png"
+              alt="Prism 1.14.9 browser selector with numbered browser choices for a sample link"
               width={850}
               height={400}
               loading="lazy"
@@ -117,9 +114,9 @@ export const NewFeatures = () => {
               className="w-full h-auto drop-shadow-xl"
             />
             <figcaption className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs md:text-sm text-neutral-500">
-              <span>Brand refresh preview · Sample data</span>
+              <span>Prism 1.14.9 · Sample data</span>
               <a
-                href="/screenshots/brand-preview-2026-10-22/prism-selector-en.png"
+                href="/screenshots/1.14.9/prism-selector-en.png"
                 target="_blank"
                 rel="noreferrer"
                 className="underline underline-offset-4 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4"

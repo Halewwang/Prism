@@ -31,7 +31,8 @@
 .demo-source-link svg { flex-shrink: 0; stroke-width: 1.75; }
 .demo-message-signoff { color: #666666; }
 .demo-message-signoff span { display: inline-block; margin-top: 5px; }
-.demo-guide { position: absolute; top: 84px; right: 6%; width: 24%; max-width: 240px; }
+.demo-guide { position: absolute; top: 84px; right: 6%; width: 24%; max-width: 240px; opacity: 0; pointer-events: none; transition: opacity 200ms linear; }
+.demo-guide.is-visible { opacity: 1; transition-delay: 200ms; }
 .demo-guide-step { color: #666666; font-family: var(--font-mono); font-size: 9px; line-height: 1.6; letter-spacing: 0.7px; }
 .demo-guide h3 { margin-top: 12px; color: #333333; font-size: 20px; line-height: 1.15; letter-spacing: -0.6px; }
 .demo-guide-description { margin-top: 10px; color: #666666; font-size: 11px; line-height: 1.65; }
@@ -39,7 +40,8 @@
 .demo-guide-flow, .demo-guide-keys { display: inline-flex; align-items: center; gap: 8px; }
 .demo-guide-keys { gap: 5px; }
 .demo-guide-keys kbd { display: grid; place-items: center; width: 21px; height: 21px; border: 1px solid #d4d4d4; border-radius: 4px; background: #fafafa; color: #555555; font: inherit; font-size: 10px; }
-.demo-picker { position: absolute; z-index: 3; top: 264px; left: 39%; width: 425px; height: 200px; padding: 7px 6px 6px 7px; border-radius: 15px; background: #fff; box-shadow: 0 20px 48px #00000024, 0 4px 12px #00000014; font-family: -apple-system, BlinkMacSystemFont, Geist, sans-serif; }
+.demo-picker { position: absolute; z-index: 3; top: 264px; left: 39%; width: 425px; height: 200px; padding: 7px 6px 6px 7px; border-radius: 15px; background: #fff; box-shadow: 0 20px 48px #00000024, 0 4px 12px #00000014; font-family: -apple-system, BlinkMacSystemFont, Geist, sans-serif; opacity: 0; pointer-events: none; transition: opacity 200ms linear; }
+.hero-demo[data-state='picker'] .demo-picker { opacity: 1; pointer-events: auto; }
 .demo-picker-header { display: flex; gap: 5px; height: 40px; margin-bottom: 5px; }
 .demo-picker-header > * { display: flex; align-items: center; border: 0.5px solid #e2e2e2; border-radius: 10px; background: #f7f7f7; }
 .demo-picker-source { flex: 0 0 75px; gap: 7px; padding-inline: 9px; font-size: 12px; font-weight: 600; }
@@ -58,7 +60,8 @@
 .is-autoplay .demo-cursor { display: block; }
 .hero-demo[data-state='opened'] .demo-mail-window { opacity: 0.42; }
 .hero-demo[data-state='opened'] .demo-cursor { opacity: 0; }
-.demo-destination-window { position: absolute; z-index: 2; top: 165px; right: 5%; width: 61%; max-width: 660px; overflow: hidden; border: 1px solid #cccccc; border-radius: 12px; background: #ffffff; box-shadow: 0 20px 50px #00000020, 0 3px 8px #0000000d; }
+.demo-destination-window { position: absolute; z-index: 2; top: 165px; right: 5%; width: 61%; max-width: 660px; overflow: hidden; border: 1px solid #cccccc; border-radius: 12px; background: #ffffff; box-shadow: 0 20px 50px #00000020, 0 3px 8px #0000000d; opacity: 0; transition: opacity 200ms linear; }
+.hero-demo[data-state='opened'] .demo-destination-window { opacity: 1; transition-delay: 200ms; }
 .demo-browser-toolbar { height: 39px; gap: 20px; }
 .demo-browser-tab { display: flex; align-items: center; gap: 7px; overflow: hidden; font-size: 10px; font-weight: 500; white-space: nowrap; }
 .demo-browser-tab img { border-radius: 4px; }
@@ -111,7 +114,7 @@
   .demo-browser-choice { transition: background-color 120ms ease-out, border-color 120ms ease-out, scale 150ms ease-out; }
   .demo-playback-controls button { transition: background-color 120ms ease-out, color 120ms ease-out, scale 150ms ease-out; }
   .hero-demo button:not(:disabled):active { scale: 0.96; }
-  .demo-mail-window { transition: opacity 200ms ease-out, transform 200ms ease-out; }
+  .demo-mail-window { transition: opacity 200ms linear, transform 200ms linear, left 200ms linear, height 200ms linear; }
   .hero-demo[data-state='opened'] .demo-mail-window { transform: translateX(-10px); }
   .demo-cursor { transition: left 800ms cubic-bezier(.2,.7,.3,1), top 800ms cubic-bezier(.2,.7,.3,1), opacity 150ms ease-out; }
   .is-autoplay[data-state='idle'] .demo-cursor { animation: demo-point-link 1000ms cubic-bezier(.2,.7,.3,1) both; }
@@ -208,6 +211,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .demo-stage *, .demo-stage *::before, .demo-stage *::after { animation: none !important; transition: none !important; }
-  .demo-mail-window { transition: opacity 150ms ease-out !important; }
+  .demo-mail-window, .demo-picker, .demo-destination-window, .demo-guide { transition: opacity 150ms linear !important; }
   .demo-cursor { display: none !important; }
 }

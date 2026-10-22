@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, LockKeyhole, Mail, MousePointer2, RotateCcw } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
 import safariIcon from '../assets/browsers/safari.png';
 import chromeIcon from '../assets/browsers/chrome.png';
 import diaIcon from '../assets/browsers/dia.png';
@@ -18,7 +18,7 @@ type DemoState = 'idle' | 'picker' | 'opened';
 const WindowControls = () => <span className="demo-window-controls" aria-hidden="true"><i /><i /><i /></span>;
 
 export const HeroDemo = () => {
-  const [state, setState] = useState<DemoState>('picker');
+  const [state, setState] = useState<DemoState>(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'picker' : 'idle');
   const [browserIndex, setBrowserIndex] = useState(0);
   const [autoplay, setAutoplay] = useState(false);
   const region = useRef<HTMLDivElement>(null);
@@ -53,10 +53,11 @@ export const HeroDemo = () => {
     timers.current = [
       window.setTimeout(() => setState('picker'), 1100),
       window.setTimeout(() => setState('opened'), 2800),
+      window.setTimeout(() => setState('idle'), 4800),
       window.setTimeout(() => {
         setState('picker');
         setAutoplay(false);
-      }, 4800),
+      }, 5900),
     ];
   }, [clearTimers]);
 
@@ -170,24 +171,25 @@ export const HeroDemo = () => {
           </div>
         </div>
 
-        {state !== 'opened' && (
-          <aside className="demo-guide" aria-label="Demo guide">
-            <p className="demo-guide-step">{state === 'idle' ? '01 / CLICK A LINK' : '02 / CHOOSE A BROWSER'}</p>
-            <h3>{state === 'idle' ? 'Start with a link.' : 'Choose your browser.'}</h3>
-            <p className="demo-guide-description">{state === 'idle' ? 'Click the Mail link to open Prism’s browser picker.' : 'Click a browser, or press 1, 2 or 3.'}</p>
+        {(['idle', 'picker'] as const).map((guideState) => (
+          <aside key={guideState} className={`demo-guide${state === guideState ? ' is-visible' : ''}`} aria-label="Demo guide" aria-hidden={state !== guideState}>
+            <p className="demo-guide-step">{guideState === 'idle' ? '01 / CLICK A LINK' : '02 / CHOOSE A BROWSER'}</p>
+            <h3>{guideState === 'idle' ? 'Start with a link.' : 'Choose your browser.'}</h3>
+            <p className="demo-guide-description">{guideState === 'idle' ? 'Click the Mail link to open Prism’s browser picker.' : 'Click a browser, or press 1, 2 or 3.'}</p>
             <div className="demo-guide-footer">
-              {state === 'idle'
+              {guideState === 'idle'
                 ? <span className="demo-guide-flow">Mail<ArrowRight size={11} aria-hidden="true" />Prism<ArrowRight size={11} aria-hidden="true" />Browser</span>
                 : <><span className="demo-guide-keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></span><span>Shortcuts</span></>}
             </div>
           </aside>
-        )}
+        ))}
 
-        {state === 'picker' && (
           <div
             className="demo-picker"
             role="group"
             aria-label="Choose a browser"
+            aria-hidden={state !== 'picker'}
+            inert={state !== 'picker'}
             onKeyDown={pickerKeyDown}
           >
             <div className="demo-picker-header">
@@ -213,20 +215,15 @@ export const HeroDemo = () => {
               ))}
             </div>
           </div>
-        )}
 
-        <AnimatePresence initial={false}>
-        {state === 'opened' && (
-          <motion.div
-            key="browser"
+          <div
             ref={result}
             className="demo-destination-window"
-            tabIndex={-1}
+            tabIndex={state === 'opened' ? -1 : undefined}
             aria-label={`${browser.name} browser window`}
-            initial={{ opacity: 0, y: reducedMotion ? 0 : 8, scale: reducedMotion ? 1 : 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1, pointerEvents: 'auto' }}
-            exit={{ opacity: 0, pointerEvents: 'none', transition: { duration: 0.12 } }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            aria-hidden={state !== 'opened'}
+            inert={state !== 'opened'}
+            style={{ pointerEvents: state === 'opened' ? 'auto' : 'none' }}
           >
             <div className="demo-browser-toolbar"><WindowControls /><span className="demo-browser-tab"><img src={browser.icon} alt="" width={16} height={16} />{browser.name}<span>— Design review</span></span></div>
             <div className="demo-addressbar"><span aria-hidden="true"><ArrowLeft size={14} /><ArrowRight size={14} /></span><div><LockKeyhole size={11} aria-hidden="true" />{destination}</div><span className="demo-address-menu" aria-hidden="true">···</span></div>
@@ -235,9 +232,7 @@ export const HeroDemo = () => {
               <div className="demo-review-content"><span className="demo-review-eyebrow">GOOD IDEAS START WITH A LINK.</span><h3>A fresh<br />perspective.</h3><p>A little room for better ideas.<br />Ready when you are.</p><div className="demo-review-art" aria-hidden="true"><span>Review notes</span><i /><i /><i /></div></div>
               <div className="demo-opened-badge"><Check size={13} aria-hidden="true" />Opened in {browser.name}</div>
             </div>
-          </motion.div>
-        )}
-        </AnimatePresence>
+          </div>
 
         <div className="demo-cursor" aria-hidden="true"><MousePointer2 size={28} fill="currentColor" /><span /></div>
       </div>

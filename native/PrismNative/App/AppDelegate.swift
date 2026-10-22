@@ -225,8 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) -> StatusItemController {
         StatusItemController(
             mainWindowOpening: composition.mainWindowOpening,
-            environment: composition.environment,
-            updateChecker: composition.environment.updateChecker
+            environment: composition.environment
         )
     }
 
@@ -265,10 +264,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func showMainWindow() {
+    func showMainWindow() {
+        // Explicit workspace opens must take focus; ordinary activation can leave Prism behind another app.
         if let mainWindow {
+            _ = NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
             mainWindow.makeKeyAndOrderFront(nil)
-            _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
             return
         }
 
@@ -295,8 +295,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = hostingView
         window.center()
         mainWindow = window
+        _ = NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
         window.makeKeyAndOrderFront(nil)
-        _ = NSRunningApplication.current.activate(options: [.activateAllWindows])
     }
 
     private func mainWindowRoot() -> AnyView {
@@ -335,7 +335,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             host: DebugNoopStatusItemHost(recorder: debugUITestRecorder),
             mainWindowOpening: composition.mainWindowOpening,
             environment: composition.environment,
-            updateChecker: composition.environment.updateChecker,
             terminate: {}
         )
     }

@@ -52,23 +52,19 @@ final class StatusItemController: NSObject {
     private let host: any StatusItemHosting
     private let mainWindowOpening: MainWindowOpening
     private let environment: AppEnvironment
-    private let updateChecker: any UpdateChecking
     private let terminate: @MainActor () -> Void
     private let menu = NSMenu(title: "Prism")
     private var automaticRulesItem: NSMenuItem!
-    private var checkForUpdatesItem: NSMenuItem?
 
     init(
         host: any StatusItemHosting = AppKitStatusItemHost(),
         mainWindowOpening: MainWindowOpening,
         environment: AppEnvironment,
-        updateChecker: any UpdateChecking,
         terminate: @escaping @MainActor () -> Void = { NSApplication.shared.terminate(nil) }
     ) {
         self.host = host
         self.mainWindowOpening = mainWindowOpening
         self.environment = environment
-        self.updateChecker = updateChecker
         self.terminate = terminate
         super.init()
 
@@ -81,28 +77,11 @@ final class StatusItemController: NSObject {
     private func configureMenu() {
         menu.removeAllItems()
         menu.autoenablesItems = false
-        let header = NSMenuItem(title: "Prism", action: nil, keyEquivalent: "")
-        header.image = StatusItemVisuals.prismMark()
-        header.isEnabled = false
-        menu.addItem(header)
-        menu.addItem(.separator())
         menu.addItem(makeItem(title: localized("status.openPrism", "Open Prism"), action: #selector(openPrism), symbol: "rectangle.on.rectangle"))
-        menu.addItem(makeItem(title: localized("status.history", "History"), action: #selector(openHistory), symbol: "clock"))
-        menu.addItem(makeItem(title: localized("status.rules", "Rules"), action: #selector(openRules), symbol: "list.bullet"))
-        menu.addItem(makeItem(title: localized("status.settings", "Settings"), action: #selector(openSettings), symbol: "gearshape"))
 
         automaticRulesItem = makeItem(title: "", action: #selector(toggleAutomaticRules), symbol: "pause.circle")
         menu.addItem(automaticRulesItem)
 
-        if updateChecker.canCheckForUpdates {
-            let item = makeItem(
-                title: localized("status.checkForUpdates", "Check for Updates"),
-                action: #selector(checkForUpdates),
-                symbol: "arrow.clockwise"
-            )
-            checkForUpdatesItem = item
-            menu.addItem(item)
-        }
         menu.addItem(.separator())
         menu.addItem(makeItem(title: localized("status.quit", "Quit Prism"), action: #selector(quitPrism), symbol: "power"))
     }
@@ -122,7 +101,6 @@ final class StatusItemController: NSObject {
         automaticRulesItem.image = StatusItemVisuals.menuSymbol(
             environment.settings.automaticRulesEnabled ? "pause.circle" : "play.circle"
         )
-        checkForUpdatesItem?.isEnabled = updateChecker.canCheckForUpdates
         host.setVisible(environment.settings.showMenuBarItem)
     }
 
@@ -153,28 +131,12 @@ final class StatusItemController: NSObject {
         mainWindowOpening.open(route: environment.route)
     }
 
-    @objc private func openHistory() {
-        mainWindowOpening.open(route: .history)
-    }
-
-    @objc private func openRules() {
-        mainWindowOpening.open(route: .rules)
-    }
-
-    @objc private func openSettings() {
-        mainWindowOpening.open(route: .settings)
-    }
-
     @objc private func toggleAutomaticRules() {
         let nextValue = !environment.settings.automaticRulesEnabled
         guard environment.mutateSettings({ $0.automaticRulesEnabled = nextValue }) else {
             return
         }
         synchronizeWithEnvironment()
-    }
-
-    @objc private func checkForUpdates() {
-        updateChecker.checkForUpdates()
     }
 
     @objc private func quitPrism() {

@@ -107,7 +107,7 @@ struct SettingsManagementView: View {
                 settingsSeparator
                 settingsToggle(
                     "Show Prism in the menu bar",
-                    detail: "Pause rules, open History, and quit from the menu bar.",
+                    detail: "Open Prism, pause rules, and quit from the menu bar.",
                     symbol: "menubar.rectangle", tint: SettingsPalette.primary,
                     isOn: showMenuBarItem, identifier: "settings.showMenuBarItem"
                 )

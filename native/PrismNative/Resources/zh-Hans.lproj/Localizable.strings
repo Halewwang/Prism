@@ -184,7 +184,7 @@
 "Open Prism at login" = "登录时启动";
 "Prism opens when you log in to this Mac." = "开机后，Prism 即可为你处理链接。";
 "Show Prism in the menu bar" = "在菜单栏显示 Prism";
-"Pause rules, open History, and quit from the menu bar." = "快速暂停分流、查看记录或退出。";
+"Open Prism, pause rules, and quit from the menu bar." = "打开 Prism、暂停分流或退出。";
 "Save History" = "保存历史记录";
 "Saved links stay on this Mac. Prism removes sensitive URL data before showing or copying them." = "仅存储在此 Mac，自动隐藏敏感网址参数。";
 "How many links to keep" = "最多保留";

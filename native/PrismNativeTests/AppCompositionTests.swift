@@ -817,6 +817,74 @@ func repeatedLinkClicksRouteOrPresentEveryTime(hasRule: Bool) async throws {
     #expect(composition.finishLaunchCount == 1)
 }
 
+#if DEBUG
+@Suite("Main window presentation", .serialized)
+@MainActor
+struct MainWindowPresentationTests {
+    @Test func reopeningRestoresTheSameClosedWindowAndPreservesItsRoute() throws {
+        let fixture = DebugAppFixture.make(bootstrapBuffer: BootstrapLinkBuffer(), variant: .workspace)
+        let delegate = AppDelegate(composition: fixture.composition, copyCurrentSenderPID: { nil })
+        fixture.composition.environment.updateRoute(.rules)
+        let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+
+        delegate.showMainWindow()
+        let window = try #require(NSApplication.shared.windows.first {
+            !existingWindows.contains(ObjectIdentifier($0)) && $0.title == "Prism"
+        })
+        defer { window.close() }
+        #expect(window.isVisible)
+
+        window.close()
+        #expect(!window.isVisible)
+        delegate.showMainWindow()
+
+        #expect(window.isVisible)
+        #expect(fixture.composition.environment.route == .rules)
+        #expect(NSApplication.shared.windows.filter {
+            !existingWindows.contains(ObjectIdentifier($0)) && $0.title == "Prism"
+        }.count == 1)
+    }
+
+    @Test func reopeningRestoresAMinimizedWindow() throws {
+        let fixture = DebugAppFixture.make(bootstrapBuffer: BootstrapLinkBuffer(), variant: .workspace)
+        let delegate = AppDelegate(composition: fixture.composition, copyCurrentSenderPID: { nil })
+        let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+        delegate.showMainWindow()
+        let window = try #require(NSApplication.shared.windows.first {
+            !existingWindows.contains(ObjectIdentifier($0)) && $0.title == "Prism"
+        })
+        defer { window.close() }
+        window.miniaturize(nil)
+        try #require(waitUntil { window.isMiniaturized })
+
+        delegate.showMainWindow()
+
+        #expect(waitUntil { !window.isMiniaturized && window.isVisible })
+    }
+
+    @Test func openingActivatesTheApplicationAndMakesTheWindowKey() throws {
+        let fixture = DebugAppFixture.make(bootstrapBuffer: BootstrapLinkBuffer(), variant: .workspace)
+        let delegate = AppDelegate(composition: fixture.composition, copyCurrentSenderPID: { nil })
+        let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+        delegate.showMainWindow()
+        let window = try #require(NSApplication.shared.windows.first {
+            !existingWindows.contains(ObjectIdentifier($0)) && $0.title == "Prism"
+        })
+        defer { window.close() }
+
+        #expect(waitUntil { NSApplication.shared.isActive && window.isKeyWindow && window.isVisible })
+    }
+
+    private func waitUntil(_ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(2)
+        while !condition(), Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        return condition()
+    }
+}
+#endif
+
 @Test @MainActor func compositionFinishesRestoreBeforeBufferedLinksAndStartsOnce() async throws {
     let old = LinkRequest.fixture(url: "https://old.example")
     let store = CountingLoadStore(snapshot: .init(pendingRequests: [old], terminalRecords: []))
@@ -944,7 +1012,6 @@ private final class AppDelegateStatusItemFactorySpy {
             host: AppDelegateStatusItemHostSpy(),
             mainWindowOpening: composition.mainWindowOpening,
             environment: composition.environment,
-            updateChecker: composition.environment.updateChecker,
             terminate: {}
         )
         weakController = controller

@@ -124,7 +124,6 @@ struct AppShellView: View {
                 SettingsManagementView(
                     browserCatalog: browserCatalog,
                     addCustomBrowser: addCustomBrowser,
-                    openDefaultAppsSettings: { actions.perform(.openDefaultAppsSettings) },
                     restart: { actions.perform(.restart) }
                 )
             } else {

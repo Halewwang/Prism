@@ -45,31 +45,30 @@ struct HistoryRow: View {
             .accessibilityLabel(Text(rowAccessibilityLabel))
             .accessibilityHint(Text("View Details"))
             .accessibilityIdentifier("\(accessibilityPrefix).url")
-            ZStack {
-                Color.clear.accessibilityHidden(true)
-                inlineRecoveryButton
+            if entry.result == .failure {
+                inlineRetryButton
             }
-            .frame(width: 28, height: 28)
             Text(Self.listTimeFormatter.string(from: HistoryListPresentation.eventDate(for: entry)))
                 .font(.system(size: 12))
+                .monospacedDigit()
                 .foregroundStyle(SettingsPalette.muted)
-                .frame(width: 40, height: 17, alignment: .trailing)
+                .frame(width: 40, height: 28, alignment: .trailing)
             Menu {
                 Button("View Details") { showsDetails = true }
                 Divider()
                 secondaryActions
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 16))
-                    .foregroundStyle(isHovered ? SettingsPalette.iconStrong : SettingsPalette.iconMuted)
+                    .font(.system(size: 14))
+                    .foregroundStyle(SettingsPalette.iconStrong)
                     .frame(width: 28, height: 28)
-                    .background(isHovered ? SettingsPalette.sidebar : .clear, in: RoundedRectangle(cornerRadius: 8))
-                    .contentShape(Rectangle())
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
             .frame(width: 28, height: 28)
+            .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
             .accessibilityLabel("More actions for \(urlText)")
             .accessibilityIdentifier("\(accessibilityPrefix).more")
         }
@@ -143,13 +142,10 @@ struct HistoryRow: View {
                 .frame(height: 18)
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            ZStack(alignment: .trailing) {
-                Color.clear.accessibilityHidden(true)
-                if entry.result != .success || isPerformingAction {
-                    statusLabel
-                }
+            if entry.result != .cancelled && (entry.result != .success || isPerformingAction) {
+                statusLabel
+                    .frame(width: Bundle.main.preferredLocalizations.first?.hasPrefix("zh") == true ? 80 : 100, height: 28, alignment: .trailing)
             }
-            .frame(width: Bundle.main.preferredLocalizations.first?.hasPrefix("zh") == true ? 72 : 88, height: 22)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -489,12 +485,13 @@ struct HistoryRow: View {
                     .accessibilityHidden(true)
             }
             Text(LocalizedStringKey(resultText))
+                .lineLimit(1)
         }
-        .font(.system(size: 11, weight: .medium))
+        .font(.system(size: 12, weight: .medium))
         .foregroundStyle(entry.result == .failure ? SettingsPalette.danger : SettingsPalette.secondary)
         .padding(.horizontal, 8)
-        .frame(height: 22)
-        .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: 5))
+        .frame(height: 28)
+        .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: 8))
         .accessibilityLabel("Result: \(resultText)")
     }
 
@@ -506,31 +503,17 @@ struct HistoryRow: View {
         }
     }
 
-    @ViewBuilder
-    private var inlineRecoveryButton: some View {
-        if entry.result == .failure {
-            Button(action: retry) {
-                recoveryIcon(isBusy: activity == .retrying)
-            }
-            .buttonStyle(.plain)
-            .disabled(!isRetryAvailable || isPerformingAction)
-            .opacity(isRetryAvailable && !isPerformingAction ? 1 : 0.4)
-            .help(isRetryAvailable ? localized("Retry") : localized("The original full URL is no longer available for retry"))
-            .accessibilityLabel(activity == .retrying ? "Retrying…" : "Retry")
-            .accessibilityHint(isRetryAvailable ? "Retry with the browser selected for this request" : "The original full URL is no longer available for retry")
-            .accessibilityIdentifier("\(accessibilityPrefix).inlineRetry")
-        } else if entry.result == .cancelled {
-            Button(action: reopen) {
-                recoveryIcon(isBusy: activity == .reopening)
-            }
-            .buttonStyle(.plain)
-            .disabled(!canReopen || isPerformingAction)
-            .opacity(canReopen && !isPerformingAction ? 1 : 0.4)
-            .help(canReopen ? localized("Reopen") : reopenDisabledReason)
-            .accessibilityLabel(activity == .reopening ? "Reopening…" : "Reopen")
-            .accessibilityHint(canReopen ? "Reopen the saved safe URL" : reopenDisabledReason)
-            .accessibilityIdentifier("\(accessibilityPrefix).inlineReopen")
+    private var inlineRetryButton: some View {
+        Button(action: retry) {
+            recoveryIcon(isBusy: activity == .retrying)
         }
+        .buttonStyle(.plain)
+        .disabled(!isRetryAvailable || isPerformingAction)
+        .opacity(isRetryAvailable && !isPerformingAction ? 1 : 0.4)
+        .help(isRetryAvailable ? localized("Retry") : localized("The original full URL is no longer available for retry"))
+        .accessibilityLabel(activity == .retrying ? "Retrying…" : "Retry")
+        .accessibilityHint(isRetryAvailable ? "Retry with the browser selected for this request" : "The original full URL is no longer available for retry")
+        .accessibilityIdentifier("\(accessibilityPrefix).inlineRetry")
     }
 
     private func recoveryIcon(isBusy: Bool) -> some View {
@@ -539,13 +522,13 @@ struct HistoryRow: View {
                 ProgressView().controlSize(.mini)
             } else {
                 Image(systemName: "arrow.counterclockwise")
-                    .font(.system(size: 16))
+                    .font(.system(size: 14))
             }
         }
         .foregroundStyle(SettingsPalette.iconStrong)
         .frame(width: 28, height: 28)
         .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: 8))
-        .contentShape(Rectangle())
+        .contentShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var urlText: String {

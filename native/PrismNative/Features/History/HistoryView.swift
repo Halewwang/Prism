@@ -77,20 +77,19 @@ struct HistoryView: View {
 
     private var content: some View {
         PageColumn(title: "History", accessibilityIdentifier: "appShell.page.history.content") {
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 WorkspaceSearchField(placeholder: "Search URL, source app, or browser", text: $query, horizontalPadding: 11)
-                    .frame(width: 340)
+                    .frame(minWidth: 180, maxWidth: 340)
                     .accessibilityIdentifier("history.search")
-                Spacer(minLength: 0)
-                clearButton
-            }
-            HStack(spacing: 16) {
                 resultFilterButtons
                 Spacer(minLength: 0)
                 Text(String(format: String(localized: "%d records"), filteredEntries.count))
                     .font(.system(size: 12))
                     .foregroundStyle(SettingsPalette.tertiary)
+                    .fixedSize()
                     .accessibilityIdentifier("history.recordCount")
+                clearButton
+                    .fixedSize()
             }
             if filteredEntries.isEmpty {
                 PageStateView(model: .empty(

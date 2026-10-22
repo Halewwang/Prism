@@ -7,7 +7,6 @@ struct SettingsManagementView: View {
 
     let browserCatalog: any BrowserCataloging
     var addCustomBrowser: @MainActor () async -> OnboardingCustomBrowserResult = { .cancelled }
-    let openDefaultAppsSettings: () -> Void
     let restart: () -> Void
 
     @State private var browsers: [BrowserDescriptor] = []
@@ -276,47 +275,55 @@ struct SettingsManagementView: View {
 
     @ViewBuilder
     private var defaultHandlerRow: some View {
-        settingsRow(
-            title: "Default web link handler",
-            detail: defaultHandlerState == .active ? "Let Prism handle links and route them to the right browser." : defaultHandlerExplanation,
-            symbol: "link",
-            tint: SettingsPalette.primary
-        ) {
-            HStack(spacing: 6) {
-                Image(systemName: defaultHandlerSymbol)
-                    .font(.system(size: 13))
-                    .frame(width: 14, height: 14)
-                Text(LocalizedStringKey(defaultHandlerLabel))
-            }
-            .foregroundStyle(SettingsPalette.primary)
-            .font(.system(size: 13))
-        }
-        if defaultHandlerState != .active {
-            HStack(spacing: 8) {
-                Spacer(minLength: 0)
-                Button("Set Prism as Default") {
-                    Task { await setDefaultHandler() }
+        HStack(alignment: .center, spacing: 20) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text("Default web link handler")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(SettingsPalette.secondary)
+                    HStack(spacing: 5) {
+                        Image(systemName: defaultHandlerSymbol)
+                            .frame(width: 14, height: 14)
+                            .accessibilityHidden(true)
+                        Text(LocalizedStringKey(defaultHandlerLabel))
+                    }
+                    .font(.system(size: 12))
+                    .foregroundStyle(SettingsPalette.tertiary)
+                    .fixedSize()
                 }
-                .buttonStyle(WorkspaceButtonStyle(kind: .primary))
-                .disabled(isUpdatingDefaultHandler || environment.defaultBrowserService == nil)
-                .accessibilityIdentifier("settings.setDefaultHandler")
-
-                Button("Refresh") {
-                    Task { await refreshDefaultHandler() }
-                }
-                .buttonStyle(WorkspaceButtonStyle(kind: .secondary))
-                .disabled(isUpdatingDefaultHandler || environment.defaultBrowserService == nil)
-                .accessibilityIdentifier("settings.refreshDefaultHandler")
-
-                Button("Open System Settings", action: openDefaultAppsSettings)
-                    .buttonStyle(WorkspaceButtonStyle(kind: .quiet))
-                    .disabled(isUpdatingDefaultHandler)
-                    .accessibilityIdentifier("settings.openDefaultApps")
+                .frame(minHeight: 20, alignment: .leading)
+                Text(LocalizedStringKey(defaultHandlerState == .active
+                    ? "Let Prism handle links and route them to the right browser."
+                    : defaultHandlerExplanation))
+                    .font(.system(size: 12))
+                    .foregroundStyle(SettingsPalette.tertiary)
+                    .frame(minHeight: 17, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.leading, 18)
-            .padding(.trailing, 18)
-            .padding(.bottom, 12)
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            if defaultHandlerState != .active {
+                HStack(spacing: 8) {
+                    Button("Set Prism as Default") {
+                        Task { await setDefaultHandler() }
+                    }
+                    .buttonStyle(WorkspaceButtonStyle(kind: .primary, height: 31, horizontalPadding: 10, fontSize: 13))
+                    .disabled(isUpdatingDefaultHandler || environment.defaultBrowserService == nil)
+                    .accessibilityIdentifier("settings.setDefaultHandler")
+
+                    Button("Refresh") {
+                        Task { await refreshDefaultHandler() }
+                    }
+                    .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 31, horizontalPadding: 10, fontSize: 13))
+                    .disabled(isUpdatingDefaultHandler || environment.defaultBrowserService == nil)
+                    .accessibilityIdentifier("settings.refreshDefaultHandler")
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
+            }
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .frame(minHeight: 60)
     }
 
     @ViewBuilder

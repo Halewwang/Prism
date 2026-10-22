@@ -476,6 +476,10 @@
 
 "Prism is the default" = "Prism 已设为默认";
 "Let Prism handle links and route them to the right browser." = "让 Prism 接管链接，再分流到合适的浏览器。";
+"Set Prism as Default" = "设为默认浏览器";
+"Set Prism as the default application for HTTP and HTTPS links." = "让 Prism 接管 HTTP 和 HTTPS 链接。";
+"Set Prism as the default application for HTTP links." = "让 Prism 接管 HTTP 链接。";
+"Set Prism as the default application for HTTPS links." = "让 Prism 接管 HTTPS 链接。";
 "Get new features and improvements." = "及时获取新功能与改进。";
 "See whether a new version is available." = "查看是否有可用的新版本。";
 "Check Now" = "立即检查";

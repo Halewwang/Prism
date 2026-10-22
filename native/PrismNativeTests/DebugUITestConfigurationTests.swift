@@ -210,7 +210,6 @@ func malformedSelectorArgumentsFailClosed(arguments: [String]) {
                 host: DebugNoopStatusItemHost(recorder: recorder),
                 mainWindowOpening: composition.mainWindowOpening,
                 environment: composition.environment,
-                updateChecker: composition.environment.updateChecker,
                 terminate: {}
             )
         }

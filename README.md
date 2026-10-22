@@ -7,10 +7,10 @@
   </picture>
   <h3>链接，自有去处</h3>
   <p>为工作链接指定浏览器，让每次打开都少一次选择。<br />Prism 是原生 macOS 浏览器路由工具，按网址规则或系统已确认的来源应用自动分流。<br />没有匹配规则时，由你选择浏览器，也可使用首选或上次使用的浏览器。</p>
-  <p><strong>v1.14.9 · 构建 10 · 原生公开测试版</strong><br />macOS 15.0+ · Universal（Apple Silicon / Intel）</p>
+  <p><strong>v1.14.10 · 构建 11 · 原生公开测试版</strong><br />macOS 15.0+ · Universal（Apple Silicon / Intel）</p>
   <p>
-    <a href="https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.9/Prism-1.14.9-universal-test.dmg">下载原生公开测试版</a>
-    · <a href="https://github.com/Halewwang/Prism-Browser-switching/releases/tag/v1.14.9">发布与安装说明</a>
+    <a href="https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.10/Prism-1.14.10-universal-test.dmg">下载原生公开测试版</a>
+    · <a href="https://github.com/Halewwang/Prism-Browser-switching/releases/tag/v1.14.10">发布与安装说明</a>
   </p>
   <p><small>公开测试版使用 ad hoc 签名，尚未完成 Developer ID 签名和 Apple 公证；首次打开可能需要手动允许。详见下方安装说明。</small></p>
 </div>
@@ -38,7 +38,7 @@
 
 ## 下载与版本
 
-当前推荐版本为 **v1.14.9 / Build 10 原生公开测试版**，采用 SwiftUI、AppKit 与 SwiftData，支持 macOS 15.0+。Universal 安装包同时包含 `arm64` 和 `x86_64`；本版改动与已知限制见 [公测说明](docs/public-test-release-1.14.9.md)。
+当前推荐版本为 **v1.14.10 / Build 11 原生公开测试版**，采用 SwiftUI、AppKit 与 SwiftData，支持 macOS 15.0+。Universal 安装包同时包含 `arm64` 和 `x86_64`；本版改动与已知限制见 [公测说明](docs/public-test-release-1.14.10.md)。
 
 请使用上方的精确版本下载链接。GitHub 的 `releases/latest` 目前仍指向旧 Electron 稳定版，不包含原生预发布版本；旧版与原生版的系统要求和功能范围不同。
 
@@ -55,11 +55,11 @@
 
 当前原生版**不支持正则表达式规则**。来源规则不会把当前前台应用的推测结果直接当作已确认的发送者。
 
-**公测限制**：真实来源应用的覆盖仍不完整，不承诺所有应用都可识别。Chrome／Edge Profile 的冷启动、已运行浏览器中的指定 Profile、账号上下文及 Profile 删除场景尚未完成真实浏览器验收。Universal 包含 Intel 二进制，但尚未在 Intel 实机完成验收，也未覆盖所有受支持 macOS 版本。自动化测试不能替代这些实机结果，详见 [v1.14.9 公测说明](docs/public-test-release-1.14.9.md)。
+**公测限制**：真实来源应用的覆盖仍不完整，不承诺所有应用都可识别。Chrome／Edge Profile 的冷启动、已运行浏览器中的指定 Profile、账号上下文及 Profile 删除场景尚未完成真实浏览器验收。Universal 包含 Intel 二进制，但尚未在 Intel 实机完成验收，也未覆盖所有受支持 macOS 版本。自动化测试不能替代这些实机结果，详见 [v1.14.10 公测说明](docs/public-test-release-1.14.10.md)。
 
 ## 安装与首次使用
 
-1. 下载 [Prism-1.14.9-universal-test.dmg](https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.9/Prism-1.14.9-universal-test.dmg)。可同时下载 [SHA256SUMS.txt](https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.9/SHA256SUMS.txt)，在下载目录运行 `shasum -a 256 -c SHA256SUMS.txt` 核对文件完整性。
+1. 下载 [Prism-1.14.10-universal-test.dmg](https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.10/Prism-1.14.10-universal-test.dmg)。可同时下载 [SHA256SUMS.txt](https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.10/SHA256SUMS.txt)，在下载目录运行 `shasum -a 256 -c SHA256SUMS.txt` 核对文件完整性。
 2. 退出已运行的 Prism，打开 DMG，将 Prism 拖入 `Applications`。更新时替换旧应用；设置和历史保存在应用包外。
 3. **先尝试打开 Applications 中的 Prism**。若 macOS 提示无法验证开发者，在确认精确版本下载来源及校验值后，前往 **系统设置 → 隐私与安全性 → 仍要打开**，再在确认弹窗点击 **打开**。参见 [Apple 的首次打开说明](https://support.apple.com/en-us/102445)。不要将此步骤用于恶意软件或应用损坏警告。
 4. 启动后按引导将 Prism 设为默认浏览器。也可前往 **系统设置 → 桌面与程序坞 → 默认网页浏览器** 选择 Prism。
@@ -86,6 +86,8 @@
 Developer ID 正式版的 Sparkle 发布流程与公开测试版分开，参见 [原生签名与发布说明](native/docs/signing-and-release.md)。仓库根目录的 Electron 发布脚本和 `latest-release.json` 属于旧版发布流程，原生更新检查不使用该协议。
 
 ## 原生开发
+
+**1.14.10 / Build 11 公测**修复状态栏“打开 Prism”未将主窗口带到前台的问题，保留当前页面。状态栏菜单精简为打开主窗口、暂停／恢复自动规则和退出；历史、规则、设置与检查更新统一在主界面操作。菜单与主界面继续共用同一自动规则设置。
 
 **1.14.9 / Build 10 公测**按照《Prism · macOS Icon System》统一应用与 Dock、标题栏、菜单栏、欢迎页和关于窗口的标志。标题栏采用 18pt 彩色圆形 logo，菜单栏使用系统着色模板，品牌符号适配深浅外观；AppIcon 小尺寸分别补偿笔画。品牌胶囊向右增加 8pt，字标右侧实际可见留白约 14.5pt，红绿灯、logo 与左边界位置不变。官网与 GitHub 介绍同步新版界面截图。
 

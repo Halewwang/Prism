@@ -1,69 +1,53 @@
-import { motion } from 'framer-motion';
-import { Zap, Shield, GitBranch, Layout, Globe, Cpu } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import './product-sections.css';
 
-const features = [
+const benefits = [
   {
-    icon: <GitBranch className="w-6 h-6 text-neutral-700" />,
-    title: "Smart Routing Rules",
-    description: "Match an exact domain, a domain and its subdomains, or text in a URL. URL rules run before confirmed source-app rules."
+    letter: 'A',
+    title: 'URL rules run first',
+    description: 'Match an exact domain, its subdomains, or text in a URL. Source-app rules run only when the sender is confirmed; detection varies by app.',
   },
   {
-    icon: <Layout className="w-6 h-6 text-neutral-700" />,
-    title: "A Compact Native Workspace",
-    description: "Move between History, Rules, and Settings from the top navigation. A compact macOS window leaves more room for your work."
+    letter: 'B',
+    title: 'Rules and history stay local',
+    description: 'Routing rules and link history stay on your Mac. Update checks contact GitHub; browsing history is not uploaded.',
   },
-  {
-    icon: <Zap className="w-6 h-6 text-neutral-700" />,
-    title: "Choose Your Fallback",
-    description: "When no rule matches, show the browser selector, use your preferred browser, or reuse the last successfully used browser."
-  },
-  {
-    icon: <Shield className="w-6 h-6 text-neutral-700" />,
-    title: "Privacy First",
-    description: "Routing rules and link history stay on your Mac. Update checks contact GitHub; your browsing history is not uploaded."
-  },
-  {
-    icon: <Globe className="w-6 h-6 text-neutral-700" />,
-    title: "Browser Compatibility",
-    description: "Choose from installed browsers such as Safari, Chrome, Arc, Firefox, Edge, and more. You can also add a browser application manually."
-  },
-  {
-    icon: <Cpu className="w-6 h-6 text-neutral-700" />,
-    title: "One Universal Download",
-    description: "The native public test includes arm64 and x86_64 in one installer for Apple Silicon and Intel Macs running macOS 15 or later."
-  }
 ];
 
 export const Features = () => {
-  return (
-    <section id="features" className="py-16 md:py-24 bg-neutral-50 px-4 md:px-6">
-      <div className="container mx-auto max-w-6xl">
-        <div className="text-center max-w-2xl mx-auto mb-12 md:mb-16">
-          <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 mb-4 leading-tight">Everything you need to manage your workflow</h2>
-          <p className="text-base md:text-lg text-neutral-600 px-4">
-            Prism runs quietly in the background and springs into action exactly when you need it.
-          </p>
-        </div>
+  const reduceMotion = useReducedMotion();
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {features.map((feature, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-neutral-100 hover:shadow-md transition-shadow flex flex-col items-start"
-            >
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-neutral-50 rounded-xl flex items-center justify-center mb-4 md:mb-6">
-                {feature.icon}
-              </div>
-              <h3 className="text-lg md:text-xl font-semibold text-neutral-900 mb-2 md:mb-3">{feature.title}</h3>
-              <p className="text-sm md:text-base text-neutral-600 leading-relaxed">{feature.description}</p>
-            </motion.div>
-          ))}
+  return (
+    <section id="features" className="product-routing page-width" aria-labelledby="routing-heading">
+      <span id="new-features" className="section-anchor" aria-hidden="true" />
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: reduceMotion ? 0 : 0.65 }}
+      >
+        <div className="product-section-heading">
+          <p className="product-label">01 / URL &amp; SOURCE-APP ROUTING</p>
+          <p className="product-label">BRAND REFRESH PREVIEW / SAMPLE DATA</p>
         </div>
-      </div>
+        <div className="product-editorial">
+          <div className="routing-introduction">
+            <h2 id="routing-heading">Route links by URL<br />or source app.</h2>
+            <p>Set Prism as your default browser to route HTTP and HTTPS links opened from other apps. Manage rules, link history, and settings in one native workspace.</p>
+          </div>
+          <div className="routing-benefits">
+            {benefits.map((benefit) => (
+              <div className="routing-benefit" key={benefit.letter}>
+                <span className="benefit-letter" aria-hidden="true">{benefit.letter}</span>
+                <div>
+                  <h3>{benefit.title}</h3>
+                  <p>{benefit.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
     </section>
   );
 };

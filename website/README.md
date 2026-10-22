@@ -11,13 +11,13 @@ npm run lint
 npm run build
 ```
 
-发布前还需在桌面和移动尺寸验证页面、下载链接、版本说明与截图。当前截图位于 `public/screenshots/1.14.9/`，英文用于官网，中文用于根 README。规则、历史和设置保留完整原生窗口，选择器单独展示；切换截图的按钮与原图链接都应可用。
+发布前还需在桌面和移动尺寸验证页面、下载链接、版本说明与截图。当前官网使用 `public/screenshots/brand-preview/` 中的英文规则页与选择器截图，在移动端保持原图比例并叠放展示。中英文 README 分别使用 `public/screenshots/1.14.9/` 中对应语言的规则、历史、设置与选择器截图。
 
 截图展示 1.14.9 的实际 SwiftUI／AppKit 界面与内存示例数据，不包含私人链接或历史记录。更新截图时同步文件路径、alt、版本说明与根 README；截图版本独立于 `src/release.ts`，仅更新下载版本时不要把旧截图误标为新版本。
 
 ## 现有部署
 
-官网地址为 https://prism-browser-switching.vercel.app（GitHub 仓库 homepage）。现有 Vercel Git 集成为 PR 生成 Preview、为 main 合并生成 Production，沿用现有项目。
+官网地址为 https://prismmac.vercel.app（GitHub 仓库 homepage）；原地址继续可用。现有 Vercel Git 集成为 PR 生成 Preview、为 main 合并生成 Production，沿用现有项目。
 
 官网是独立的 `website/` Vite 项目；Vercel 项目应以 `website` 为 Root Directory，执行 `npm run build`，输出 `dist`，沿用 `website/vercel.json`。仓库根目录保留旧 Electron 页面。云端 Root Directory 无法仅由仓库文件证明，部署后需核对生产 HTML、下载 asset 与版本文案；根 `.vercel/project.json` 只有旧 projectName，不应据此新建或切换项目。发布公测时先上传精确 tag 的 DMG 和校验文件，再发布引用这些文件的官网。
 

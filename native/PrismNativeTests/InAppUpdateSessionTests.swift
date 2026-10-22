@@ -86,7 +86,7 @@ struct InAppUpdateSessionTests {
     }
 
     private func fixtureInstaller() -> GitHubPublishedInstaller {
-        GitHubPublishedInstaller(version: "1.14.2", notes: "Test release", downloadURL: URL(string: "https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.2/Prism-1.14.2-universal-test.dmg")!, fileName: "Prism-1.14.2-universal-test.dmg")
+        GitHubPublishedInstaller(version: "1.14.2", notes: "Test release", downloadURL: URL(string: "https://github.com/Halewwang/Prism/releases/download/v1.14.2/Prism-1.14.2-universal-test.dmg")!, fileName: "Prism-1.14.2-universal-test.dmg")
     }
     private func fixturePrepared() -> PreparedUpdate {
         PreparedUpdate(applicationURL: URL(fileURLWithPath: "/tmp/update-fixture/Prism.app"), workspaceURL: URL(fileURLWithPath: "/tmp/update-fixture"), installerFileURL: URL(fileURLWithPath: "/tmp/update-fixture/update.dmg"), version: "1.14.2")

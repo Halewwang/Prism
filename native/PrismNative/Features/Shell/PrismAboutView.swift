@@ -65,8 +65,8 @@ private struct PrismAboutView: View {
                 .foregroundStyle(SettingsPalette.muted)
                 .frame(height: 42, alignment: .topLeading)
             HStack(spacing: 22) {
-                Link("Project Homepage ↗", destination: URL(string: "https://github.com/Halewwang/Prism-Browser-switching")!)
-                Link("Report an Issue ↗", destination: URL(string: "https://github.com/Halewwang/Prism-Browser-switching/issues")!)
+                Link("Project Homepage ↗", destination: URL(string: "https://github.com/Halewwang/Prism")!)
+                Link("Report an Issue ↗", destination: URL(string: "https://github.com/Halewwang/Prism/issues")!)
             }
             .font(.system(size: 12))
             .foregroundStyle(SettingsPalette.primary)

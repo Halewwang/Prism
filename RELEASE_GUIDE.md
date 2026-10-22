@@ -11,7 +11,7 @@
 `release/Prism-1.2.5-arm64.dmg`
 
 ### 2. 在 GitHub 创建 Release
-1.  打开您的 GitHub 仓库页面：[https://github.com/Halewwang/Prism-Browser-switching](https://github.com/Halewwang/Prism-Browser-switching)
+1.  打开您的 GitHub 仓库页面：[https://github.com/Halewwang/Prism](https://github.com/Halewwang/Prism)
 2.  点击右侧边栏的 **"Releases"**。
 3.  点击 **"Draft a new release"** 按钮。
 

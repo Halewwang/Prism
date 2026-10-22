@@ -195,7 +195,7 @@ const main = async () => {
     version: `v${newVersion}`,
     notes: notesContent,
     pub_date: new Date().toISOString(),
-    url: `https://github.com/Halewwang/Prism-Browser-switching/releases/download/v${newVersion}/${dmgName}`,
+    url: `https://github.com/Halewwang/Prism/releases/download/v${newVersion}/${dmgName}`,
     sha256: checksum,
     fileName: dmgName,
   };
@@ -226,7 +226,7 @@ const main = async () => {
     console.log('GitHub Release created successfully');
   } else {
     console.log('\nRelease Process Complete (Local Only)');
-    console.log(`1. Go to: https://github.com/Halewwang/Prism-Browser-switching/releases/new`);
+    console.log(`1. Go to: https://github.com/Halewwang/Prism/releases/new`);
     console.log(`2. Select tag: v${newVersion}`);
     console.log(`3. Copy content from RELEASE_NOTES.md`);
     console.log(`4. Upload: ${dmgPath}`);

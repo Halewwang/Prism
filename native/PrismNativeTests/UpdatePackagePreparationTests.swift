@@ -6,7 +6,7 @@ import Testing
 @Suite("Signed update packages")
 struct UpdatePackagePreparationTests {
     private func installer() -> GitHubPublishedInstaller {
-        let base = "https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.15.0/"
+        let base = "https://github.com/Halewwang/Prism/releases/download/v1.15.0/"
         return GitHubPublishedInstaller(version: "1.15.0", notes: "", downloadURL: URL(string: base + "Prism-1.15.0-universal-test.dmg")!, fileName: "Prism-1.15.0-universal-test.dmg", manifestURL: URL(string: base + "update-manifest.json"), signatureURL: URL(string: base + "update-manifest.sig"), fileByteCount: 3)
     }
     private func manifest(version: String = "1.15.0", size: Int = 3, minimum: String = "15.0") -> Data {
@@ -60,7 +60,7 @@ struct UpdatePackagePreparationTests {
         }
     }
     @Test @MainActor func refusesUnsignedReleasesBeforeDownloading() async {
-        let unsigned = GitHubPublishedInstaller(version: "1.15.0", notes: "", downloadURL: URL(string: "https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.15.0/Prism-1.15.0.dmg")!, fileName: "Prism-1.15.0.dmg")
+        let unsigned = GitHubPublishedInstaller(version: "1.15.0", notes: "", downloadURL: URL(string: "https://github.com/Halewwang/Prism/releases/download/v1.15.0/Prism-1.15.0.dmg")!, fileName: "Prism-1.15.0.dmg")
         await #expect(throws: UpdatePreparationError.unsignedRelease) {
             try await GitHubUpdatePackagePreparer().prepare(unsigned) { _ in }
         }

@@ -3,7 +3,7 @@ import Foundation
 
 @MainActor enum DebugUpdateHarness {
     static func make() -> InAppUpdateWindowController {
-        let base = URL(string: "https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.14.2/")!
+        let base = URL(string: "https://github.com/Halewwang/Prism/releases/download/v1.14.2/")!
         let installer = GitHubPublishedInstaller(version: "1.14.2", notes: "Prism 更新\n\n• 在应用内下载并校验更新\n• 确认后安装并重启\n• 安装失败时恢复原版本", downloadURL: base.appendingPathComponent("Prism-1.14.2-universal-test.dmg"), fileName: "Prism-1.14.2-universal-test.dmg")
         let model = InAppUpdateSession(
             installer: installer,

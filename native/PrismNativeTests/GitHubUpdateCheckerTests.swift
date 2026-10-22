@@ -8,13 +8,13 @@ struct GitHubUpdateCheckerTests {
         let payload = Data("""
         [
           {"tag_name":"v1.10.22","draft":false,"body":"Electron", "assets":[
-            {"name":"Prism-1.10.22-arm64.dmg","browser_download_url":"https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.10.22/Prism-1.10.22-arm64.dmg"}]},
+            {"name":"Prism-1.10.22-arm64.dmg","browser_download_url":"https://github.com/Halewwang/Prism/releases/download/v1.10.22/Prism-1.10.22-arm64.dmg"}]},
           {"tag_name":"v1.12.0","draft":false,"prerelease":true,"body":"Native test", "assets":[
-            {"name":"Prism-1.12.0-universal-test.dmg","browser_download_url":"https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.12.0/Prism-1.12.0-universal-test.dmg"}]},
+            {"name":"Prism-1.12.0-universal-test.dmg","browser_download_url":"https://github.com/Halewwang/Prism/releases/download/v1.12.0/Prism-1.12.0-universal-test.dmg"}]},
           {"tag_name":"v1.13.0","draft":true,"assets":[
-            {"name":"Prism-1.13.0.dmg","browser_download_url":"https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.13.0/Prism-1.13.0.dmg"}]},
+            {"name":"Prism-1.13.0.dmg","browser_download_url":"https://github.com/Halewwang/Prism/releases/download/v1.13.0/Prism-1.13.0.dmg"}]},
           {"tag_name":"v1.11.0","draft":false,"assets":[
-            {"name":"Prism-1.11.0.dmg","browser_download_url":"https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.11.0/Prism-1.11.0.dmg"}]}
+            {"name":"Prism-1.11.0.dmg","browser_download_url":"https://github.com/Halewwang/Prism/releases/download/v1.11.0/Prism-1.11.0.dmg"}]}
         ]
         """.utf8)
         let installer = try GitHubPublishedInstallerLookup.decode(payload)
@@ -24,7 +24,7 @@ struct GitHubUpdateCheckerTests {
     }
 
     @Test func discoversSignedAssetsOnlyFromTheSameExactRelease() throws {
-        let base = "https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.15.0/"
+        let base = "https://github.com/Halewwang/Prism/releases/download/v1.15.0/"
         let payload = Data("""
         [{"tag_name":"v1.15.0","draft":false,"assets":[
           {"name":"Prism-1.15.0-universal-test.dmg","size":12345,"browser_download_url":"\(base)Prism-1.15.0-universal-test.dmg"},
@@ -42,10 +42,10 @@ struct GitHubUpdateCheckerTests {
 
     @Test func rejectsLegacyMalformedAndUntrustedDownloads() {
         for (tag, asset, url) in [
-            ("v1.10.22", "Prism-1.10.22-universal.dmg", "https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.10.22/Prism-1.10.22-universal.dmg"),
-            ("v1.12.0-beta", "Prism-1.12.0-beta.dmg", "https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.12.0-beta/Prism-1.12.0-beta.dmg"),
-            ("v1.12.0", "Prism-1.12.0-arm64.dmg", "https://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.12.0/Prism-1.12.0-arm64.dmg"),
-            ("v1.12.0", "Prism-1.12.0.dmg", "http://github.com/Halewwang/Prism-Browser-switching/releases/download/v1.12.0/Prism-1.12.0.dmg"),
+            ("v1.10.22", "Prism-1.10.22-universal.dmg", "https://github.com/Halewwang/Prism/releases/download/v1.10.22/Prism-1.10.22-universal.dmg"),
+            ("v1.12.0-beta", "Prism-1.12.0-beta.dmg", "https://github.com/Halewwang/Prism/releases/download/v1.12.0-beta/Prism-1.12.0-beta.dmg"),
+            ("v1.12.0", "Prism-1.12.0-arm64.dmg", "https://github.com/Halewwang/Prism/releases/download/v1.12.0/Prism-1.12.0-arm64.dmg"),
+            ("v1.12.0", "Prism-1.12.0.dmg", "http://github.com/Halewwang/Prism/releases/download/v1.12.0/Prism-1.12.0.dmg"),
             ("v1.12.0", "Prism-1.12.0.dmg", "https://example.com/Prism-1.12.0.dmg")
         ] {
             let payload = Data("""

@@ -23,7 +23,7 @@ export interface UpdateInfo {
 
 // GitHub repository configuration
 const REPO_OWNER = 'Halewwang';
-const REPO_NAME = 'Prism-Browser-switching';
+const REPO_NAME = 'Prism';
 const BRANCH = 'main';
 
 export const checkForUpdates = async (currentVersion: string): Promise<UpdateInfo> => {

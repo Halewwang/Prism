@@ -11,8 +11,8 @@ struct GitHubPublishedInstaller: Equatable, Sendable {
     var fileByteCount: Int64? = nil
 
     // GitHub's /releases/latest excludes the native public-test prereleases.
-    static let releasesAPIURL = URL(string: "https://api.github.com/repos/Halewwang/Prism-Browser-switching/releases?per_page=100")!
-    static let releasesURL = URL(string: "https://github.com/Halewwang/Prism-Browser-switching/releases")!
+    static let releasesAPIURL = URL(string: "https://api.github.com/repos/Halewwang/Prism/releases?per_page=100")!
+    static let releasesURL = URL(string: "https://github.com/Halewwang/Prism/releases")!
 
     static func isNewer(_ candidate: String, than current: String) -> Bool? {
         guard let candidate = versionNumbers(candidate), let current = versionNumbers(current) else { return nil }
@@ -59,7 +59,7 @@ enum GitHubPublishedInstallerLookup {
                   url.scheme?.lowercased() == "https", url.host?.lowercased() == "github.com",
                   url.user == nil, url.password == nil, url.port == nil,
                   url.query == nil, url.fragment == nil,
-                  url.path == "/Halewwang/Prism-Browser-switching/releases/download/\(release.tag_name)/\(asset.name)"
+                  url.path == "/Halewwang/Prism/releases/download/\(release.tag_name)/\(asset.name)"
             else { return nil }
             return GitHubPublishedInstaller(
                 version: version, notes: release.body ?? "", downloadURL: url, fileName: asset.name,
@@ -82,7 +82,7 @@ enum GitHubPublishedInstallerLookup {
               url.scheme == "https", url.host == "github.com",
               url.user == nil, url.password == nil, url.port == nil,
               url.query == nil, url.fragment == nil,
-              url.path == "/Halewwang/Prism-Browser-switching/releases/download/\(release.tag_name)/\(name)"
+              url.path == "/Halewwang/Prism/releases/download/\(release.tag_name)/\(name)"
         else { return nil }
         return url
     }

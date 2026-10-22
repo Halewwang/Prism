@@ -141,7 +141,7 @@ final class UpdateAssetTransport: NSObject, URLSessionTaskDelegate, Sendable {
     func prepare(_ installer: GitHubPublishedInstaller, progress: @escaping @Sendable (Double?) -> Void) async throws -> PreparedUpdate {
         guard let manifestURL = installer.manifestURL, let signatureURL = installer.signatureURL else { throw UpdatePreparationError.unsignedRelease }
         let base = installer.downloadURL.deletingLastPathComponent()
-        let expectedDMG = "/Halewwang/Prism-Browser-switching/releases/download/v\(installer.version)/\(installer.fileName)"
+        let expectedDMG = "/Halewwang/Prism/releases/download/v\(installer.version)/\(installer.fileName)"
         guard installer.downloadURL.host == "github.com", UpdateAssetTransport.permits(installer.downloadURL), installer.downloadURL.query == nil, installer.downloadURL.fragment == nil,
               installer.downloadURL.path == expectedDMG,
               manifestURL == base.appendingPathComponent("update-manifest.json"), signatureURL == base.appendingPathComponent("update-manifest.sig") else { throw UpdatePreparationError.untrustedDownload }

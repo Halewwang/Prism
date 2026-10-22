@@ -30,8 +30,8 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: 15.0
         SWIFT_VERSION: 6.0
         ENABLE_HARDENED_RUNTIME: YES
-        MARKETING_VERSION: 1.14.10
-        CURRENT_PROJECT_VERSION: 11
+        MARKETING_VERSION: 1.14.11
+        CURRENT_PROJECT_VERSION: 12
         SPARKLE_PUBLIC_ED_KEY: ""
     info:
       path: PrismNative/Resources/Info.plist
@@ -46,7 +46,7 @@ targets:
             CFBundleURLSchemes: [https]
         LSMinimumSystemVersion: "15.0"
         NSPrincipalClass: NSApplication
-        SUFeedURL: https://github.com/Halewwang/Prism-Browser-switching/releases/latest/download/appcast.xml
+        SUFeedURL: https://github.com/Halewwang/Prism/releases/latest/download/appcast.xml
         SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
         SUEnableAutomaticChecks: true
         SUAllowsAutomaticUpdates: false
@@ -82,8 +82,8 @@ targets:
         SWIFT_VERSION: 6.0
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) PRISM_PUBLIC_TEST
         ENABLE_HARDENED_RUNTIME: YES
-        MARKETING_VERSION: 1.14.10
-        CURRENT_PROJECT_VERSION: 11
+        MARKETING_VERSION: 1.14.11
+        CURRENT_PROJECT_VERSION: 12
         SPARKLE_PUBLIC_ED_KEY: ""
     info:
       path: PrismNative/Resources/Info.plist
@@ -98,7 +98,7 @@ targets:
             CFBundleURLSchemes: [https]
         LSMinimumSystemVersion: "15.0"
         NSPrincipalClass: NSApplication
-        SUFeedURL: https://github.com/Halewwang/Prism-Browser-switching/releases/latest/download/appcast.xml
+        SUFeedURL: https://github.com/Halewwang/Prism/releases/latest/download/appcast.xml
         SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
         SUEnableAutomaticChecks: true
         SUAllowsAutomaticUpdates: false

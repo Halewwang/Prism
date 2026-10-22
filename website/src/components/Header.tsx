@@ -1,44 +1,21 @@
-import { useState, useEffect } from 'react';
-import { Download } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { release } from '../release';
 
-export const Header = () => {
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  return (
-    <header 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-white/70 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-5'
-      }`}
-    >
-      <div className="container mx-auto px-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img src="/brand/titlebar-32.svg" alt="" width={32} height={32} className="w-8 h-8 shrink-0" />
-          <span className="text-xl font-semibold tracking-tight text-neutral-900">Prism</span>
-        </div>
-
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-neutral-600">
-          <a href="#features" className="hover:text-primary transition-colors">Features</a>
-          <a href="#how-it-works" className="hover:text-primary transition-colors">How it Works</a>
-          <a href="#new-features" className="hover:text-primary transition-colors">Interface</a>
-        </nav>
-
-        <a 
-          href={release.downloadUrl}
-          className="flex items-center gap-2 bg-neutral-900 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-neutral-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-        >
-          <Download size={16} />
-          Download Test
-        </a>
-      </div>
-    </header>
-  );
-};
+export const Header = () => (
+  <header className="site-header">
+    <div className="page-width header-inner">
+      <a className="brand" href="#" aria-label="Prism home">
+        <img src="/brand/titlebar-32.svg" alt="" width={32} height={32} />
+        <span>Prism</span>
+      </a>
+      <nav className="main-nav" aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#browser-picker">Browser picker</a>
+        <a href={release.repositoryUrl}>GitHub ↗</a>
+      </nav>
+      <a className="header-download" href={release.downloadUrl}>
+        Download test <ArrowUpRight size={16} aria-hidden="true" />
+      </a>
+    </div>
+  </header>
+);

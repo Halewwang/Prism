@@ -1,35 +1,59 @@
+import { motion, useReducedMotion } from 'framer-motion';
+import { ArrowDownToLine } from 'lucide-react';
 import { release } from '../release';
 
-export const PublicTest = () => (
-  <section id="public-test" className="px-4 md:px-6 pb-16 md:pb-24 scroll-mt-24">
-    <div className="container mx-auto max-w-4xl rounded-2xl border border-neutral-200 bg-neutral-50 p-6 md:p-8">
-      <h2 className="text-xl md:text-2xl font-bold mb-4">Before You Install the Public Test</h2>
-      <p className="text-sm md:text-base text-neutral-600 leading-relaxed mb-5">
-        v{release.version}, build {release.build} requires {release.minimumSystem}. The Universal download includes Apple Silicon and Intel binaries.
-        It uses ad hoc signing, without Developer ID signing or Apple notarization.
-      </p>
-      <ol className="list-decimal pl-5 space-y-3 text-sm md:text-base text-neutral-700 leading-relaxed">
-        <li>Download the DMG and <a href={release.checksumsUrl} className="underline underline-offset-4">SHA256SUMS.txt</a>. In the download folder, run <code className="break-all">shasum -a 256 -c SHA256SUMS.txt</code> to check file integrity.</li>
-        <li>Quit Prism, open the DMG, and drag Prism into Applications. Then try opening Prism.</li>
-        <li>If macOS blocks this trusted download because it cannot verify the developer, go to System Settings → Privacy &amp; Security → Open Anyway, then confirm Open. Follow <a href="https://support.apple.com/en-us/102445" className="underline underline-offset-4">Apple’s first-open guidance</a>. Do not use this step for a malware or damaged-app warning.</li>
-      </ol>
-      <h3 className="font-semibold mt-7 mb-3">Updating This Public Test</h3>
-      <p className="text-sm md:text-base text-neutral-600 leading-relaxed">
-        Native public tests from v1.14.3 onward can download and verify an update in Settings, then ask you to confirm installation.
-        The option to allow this unnotarized public-test update is off by default and applies only to that installation.
-        If you use v1.14.2 or earlier, install the current version manually once to get this flow.
-        Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.
-      </p>
-      <h3 className="font-semibold mt-7 mb-3">What Still Needs Real-World Testing</h3>
-      <ul className="list-disc pl-5 space-y-2 text-sm md:text-base text-neutral-600 leading-relaxed">
-        <li>Source-app routing only runs for a confirmed sender. Real-app coverage is still incomplete; not every app or link can be identified.</li>
-        <li>Stable Chrome and Edge profile targets are experimental. Cold and already-running launches, account context, and profile removal still need real-browser validation.</li>
-        <li>The Intel binary is included, but this release has not been verified on a physical Intel Mac. Supported macOS versions have not all been tested.</li>
-      </ul>
-      <p className="text-sm text-neutral-600 mt-5">
-        <a href={release.notesUrl} className="underline underline-offset-4">Release notes</a>{' · '}
-        <a href={release.issuesUrl} className="underline underline-offset-4">Report an issue</a>
-      </p>
-    </div>
-  </section>
-);
+export const PublicTest = () => {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <>
+      <section id="download" className="closing-download" aria-labelledby="download-title">
+        <motion.div className="page-width closing-inner" initial={reduceMotion ? false : { opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.25 }}>
+          <p className="mono-label">03 / Download the macOS public test</p>
+          <div className="closing-row">
+            <h2 id="download-title">Set your default.<br />Choose your browsers.</h2>
+            <div className="closing-actions">
+              <a className="download-button download-button-dark" href={release.downloadUrl}>
+                Download public test <ArrowDownToLine size={18} aria-hidden="true" />
+              </a>
+              <p className="mono-label">{release.minimumSystem} / Universal installer</p>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+      <section id="public-test" className="installation page-width" aria-labelledby="installation-title">
+        <div className="installation-label">
+          <h2 id="installation-title" className="mono-label">Before you install</h2>
+          <p>v{release.version} · Build {release.build}</p>
+        </div>
+        <div className="installation-content">
+          <p>v{release.version} (build {release.build}) uses ad hoc signing, without Developer ID signing or Apple notarization. Verify the checksum and follow the first-open guide. Chrome and Edge profile targets are experimental. The Intel binary is included but has not been verified on a physical Intel Mac.</p>
+          <div className="support-links">
+            <a href="#installation-guide">Installation guide ↗</a>
+            <a href={release.notesUrl}>Release notes ↗</a>
+            <a href={release.issuesUrl}>Report an issue ↗</a>
+          </div>
+          <details className="installation-guide">
+            <summary>Installation guide &amp; test limits</summary>
+            <div id="installation-guide" className="installation-instructions">
+              <p>v{release.version}, build {release.build} requires {release.minimumSystem}. The Universal download includes Apple Silicon and Intel binaries.</p>
+              <ol>
+                <li>Download the DMG and <a href={release.checksumsUrl}>SHA256SUMS.txt</a>. In the download folder, run <code>shasum -a 256 -c SHA256SUMS.txt</code> to check file integrity.</li>
+                <li>Quit Prism, open the DMG, and drag Prism into Applications. Then try opening Prism.</li>
+                <li>If macOS blocks this trusted download because it cannot verify the developer, go to System Settings → Privacy &amp; Security → Open Anyway, then confirm Open. Follow <a href="https://support.apple.com/en-us/102445">Apple’s first-open guidance</a>. Do not use this step for a malware or damaged-app warning.</li>
+              </ol>
+              <h3>Updating this public test</h3>
+              <p>Native public tests from v1.14.3 onward can download and verify an update in Settings, then ask you to confirm installation. The option to allow this unnotarized public-test update is off by default and applies only to that installation. If you use v1.14.2 or earlier, install the current version manually once to get this flow. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>
+              <h3>What still needs real-world testing</h3>
+              <ul>
+                <li>Source-app routing only runs for a confirmed sender. Real-app coverage is still incomplete; not every app or link can be identified.</li>
+                <li>Stable Chrome and Edge profile targets are experimental. Cold and already-running launches, account context, and profile removal still need real-browser validation.</li>
+                <li>The Intel binary is included, but this release has not been verified on a physical Intel Mac. Supported macOS versions have not all been tested.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
+    </>
+  );
+};

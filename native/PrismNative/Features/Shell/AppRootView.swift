@@ -396,7 +396,10 @@ struct AppRootView: View {
             .frame(minWidth: isShell ? WorkspaceLayout.windowContentWidth : 668, minHeight: isShell ? 640 : 554 + WorkspaceLayout.windowControlClearance)
             .background(SettingsPalette.canvas)
             .background(WorkspaceWindowSizing(isShell: isShell))
-            .ignoresSafeArea(.container, edges: .top)
+            .background {
+                if isShell { WorkspaceToolbar(selection: coordinator.routeBinding) }
+            }
+            .ignoresSafeArea(.container, edges: isShell ? [] : .top)
             .environment(coordinator.environment)
     }
 
@@ -482,6 +485,7 @@ private struct WorkspaceWindowSizing: NSViewRepresentable {
             window.contentMinSize = size
             window.contentMaxSize = size
             window.setContentSize(size)
+            window.standardWindowButton(.zoomButton)?.isEnabled = false
             window.center()
         }
     }

@@ -29,116 +29,115 @@ struct AppShellDestination: Identifiable {
             accessibilityIdentifier: "appShell.sidebar.settings"
         ),
     ]
-
 }
 
-struct SidebarView: View {
-    @Environment(AppEnvironment.self) private var environment
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Binding var selection: AppRoute
+struct WorkspaceBrandView: View {
+    let reduceTransparency: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 26) {
-            brandHeader
-            VStack(spacing: 7) {
-                ForEach(AppShellDestination.all) { destination in
-                    Button {
-                        selection = destination.route
-                    } label: {
-                        HStack(spacing: 11) {
-                            Image(systemName: destination.systemImage)
-                                .font(.system(size: 17, weight: .regular))
-                                .frame(width: 18)
-                                .accessibilityHidden(true)
-                            Text(LocalizedStringKey(destination.title))
-                                .font(.system(size: 13, weight: selection == destination.route ? .semibold : .medium))
-                            Spacer(minLength: 0)
-                        }
-                        .foregroundStyle(selection == destination.route ? SettingsPalette.primary : SettingsPalette.secondary)
-                        .padding(.horizontal, 12)
-                        .frame(height: 42)
-                        .background {
-                            if selection == destination.route {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(SettingsPalette.group)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(SettingsPalette.border, lineWidth: 1))
-                                    .shadow(color: Color.black.opacity(0.06), radius: 4, y: 2)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier(destination.accessibilityIdentifier)
-                    .accessibilityValue(selection == destination.route ? "Selected" : "")
-                }
-            }
-            Spacer(minLength: 24)
-            runtimeStatus
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 60)
-        .padding(.bottom, 20)
-        .frame(width: WorkspaceLayout.sidebarWidth)
-        .frame(maxHeight: .infinity)
-        .background {
-            (reduceTransparency ? SettingsPalette.window : WorkspaceLayout.sidebarSurface).ignoresSafeArea(edges: .top)
-        }
-        .overlay(alignment: .trailing) {
-            Rectangle().fill(SettingsPalette.border).frame(width: 1)
-        }
-    }
-
-    private var brandHeader: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 4) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(width: 36, height: 36)
+                .frame(width: 16, height: 16)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Prism")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(SettingsPalette.primary)
-                    .frame(height: 30, alignment: .leading)
-                Text("Your links, in the right place")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SettingsPalette.tertiary)
-                    .frame(height: 17, alignment: .leading)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
+            Text("Prism")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(SettingsPalette.primary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
+        .padding(.leading, 2)
+        .frame(width: 78, height: 32, alignment: .leading)
+        // Extend behind the native window controls without moving them.
+        .background(alignment: .trailing) {
+            Color.clear
+                .frame(width: 160, height: 32)
+                .modifier(WorkspaceCapsule(reduceTransparency: reduceTransparency))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Prism")
         .accessibilityIdentifier("appShell.sidebar.brand")
     }
+}
 
-    private var runtimeStatus: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                Circle()
-                    .fill(environment.settings.automaticRulesEnabled ? SettingsPalette.primary : SettingsPalette.secondary)
-                    .frame(width: 6, height: 6)
-                    .accessibilityHidden(true)
-                Text(environment.settings.automaticRulesEnabled ? "Automatic routing is on" : "Automatic routing is paused")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(SettingsPalette.secondary)
-                    .frame(height: 19, alignment: .leading)
+struct WorkspaceNavigationView: View {
+    @Binding var selection: AppRoute
+    let reduceTransparency: Bool
+    @FocusState private var focusedRoute: AppRoute?
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(AppShellDestination.all) { destination in
+                Button {
+                    selection = destination.route
+                } label: {
+                    Label(LocalizedStringKey(destination.title), systemImage: destination.systemImage)
+                        .labelStyle(.titleAndIcon)
+                        .font(.system(size: 13, weight: selection == destination.route ? .semibold : .regular))
+                        .foregroundStyle(selection == destination.route ? SettingsPalette.primary : SettingsPalette.secondary)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, 16)
+                        .frame(height: 24)
+                        .background {
+                            if selection == destination.route {
+                                Capsule()
+                                    .fill(SettingsPalette.group)
+                                    .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .focused($focusedRoute, equals: destination.route)
+                .overlay {
+                    if focusedRoute == destination.route {
+                        Capsule().stroke(SettingsPalette.primary, lineWidth: 2).padding(2)
+                    }
+                }
+                .accessibilityIdentifier(destination.accessibilityIdentifier)
+                .accessibilityAddTraits(selection == destination.route ? .isSelected : [])
             }
-            Text("Records stay on this Mac")
-                .font(.system(size: 11))
-                .foregroundStyle(SettingsPalette.tertiary)
-                .frame(height: 17, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(SettingsPalette.group, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(SettingsPalette.border, lineWidth: 1))
+        .padding(4)
+        .modifier(WorkspaceCapsule(reduceTransparency: reduceTransparency))
+    }
+}
+
+struct WorkspaceRoutingStatusView: View {
+    @Environment(AppEnvironment.self) private var environment
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(environment.settings.automaticRulesEnabled ? "Automatic routing is on" : "Automatic routing is paused")
+            Text("·").accessibilityHidden(true)
+            Text("Records stay on this Mac")
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(SettingsPalette.tertiary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("appShell.sidebar.routingStatus")
+    }
+}
+
+private struct WorkspaceCapsule: ViewModifier {
+    let reduceTransparency: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content
+                .background(SettingsPalette.window, in: Capsule())
+                .overlay(Capsule().stroke(SettingsPalette.borderStrong, lineWidth: 1))
+        } else if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: Capsule())
+        } else {
+            content
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().stroke(SettingsPalette.border, lineWidth: 1))
+        }
     }
 }

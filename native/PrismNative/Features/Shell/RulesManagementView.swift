@@ -27,12 +27,7 @@ struct RulesManagementView: View {
     @State private var previewRuleToEdit: RoutingRule?
 
     var body: some View {
-        PageColumn {
-            SystemSettingsPageHeader(
-                title: "Rules",
-                subtitle: "Choose which links Prism should open automatically.",
-                accessibilityIdentifier: "appShell.page.rules.heading"
-            )
+        PageColumn(title: "Rules", accessibilityIdentifier: "appShell.page.rules.content") {
             searchRow
             if let savedRule = saveUndo.savedRule {
                 HStack(spacing: 12) {

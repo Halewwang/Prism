@@ -22,12 +22,7 @@ struct SettingsManagementView: View {
     @State private var showResetConfirmation = false
 
     var body: some View {
-        PageColumn {
-            SystemSettingsPageHeader(
-                title: "Settings",
-                subtitle: "Control how Prism handles links and keeps local History.",
-                accessibilityIdentifier: "appShell.page.settings.heading"
-            )
+        PageColumn(title: "Settings", accessibilityIdentifier: "appShell.page.settings.content") {
             settingsCards
         }
         .task { await loadContext() }

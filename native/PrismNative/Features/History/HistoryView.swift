@@ -13,12 +13,7 @@ struct HistoryView: View {
             if model.state == .content {
                 content
             } else if let pageState = historyPageState {
-                PageColumn {
-                    SystemSettingsPageHeader(
-                        title: "History",
-                        subtitle: "Every link has a story.",
-                        accessibilityIdentifier: "appShell.page.history.heading"
-                    )
+                PageColumn(title: "History", accessibilityIdentifier: "appShell.page.history.content") {
                     PageStateView(model: pageState) { action in
                         if action == AppShellActionID.testLink.rawValue {
                             testLink()
@@ -81,12 +76,7 @@ struct HistoryView: View {
     }
 
     private var content: some View {
-        PageColumn {
-            SystemSettingsPageHeader(
-                title: "History",
-                subtitle: "Every link has a story.",
-                accessibilityIdentifier: "appShell.page.history.heading"
-            )
+        PageColumn(title: "History", accessibilityIdentifier: "appShell.page.history.content") {
             HStack(spacing: 16) {
                 WorkspaceSearchField(placeholder: "Search URL, source app, or browser", text: $query, horizontalPadding: 11)
                     .frame(width: 340)

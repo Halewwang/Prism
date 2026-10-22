@@ -1,14 +1,10 @@
 import SwiftUI
 
 enum WorkspaceLayout {
-    static let contentInset: CGFloat = 28
-    static let headerVerticalInset: CGFloat = 28
-    static let pageTitleFont = Font.system(size: 21, weight: .semibold)
-    static let sidebarSurface = SettingsPalette.sidebar
+    static let contentInset: CGFloat = 16
     static let contentSurface = SettingsPalette.canvas
-    static let windowContentWidth: CGFloat = 960
+    static let windowContentWidth: CGFloat = 800
     static let windowContentHeight: CGFloat = 720
-    static let sidebarWidth: CGFloat = 218
     static let windowControlClearance: CGFloat = 24
 }
 
@@ -96,10 +92,10 @@ struct AppShellView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            SidebarView(selection: $route)
+        VStack(spacing: 0) {
             detail
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            WorkspaceRoutingStatusView()
         }
         .frame(
             minWidth: WorkspaceLayout.windowContentWidth,

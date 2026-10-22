@@ -25,10 +25,10 @@ final class OnboardingUITests: PrismUITestCase {
 
         terminateFixture(application)
         let workspace = launchFixture("workspace", appearance: .light, language: "zh-Hans")
-        _ = requireElement("appShell.page.history.heading", in: workspace)
+        _ = requireElement("appShell.page.history.content", in: workspace)
         try attachWindowScreenshot("pen-history-zh", application: workspace, appearance: .light)
         requireElement("appShell.sidebar.rules", in: workspace).click()
-        _ = requireElement("appShell.page.rules.heading", in: workspace)
+        _ = requireElement("appShell.page.rules.content", in: workspace)
         XCTAssertTrue(workspace.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "域名及子域名", "域名及子域名")).firstMatch.waitForExistence(timeout: 3))
         try attachWindowScreenshot("pen-rules-zh", application: workspace, appearance: .light)
         requireButton("rules.create", in: workspace).click()
@@ -38,7 +38,7 @@ final class OnboardingUITests: PrismUITestCase {
         workspace.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitUntil(timeout: 3) { !save.exists })
         requireElement("appShell.sidebar.settings", in: workspace).click()
-        _ = requireElement("appShell.page.settings.heading", in: workspace)
+        _ = requireElement("appShell.page.settings.content", in: workspace)
         try attachWindowScreenshot("pen-settings-zh", application: workspace, appearance: .light)
     }
 
@@ -158,7 +158,7 @@ final class OnboardingUITests: PrismUITestCase {
         let finish = requireButton("onboarding.testLink.finish", in: application)
         XCTAssertTrue(finish.isHittable)
         XCTAssertTrue(requireButton("onboarding.testLink.retest", in: application).isHittable)
-        XCTAssertFalse(application.descendants(matching: .any)["appShell.page.history.heading"].exists)
+        XCTAssertFalse(application.descendants(matching: .any)["appShell.page.history.content"].exists)
         try attachWindowScreenshot("onboarding-complete", application: application, appearance: appearance)
         requireButton("onboarding.testLink.retest", in: application).click()
         let repeatedSelector = requireElement("selector.panel", in: application)
@@ -182,7 +182,7 @@ final class OnboardingUITests: PrismUITestCase {
         )
 
         requireElement("appShell.sidebar.settings", in: application).click()
-        _ = requireElement("appShell.page.settings.heading", in: application)
+        _ = requireElement("appShell.page.settings.content", in: application)
         try attachWindowScreenshot(
             "shell-settings",
             application: application,

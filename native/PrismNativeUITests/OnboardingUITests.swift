@@ -8,7 +8,7 @@ final class OnboardingUITests: PrismUITestCase {
         let window = requireMainWindow(in: application)
         XCTAssertEqual(window.frame.width, 668, accuracy: 1)
         XCTAssertEqual(window.frame.height, 578, accuracy: 1)
-        XCTAssertGreaterThanOrEqual(requireElement("onboarding.progress.label", in: application).frame.minY - window.frame.minY, 48)
+        assertWelcomeContentAlignment(in: application, window: window, title: welcome)
         try attachWindowScreenshot("pen-onboarding-welcome-zh", application: application, appearance: .light)
 
         requireButton("onboarding.welcome.continue", in: application).click()
@@ -88,7 +88,11 @@ final class OnboardingUITests: PrismUITestCase {
         addCustom.click()
         openApplications.click()
         _ = requireElement("onboarding.step.browsers", in: application)
-        XCTAssertTrue(rescan.isHittable)
+        let content = requireElement("onboarding.content", in: application)
+        for action in [rescan, addCustom, openApplications] {
+            XCTAssertTrue(action.isHittable)
+            XCTAssertTrue(content.frame.contains(action.frame))
+        }
         XCTAssertEqual(application.windows.count, 1)
         try attachWindowScreenshot(
             "onboarding-empty-browser-recovery",
@@ -109,10 +113,11 @@ final class OnboardingUITests: PrismUITestCase {
         appearance: PrismUITestAppearance
     ) throws {
         let application = launchFixture("partial-handler", appearance: appearance)
-        _ = requireElement("onboarding.step.welcome", in: application)
+        let welcome = requireElement("onboarding.step.welcome", in: application)
         let welcomeWindow = requireMainWindow(in: application)
         XCTAssertEqual(welcomeWindow.frame.width, 668, accuracy: 1)
         XCTAssertEqual(welcomeWindow.frame.height, 578, accuracy: 1)
+        assertWelcomeContentAlignment(in: application, window: welcomeWindow, title: welcome)
         try attachWindowScreenshot(
             "onboarding-welcome",
             application: application,
@@ -226,6 +231,26 @@ final class OnboardingUITests: PrismUITestCase {
         _ = requireElement("onboarding.step.browsers", in: application)
         requireButton("onboarding.browsers.rescan", in: application).click()
         _ = requireElement("onboarding.step.testLink", in: application)
+    }
+
+    private func assertWelcomeContentAlignment(
+        in application: XCUIApplication,
+        window: XCUIElement,
+        title: XCUIElement
+    ) {
+        let content = requireElement("onboarding.content", in: application)
+        let message = requireElement("onboarding.message", in: application)
+        let start = requireButton("onboarding.welcome.continue", in: application)
+        let progress = requireElement("onboarding.progress.label", in: application)
+        XCTAssertEqual(content.frame.minX - window.frame.minX, 40, accuracy: 1)
+        XCTAssertEqual(window.frame.maxX - content.frame.maxX, 40, accuracy: 1)
+        XCTAssertEqual(window.frame.maxY - content.frame.maxY, 40, accuracy: 1)
+        XCTAssertEqual(content.frame.minY - window.frame.minY, 40 + 24, accuracy: 1)
+        XCTAssertEqual(title.frame.minX, content.frame.minX, accuracy: 1)
+        XCTAssertEqual(message.frame.minX, content.frame.minX, accuracy: 1)
+        XCTAssertEqual(start.frame.minX, content.frame.minX, accuracy: 1)
+        XCTAssertEqual(progress.frame.maxX, content.frame.maxX, accuracy: 1)
+        XCTAssertTrue(content.frame.contains(start.frame))
     }
 
     private func runOnboardingRecoveryBanner(

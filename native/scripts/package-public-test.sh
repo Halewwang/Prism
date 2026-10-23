@@ -47,12 +47,11 @@ codesign --force --sign - --options runtime --timestamp=none \
   --preserve-metadata=entitlements,requirements "$staging/Prism.app"
 zsh scripts/verify-public-test.sh "$staging/Prism.app" "$version" "$build"
 python3 scripts/smoke-public-test-launch.py "$staging/Prism.app"
-ln -s /Applications "$staging/Applications"
 
 mkdir -p "$output_root"
 dmg_name="Prism-$version-universal-test.dmg"
 dmg="$output_root/$dmg_name"
-hdiutil create -volname Prism -srcfolder "$staging" -format UDZO "$dmg"
+zsh scripts/create-installer-dmg.sh "$staging/Prism.app" "$dmg"
 zsh scripts/verify-public-test.sh "$staging/Prism.app" "$version" "$build" "$dmg"
 
 cd "$output_root"

@@ -67,7 +67,7 @@ app="$export_dir/Prism.app"
 ditto -c -k --keepParent "$app" "$output_root/Prism-notary.zip"
 xcrun notarytool submit "$output_root/Prism-notary.zip" --keychain-profile "$NOTARY_PROFILE" --wait
 xcrun stapler staple "$app"
-hdiutil create -volname Prism -srcfolder "$app" -ov -format UDZO "$dmg"
+zsh scripts/create-installer-dmg.sh "$app" "$dmg"
 codesign --force --sign "$DEVELOPER_ID_APPLICATION" --timestamp "$dmg"
 xcrun notarytool submit "$dmg" --keychain-profile "$NOTARY_PROFILE" --wait
 xcrun stapler staple "$dmg"

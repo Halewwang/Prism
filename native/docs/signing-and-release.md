@@ -17,6 +17,10 @@ GitHub 检查包含原生公开测试预发布版本，从 `1.11.0` 起仅识别
 
 ## 生成与核验
 
+在仓库根目录先运行 `npm ci --ignore-scripts` 安装锁定的打包依赖。两条原生打包流程共用现有 `dmg-builder` 内附的 Finder 元数据工具，不新增依赖。`scripts/create-installer-dmg.sh` 在最终 HFS+ 卷中设置 640×400 窗口、Prism → Applications 图标位置和内置中英背景，然后压缩同一卷；布局在 DMG 校验、哈希、更新签名及正式公证之前完成。
+
+Finder 的路径栏和状态栏可能遵循用户的全局显示偏好；中英安装提示已避开这两栏占用的区域。视觉验收应从 Finder 打开 DMG 文件检查首次出现的卷窗口；将卷挂到临时目录后在现有窗口中浏览，会继承该窗口的尺寸与工具栏，不能证明安装窗口布局。
+
 ```zsh
 cd native
 SPARKLE_PUBLIC_ED_KEY='…' \
@@ -45,7 +49,7 @@ zsh scripts/verify-release.sh /absolute/path/Prism.app 1.0.0 1 /absolute/path/Pr
 ```zsh
 cd native
 PRISM_UPDATE_SIGNING_KEY='/absolute/protected/path/update-ed25519.key' \
-zsh scripts/package-public-test.sh 1.14.12 13
+zsh scripts/package-public-test.sh 1.14.13 14
 ```
 
 脚本生成 Universal DMG、SHA256SUMS.txt、update-manifest.json 和 update-manifest.sig。它分别签名内嵌 Universal 安装助手和外层应用，检查版本、双架构、签名、硬化运行时、无 Sparkle 动态依赖、DMG 完整性及隔离后的 5 秒进程启动。启动检查通过 `/usr/bin/sandbox-exec` 禁止子进程读取或写入当前账号的 `~/Library/Application Support/Prism` 整个目录（包括嵌套内容和目录解析后的路径）。该目录覆盖 `ModelContainerFactory` 的 `PrismNative.store` 及其备份、`AtomicPendingRequestStore` 的 `Recovery` 队列及备份，避免启动时恢复私人待处理链接或覆盖生产数据。脚本使用系统账号的真实主目录，不以临时 `HOME` 假装隔离；缺少可执行的 sandbox 工具时直接失败，绝不回退到普通启动。
@@ -60,6 +64,7 @@ zsh scripts/package-public-test.sh 1.14.12 13
 
 ```zsh
 python3 scripts/test_smoke_public_test_launch.py
+python3 scripts/test_create_installer_dmg.py
 python3 scripts/smoke-public-test-launch.py /Applications/Prism.app
 ```
 

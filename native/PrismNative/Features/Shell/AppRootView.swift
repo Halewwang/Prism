@@ -422,8 +422,8 @@ struct AppRootView: View {
                         model: banner,
                         onAction: coordinator.performRecoveryAction
                     )
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.horizontal, WorkspaceLayout.dialogContentInset)
+                    .padding(.top, WorkspaceLayout.dialogContentInset)
                 }
                 OnboardingView(
                     model: coordinator.onboardingModel,

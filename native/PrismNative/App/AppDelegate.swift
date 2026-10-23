@@ -268,7 +268,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Explicit workspace opens must take focus; ordinary activation can leave Prism behind another app.
         if let mainWindow {
             _ = NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
-            mainWindow.makeKeyAndOrderFront(nil)
+            WindowPresentationAnimation.show(mainWindow) {
+                mainWindow.makeKeyAndOrderFront(nil)
+            }
             return
         }
 
@@ -296,7 +298,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         mainWindow = window
         _ = NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
-        window.makeKeyAndOrderFront(nil)
+        WindowPresentationAnimation.show(window) {
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 
     private func mainWindowRoot() -> AnyView {

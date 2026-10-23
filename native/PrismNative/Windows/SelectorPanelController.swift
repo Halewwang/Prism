@@ -51,10 +51,11 @@ final class SelectorPanelController: SelectorPanelControlling {
             panel.setAccessibilityValue("panel=\(panelAppearance);hosting=\(hostingAppearance)")
         }
 #endif
-        orderFront(panel)
+        WindowPresentationAnimation.show(panel) { orderFront(panel) }
     }
 
     func hide() {
+        WindowPresentationAnimation.reset(panel)
         hostingView.rootView = AnyView(EmptyView())
         hostingView.layoutSubtreeIfNeeded()
         panel.orderOut(nil)

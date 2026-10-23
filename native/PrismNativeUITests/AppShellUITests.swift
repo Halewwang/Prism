@@ -49,6 +49,7 @@ final class AppShellUITests: PrismUITestCase {
 
     func testSourceRuleEditorKeepsFooterVisibleAndPickerRestoresKeyboardFocus() throws {
         let application = launchFixture("workspace", appearance: .light)
+        let window = requireMainWindow(in: application)
         requireElement("appShell.sidebar.rules", in: application).click()
         let actions = requireElement("rules.rule.00000000-0000-0000-0000-000000000303.actions", in: application)
         XCTAssertTrue(actions.debugDescription.contains("Actions for rule Messages"))
@@ -65,16 +66,16 @@ final class AppShellUITests: PrismUITestCase {
         match.click()
         let exactDomain = application.buttons["Exact domain"].firstMatch
         XCTAssertTrue(exactDomain.waitForExistence(timeout: 3))
-        application.popovers.firstMatch.typeKey(.escape, modifierFlags: [])
+        window.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitUntil(timeout: 3) { !exactDomain.exists })
         XCTAssertTrue(save.exists && match.exists, "Escape must close only the picker, keeping the editor available")
         XCTAssertEqual(match.value as? String, "Source application")
-        match.typeKey(.space, modifierFlags: [])
+        window.typeKey(.space, modifierFlags: [])
         guard exactDomain.waitForExistence(timeout: 3) else {
             XCTFail("Closing the picker must restore keyboard focus to its trigger")
             return
         }
-        application.popovers.firstMatch.typeKey(.escape, modifierFlags: [])
+        window.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(save.exists && match.exists)
         XCTAssertTrue(save.isHittable, "The footer must remain available for the taller source-application form")
         try attachWindowScreenshot("review-source-rule-editor", application: application, appearance: .light)
@@ -226,6 +227,7 @@ final class AppShellUITests: PrismUITestCase {
 
     func testSharedSettingsControlsUpdateTheirRealValues() {
         let application = launchFixture("workspace", appearance: .light)
+        let window = requireMainWindow(in: application)
         requireElement("appShell.sidebar.settings", in: application).click()
         let automaticRules = requireElement("settings.automaticRules", in: application)
         let originalValue = String(describing: automaticRules.value ?? "")
@@ -245,9 +247,8 @@ final class AppShellUITests: PrismUITestCase {
 
         unmatched.click()
         XCTAssertTrue(application.buttons["Last used"].firstMatch.waitForExistence(timeout: 3))
-        let choices = application.popovers.firstMatch
-        choices.typeKey(.downArrow, modifierFlags: [])
-        choices.typeKey(.return, modifierFlags: [])
+        window.typeKey(.downArrow, modifierFlags: [])
+        window.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(waitUntil(timeout: 3) { unmatched.value as? String == "Last used" })
 
         requireElement("appShell.sidebar.history", in: application).click()
@@ -370,6 +371,36 @@ final class HistoryUITests: PrismUITestCase {
                 accessibilityHierarchy.localizedCaseInsensitiveContains(unsafeURLPart),
                 "History accessibility must not expose \(unsafeURLPart) from the legacy URL"
             )
+        }
+    }
+
+    func testAllResultFilterRestoresEveryRowWithoutOpeningAMenu() {
+        let application = launchFixture("history", appearance: .light)
+        let count = requireElement("history.recordCount", in: application)
+        let all = requireElement("history.resultFilter.all", in: application)
+        let openedRow = requireElement("history.row.00000000-0000-0000-0000-000000000201.url", in: application)
+        let cancelledRow = requireElement("history.row.00000000-0000-0000-0000-000000000202.url", in: application)
+        XCTAssertEqual(accessibilityText(of: count), "2 records")
+
+        for (filter, matchingRow, otherRow) in [
+            ("opened", openedRow, cancelledRow),
+            ("cancelled", cancelledRow, openedRow),
+        ] {
+            let selectedFilter = requireButton("history.resultFilter.\(filter)", in: application)
+            selectedFilter.click()
+            XCTAssertTrue(waitUntil(timeout: 3) { self.accessibilityText(of: count) == "1 records" })
+            XCTAssertTrue(matchingRow.exists)
+            XCTAssertFalse(otherRow.exists)
+
+            all.click()
+
+            XCTAssertTrue(waitUntil(timeout: 3) { self.accessibilityText(of: count) == "2 records" })
+            XCTAssertTrue(openedRow.exists)
+            XCTAssertTrue(cancelledRow.exists)
+            XCTAssertTrue(all.isSelected)
+            XCTAssertFalse(selectedFilter.isSelected)
+            XCTAssertFalse(application.descendants(matching: .any)["history.resultFilter.failed"].exists)
+            XCTAssertFalse(application.descendants(matching: .any)["history.resultFilter.processing"].exists)
         }
     }
 

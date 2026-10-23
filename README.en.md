@@ -9,11 +9,11 @@
   </picture>
   <h2>Your links. In the right browser.</h2>
   <p>A native browser router for macOS.<br />Open work links in your work browser, keep personal browsing separate, and choose a browser when you need to.</p>
-  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.14.12 / Build 13 public test</strong></p>
+  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.14.13 / Build 14 public test</strong></p>
   <p>
     <a href="https://prismmac.vercel.app/">Website</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.14.12/Prism-1.14.12-universal-test.dmg">Download for macOS</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.14.12">Release notes</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.14.13/Prism-1.14.13-universal-test.dmg">Download for macOS</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.14.13">Release notes</a>
   </p>
 </div>
 
@@ -47,18 +47,18 @@ Choose directly when a link needs a different browser.
 
 <img src="website/public/screenshots/1.14.9/prism-selector-en.png" alt="Prism browser picker with browser icons and keyboard shortcuts" width="480" />
 
-<small>Screenshots show v1.14.9 with sample data. They do not show the window entrance motion, history filters, or menu styling changes in v1.14.12.</small>
+<small>Screenshots show v1.14.9 with sample data. They do not show later changes to window motion, history filters, menu styling, or the installer, onboarding, and update interfaces.</small>
 
 ## Get started
 
-1. Download [Prism-1.14.12-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.14.12/Prism-1.14.12-universal-test.dmg), open it, and drag Prism into Applications.
+1. Download [Prism-1.14.13-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.14.13/Prism-1.14.13-universal-test.dmg), open it, and drag Prism into Applications.
 2. Open Prism and follow setup to make it your default browser. You can also select it in **System Settings → Desktop & Dock → Default web browser**.
 3. Choose your fallback browser behavior, then add a URL or source-app rule.
 4. Open a link from an app you use and check where it goes.
 
-This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS; see the [installation instructions and public-test limitations](docs/public-test-release-1.14.12.md). The download is a Universal build for Apple Silicon and Intel Macs.
+This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS; see the [installation instructions and public-test limitations](docs/public-test-release-1.14.13.md). The download is a Universal build for Apple Silicon and Intel Macs.
 
-v1.14.12 refines window entrance motion, history result filters, and menu focus styling. Users on v1.14.11 can check for updates and install in the app.
+v1.14.13 brings a consistent layout to the disk image installer, first-run setup, and update window. Users on v1.14.11 or v1.14.12 can check for updates and install in the app.
 
 Source detection varies by app. Regex rules are not supported; Chrome / Edge profile routing is experimental.
 

@@ -7,24 +7,18 @@ final class InAppUpdateWindowController: NSWindowController, NSWindowDelegate {
 
     init(session: InAppUpdateSession) {
         self.session = session
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 666, height: 315), styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: InAppUpdateView.windowSize), styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = NSLocalizedString("Update Prism", comment: "Update window")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         let hostingView = NSHostingView(rootView: InAppUpdateView(
             session: session,
-            onClose: { [weak window] in window?.close() },
-            onSizeChange: { [weak window] height in
-                guard let window else { return }
-                var frame = window.frame
-                frame.origin.y += frame.height - height
-                frame.size = NSSize(width: 666, height: height)
-                window.setFrame(frame, display: true)
-            }
+            onClose: { [weak window] in window?.close() }
         ))
         hostingView.sizingOptions = []
         window.contentView = hostingView
+        window.setFrame(NSRect(origin: window.frame.origin, size: InAppUpdateView.windowSize), display: false)
         super.init(window: window)
         window.delegate = self
         window.center()
@@ -36,84 +30,79 @@ final class InAppUpdateWindowController: NSWindowController, NSWindowDelegate {
 }
 
 struct InAppUpdateView: View {
+    static let windowSize = NSSize(width: 560, height: 560 + WorkspaceLayout.windowControlClearance)
     let session: InAppUpdateSession
     var onClose: () -> Void = {}
-    var onSizeChange: (CGFloat) -> Void = { _ in }
 
     var body: some View {
-        Group {
-            if session.stage == .available { availableContent }
-            else { progressContent }
+        VStack(alignment: .leading, spacing: 20) {
+            header
+            releaseNotes
+            installationStatus
+            footer
         }
+        .padding(WorkspaceLayout.dialogContentInset)
+        .padding(.top, WorkspaceLayout.windowControlClearance)
+        .frame(width: Self.windowSize.width, height: Self.windowSize.height)
         .foregroundStyle(SettingsPalette.primary)
         .background(SettingsPalette.elevated)
         .ignoresSafeArea(.container, edges: .top)
         .tint(SettingsPalette.action)
-        .onChange(of: session.stage, initial: true) { _, stage in
-            onSizeChange((stage == .available ? 315 : 460) + WorkspaceLayout.windowControlClearance)
-        }
     }
 
-    private var availableContent: some View {
+    private var header: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Image(systemName: "arrow.down.to.line")
-                .font(.system(size: 28))
-                .foregroundStyle(SettingsPalette.iconStrong)
-                .frame(width: 28, height: 28)
-            Text("A new version is available")
-                .font(.system(size: 21, weight: .semibold))
-                .foregroundStyle(SettingsPalette.secondary)
-                .frame(height: 30, alignment: .leading)
-            Text("Upgrade Prism for the latest features and fixes.")
-                .font(.system(size: 13))
-                .foregroundStyle(SettingsPalette.muted)
-                .frame(height: 19, alignment: .leading)
-            VStack(alignment: .leading, spacing: 8) {
-                Text(String(format: String(localized: "update.releaseNotesVersion"), session.installer.version))
-                    .font(.system(size: 12))
+            Image("PrismBrand")
+                .renderingMode(.original)
+                .resizable().scaledToFit()
+                .frame(width: 34, height: 34)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(session.stage == .available ? LocalizedStringKey("A new version is available") : LocalizedStringKey("Update Prism"))
+                    .font(.system(size: 27, weight: .medium))
+                    .accessibilityIdentifier("update.title")
+                Text("Prism \(session.installer.version)")
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(SettingsPalette.tertiary)
-                ScrollView {
-                    Text(session.installer.notes.isEmpty ? NSLocalizedString("A newer version of Prism is available.", comment: "Update notes") : session.installer.notes)
-                        .font(.system(size: 11))
-                        .foregroundStyle(SettingsPalette.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                }
             }
-            .padding(16)
-            .frame(height: 75)
-            .background(SettingsPalette.window, in: RoundedRectangle(cornerRadius: 8))
-            HStack(spacing: 10) {
-                Spacer()
-                Button("Remind me later", action: onClose)
-                    .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 39))
-                    .keyboardShortcut(.cancelAction)
-                action
-            }
-            .frame(height: 39)
         }
-        .padding(26)
-        .padding(.top, WorkspaceLayout.windowControlClearance)
-        .frame(width: 666, height: 315 + WorkspaceLayout.windowControlClearance, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var progressContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 12) {
-                Image(systemName: "arrow.down.app.fill").font(.system(size: 32)).foregroundStyle(.tint)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Update Prism").font(.title2.bold())
-                    Text("Prism \(session.installer.version)").foregroundStyle(.secondary)
-                }
-            }
+    private var releaseNotes: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(String(format: String(localized: "update.releaseNotesVersion"), session.installer.version))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(SettingsPalette.tertiary)
             ScrollView {
                 Text(session.installer.notes.isEmpty ? NSLocalizedString("A newer version of Prism is available.", comment: "Update notes") : session.installer.notes)
-                    .font(.system(size: 12)).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
-            }.frame(maxHeight: .infinity)
-            if let message = session.message {
-                Text(message).font(.callout).foregroundStyle(SettingsPalette.danger).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("update.message")
+                    .font(.system(size: 13))
+                    .lineSpacing(5)
+                    .foregroundStyle(SettingsPalette.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .accessibilityIdentifier("update.releaseNotes")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var installationStatus: some View {
+        VStack(alignment: .leading, spacing: 12) {
             status
+            if let message = session.message {
+                ScrollView {
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundStyle(SettingsPalette.danger)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("update.message")
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(height: 54)
+            }
             if session.stage == .ready {
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle("Allow this unnotarized public-test update", isOn: Binding(
@@ -121,44 +110,55 @@ struct InAppUpdateView: View {
                         set: { session.allowUnnotarizedPublicTestUpdate = $0 }
                     ))
                     .toggleStyle(.checkbox)
+                    .font(.system(size: 13))
                     .accessibilityIdentifier("update.allowUnnotarizedPublicTestUpdate")
                     Text("This update has not been notarized by Apple. Permission applies only to this verified Prism update.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.system(size: 12)).foregroundStyle(SettingsPalette.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            HStack {
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your rules and history are kept.")
+                .font(.system(size: 12))
+                .foregroundStyle(SettingsPalette.tertiary)
+            HStack(spacing: 10) {
                 if session.stage == .ready {
                     Button("Show downloaded installer") { session.revealInstaller() }
+                        .buttonStyle(WorkspaceButtonStyle(kind: .quiet, height: 39))
                         .accessibilityIdentifier("update.revealInstaller")
-                } else {
-                    Text("Your rules and history are kept.").font(.caption).foregroundStyle(.secondary)
+                } else if session.stage == .available {
+                    Button("Remind me later", action: onClose)
+                        .buttonStyle(WorkspaceButtonStyle(kind: .quiet, height: 39))
+                        .keyboardShortcut(.cancelAction)
                 }
                 Spacer()
                 action
             }
+            .frame(height: 39)
+            .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 39))
         }
-        .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 39))
-        .padding(26)
-        .padding(.top, WorkspaceLayout.windowControlClearance)
-        .frame(width: 666, height: 460 + WorkspaceLayout.windowControlClearance)
     }
     @ViewBuilder private var status: some View {
         switch session.stage {
         case .available, .failed:
-            Text("Download and verify the update before installing.").font(.callout).foregroundStyle(.secondary)
+            Text("Download and verify the update before installing.").font(.system(size: 13)).foregroundStyle(SettingsPalette.tertiary)
         case .downloading:
             VStack(alignment: .leading, spacing: 8) {
                 if let progress = session.progress {
                     ProgressView(value: progress).accessibilityIdentifier("update.progress")
                 } else { ProgressView().controlSize(.small) }
-                Text("Downloading and verifying update…").font(.callout)
+                Text("Downloading and verifying update…").font(.system(size: 13))
             }
         case .ready:
             Label("Update verified. Ready to install.", systemImage: "checkmark.shield")
-                .font(.callout).accessibilityIdentifier("update.ready")
+                .font(.system(size: 13)).accessibilityIdentifier("update.ready")
         case .installing:
-            HStack { ProgressView().controlSize(.small); Text("Preparing to install and restart…").font(.callout) }
+            HStack { ProgressView().controlSize(.small); Text("Preparing to install and restart…").font(.system(size: 13)) }
         }
     }
     @ViewBuilder private var action: some View {

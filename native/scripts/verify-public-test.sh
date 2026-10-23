@@ -1,5 +1,6 @@
 #!/bin/zsh
 set -euo pipefail
+script_dir="${0:A:h}"
 
 if (( $# < 3 || $# > 4 )); then
   print -u2 "usage: $0 <Prism.app> <version> <build> [Prism.dmg]"
@@ -80,6 +81,7 @@ if [[ -n "$dmg" ]]; then
   hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mount_root" >/dev/null
   mounted=true
   verify_app "$mount_root/Prism.app"
+  python3 -B "$script_dir/verify-dmg-layout.py" "$mount_root"
 fi
 
 print "Public test verification passed for Prism $expected_version ($expected_build)."

@@ -118,7 +118,7 @@ struct WorkspacePicker<Value: Hashable>: View {
             .background(compact ? SettingsPalette.elevated : SettingsPalette.group, in: RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(triggerFocused ? SettingsPalette.action : SettingsPalette.border, lineWidth: triggerFocused ? 2 : 1)
+                    .stroke(triggerFocused ? Color.accentColor : SettingsPalette.border, lineWidth: 1)
             }
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
@@ -188,7 +188,7 @@ struct WorkspacePicker<Value: Hashable>: View {
                         .padding(.horizontal, 10)
                         .frame(height: 32)
                         .foregroundStyle(index == highlightedIndex ? SettingsPalette.actionText : SettingsPalette.primary)
-                        .background(index == highlightedIndex ? SettingsPalette.action : .clear, in: RoundedRectangle(cornerRadius: 6))
+                        .background(index == highlightedIndex ? SettingsPalette.action : .clear, in: RoundedRectangle(cornerRadius: optionCornerRadius, style: .continuous))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -205,9 +205,9 @@ struct WorkspacePicker<Value: Hashable>: View {
                         .padding(10)
                 }
                }
-               .padding(6)
+               .padding(optionInset)
               }
-              .frame(width: 260, height: min(320, max(44, CGFloat(filteredOptions.count) * 35 + 9)))
+              .frame(width: 260, height: min(320, max(44, CGFloat(filteredOptions.count) * 35 - 3 + optionInset * 2)))
               .onChange(of: highlightedIndex) { _, index in proxy.scrollTo(index) }
             }
           }
@@ -250,6 +250,17 @@ struct WorkspacePicker<Value: Hashable>: View {
 
     private var filteredOptions: [WorkspacePickerOption<Value>] {
         Self.matchingOptions(options, query: searchPlaceholder == nil ? "" : searchQuery)
+    }
+
+    private var optionCornerRadius: CGFloat {
+        // Match the system popover's continuous corners with an equal inset on every side.
+        if #available(macOS 26, *) { return 10 }
+        return 6
+    }
+
+    private var optionInset: CGFloat {
+        if #available(macOS 26, *) { return 12 }
+        return 6
     }
 
     static func matchingOptions(_ options: [WorkspacePickerOption<Value>], query: String) -> [WorkspacePickerOption<Value>] {

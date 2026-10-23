@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 @_spi(Testing) import PrismCore
 import SwiftUI
 import Testing
@@ -252,6 +253,44 @@ struct SelectorPositionerTests {
 @Suite("Selector panel")
 @MainActor
 struct SelectorPanelTests {
+    @Test func presentationAnimatesOnlyWhenHiddenAndResetsBeforeReopening() throws {
+        let controller = SelectorPanelController(orderFront: { $0.orderFront(nil) })
+        defer { controller.hide() }
+        let origin = CGPoint(x: 80, y: 90)
+        controller.present(content: AnyView(Text("Choose a browser")), at: origin)
+        let layer = try #require(controller.panel.contentView?.layer)
+        let animationKey = "prism.windowPresentation"
+        let firstAnimation = layer.animation(forKey: animationKey) as? CABasicAnimation
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            #expect(firstAnimation == nil)
+        } else {
+            let animation = try #require(firstAnimation)
+            let start = try #require(animation.fromValue as? NSValue).caTransform3DValue
+            let end = try #require(animation.toValue as? NSValue).caTransform3DValue
+            #expect(animation.duration == 0.25)
+            #expect(start.m11 == 0.8 && start.m22 == 0.8)
+            #expect(CATransform3DIsIdentity(end))
+        }
+
+        controller.present(content: AnyView(Text("Another queued link")), at: origin)
+        #expect(layer.animation(forKey: animationKey)?.beginTime == firstAnimation?.beginTime)
+        #expect(controller.panel.frame.origin == origin)
+        #expect(controller.panel.frame.size == SelectorPanel.contentSize)
+        #expect(controller.panel.firstResponder === controller.panel.contentView)
+
+        controller.hide()
+        #expect(layer.animation(forKey: animationKey) == nil)
+        #expect(controller.panel.alphaValue == 1)
+        #expect(!controller.panel.isVisible)
+
+        controller.present(content: AnyView(Text("Reopen")), at: origin)
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            let reopenedAnimation = try #require(layer.animation(forKey: animationKey))
+            #expect(reopenedAnimation.beginTime > (firstAnimation?.beginTime ?? 0))
+        }
+        #expect(controller.panel.isVisible)
+    }
+
     @Test func panelUsesFixedNonactivatingConfigurationAndCanReceiveKeyboardFocus() {
         let panel = SelectorPanel(contentRect: CGRect(x: 40, y: 60, width: 10, height: 10))
 

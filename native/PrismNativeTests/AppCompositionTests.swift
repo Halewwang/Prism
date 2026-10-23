@@ -821,6 +821,37 @@ func repeatedLinkClicksRouteOrPresentEveryTime(hasRule: Bool) async throws {
 @Suite("Main window presentation", .serialized)
 @MainActor
 struct MainWindowPresentationTests {
+    @Test func presentationAnimationRunsOnlyWhenTheMainWindowBecomesVisible() throws {
+        let fixture = DebugAppFixture.make(bootstrapBuffer: BootstrapLinkBuffer(), variant: .workspace)
+        let delegate = AppDelegate(composition: fixture.composition, copyCurrentSenderPID: { nil })
+        let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+
+        delegate.showMainWindow()
+        let window = try #require(NSApplication.shared.windows.first {
+            !existingWindows.contains(ObjectIdentifier($0)) && $0.title == "Prism"
+        })
+        defer { window.close() }
+        let originalFrame = window.frame
+        let firstAnimation = window.contentView?.layer?.animation(forKey: "prism.windowPresentation")
+        #expect((firstAnimation != nil) == !reduceMotion)
+
+        delegate.showMainWindow()
+
+        #expect(window.contentView?.layer?.animation(forKey: "prism.windowPresentation")?.beginTime
+            == firstAnimation?.beginTime)
+        window.close()
+        delegate.showMainWindow()
+
+        let reopenedAnimation = window.contentView?.layer?.animation(forKey: "prism.windowPresentation")
+        #expect((reopenedAnimation != nil) == !reduceMotion)
+        if let firstAnimation {
+            #expect((reopenedAnimation?.beginTime ?? 0) > firstAnimation.beginTime)
+        }
+        #expect(window.isVisible)
+        #expect(window.frame == originalFrame)
+    }
+
     @Test func reopeningRestoresTheSameClosedWindowAndPreservesItsRoute() throws {
         let fixture = DebugAppFixture.make(bootstrapBuffer: BootstrapLinkBuffer(), variant: .workspace)
         let delegate = AppDelegate(composition: fixture.composition, copyCurrentSenderPID: { nil })
@@ -872,7 +903,8 @@ struct MainWindowPresentationTests {
         })
         defer { window.close() }
 
-        #expect(waitUntil { NSApplication.shared.isActive && window.isKeyWindow && window.isVisible })
+        #expect(waitUntil { NSApplication.shared.isActive && window.isKeyWindow && window.isVisible },
+            "active=\(NSApplication.shared.isActive), key=\(window.isKeyWindow), visible=\(window.isVisible), alpha=\(window.alphaValue)")
     }
 
     private func waitUntil(_ condition: () -> Bool) -> Bool {

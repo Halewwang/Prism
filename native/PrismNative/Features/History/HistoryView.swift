@@ -150,25 +150,7 @@ struct HistoryView: View {
 
     private var resultFilterButtons: some View {
         HStack(spacing: 2) {
-            Menu {
-                ForEach([HistoryResultFilter.all, .failed, .processing]) { filter in
-                    Button(LocalizedStringKey(filter.title)) { resultFilter = filter }
-                        .accessibilityIdentifier(filter == .all ? "history.resultFilter.menu.all" : "history.resultFilter.\(filter.rawValue)")
-                }
-            } label: {
-                Text(LocalizedStringKey((isAdditionalResultSelected ? resultFilter : .all).title))
-                    .font(.system(size: 13, weight: resultFilter == .all || isAdditionalResultSelected ? .semibold : .regular))
-                    .foregroundStyle(resultFilter == .all || isAdditionalResultSelected ? SettingsPalette.primary : SettingsPalette.tertiary)
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .padding(.horizontal, 16)
-            .frame(height: 31)
-            .background(resultFilter == .all || isAdditionalResultSelected ? SettingsPalette.group : .clear, in: RoundedRectangle(cornerRadius: 8))
-            .accessibilityLabel("Result")
-            .accessibilityIdentifier("history.resultFilter.all")
-            ForEach([HistoryResultFilter.opened, .cancelled]) { filter in
+            ForEach([HistoryResultFilter.all, .opened, .cancelled]) { filter in
                 Button { resultFilter = filter } label: {
                     filterLabel(filter, selected: resultFilter == filter)
                 }
@@ -184,10 +166,6 @@ struct HistoryView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Result")
         .accessibilityIdentifier("history.resultFilter")
-    }
-
-    private var isAdditionalResultSelected: Bool {
-        resultFilter == .failed || resultFilter == .processing
     }
 
     private func filterLabel(_ filter: HistoryResultFilter, selected: Bool) -> some View {

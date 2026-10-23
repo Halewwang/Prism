@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { motion, useInView, useReducedMotion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Mail, MoveHorizontal } from 'lucide-react';
+import { Mail, MoveHorizontal } from 'lucide-react';
 import safariIcon from '../assets/browsers/safari.png';
 import chromeIcon from '../assets/browsers/chrome.png';
 import diaIcon from '../assets/browsers/dia.png';
@@ -28,13 +28,13 @@ export const NewFeatures = () => {
   const cards = useRef<(HTMLButtonElement | null)[]>([]);
   const timer = useRef(0);
   const frame = useRef(0);
-  const hasPlayed = useRef(false);
-  const inView = useInView(preview, { once: true, amount: 0.5 });
+  const interrupted = useRef(false);
+  const phase = useRef(0);
+  const inView = useInView(preview, { amount: 0.5 });
   const [selected, setSelected] = useState(0);
-  const [edges, setEdges] = useState({ start: true, end: false });
 
   const stopPreview = useCallback(() => {
-    hasPlayed.current = true;
+    interrupted.current = true;
     window.clearTimeout(timer.current);
     window.cancelAnimationFrame(frame.current);
   }, []);
@@ -42,11 +42,6 @@ export const NewFeatures = () => {
   useEffect(() => {
     const viewport = list.current;
     if (!viewport) return;
-    const updateEdges = () => {
-      const start = viewport.scrollLeft <= 1;
-      const end = viewport.scrollLeft >= viewport.scrollWidth - viewport.clientWidth - 1;
-      setEdges((previous) => previous.start === start && previous.end === end ? previous : { start, end });
-    };
     const wheel = (event: WheelEvent) => {
       stopPreview();
       if (event.ctrlKey || event.metaKey) return;
@@ -58,31 +53,24 @@ export const NewFeatures = () => {
         viewport.scrollLeft = next;
       }
     };
-    const observer = new ResizeObserver(updateEdges);
-    observer.observe(viewport);
-    viewport.addEventListener('scroll', updateEdges, { passive: true });
     viewport.addEventListener('wheel', wheel, { passive: false });
-    updateEdges();
     return () => {
-      observer.disconnect();
-      viewport.removeEventListener('scroll', updateEdges);
       viewport.removeEventListener('wheel', wheel);
     };
   }, [stopPreview]);
 
   useEffect(() => {
-    if (!inView || reduceMotion !== false || hasPlayed.current || !list.current) return;
-    hasPlayed.current = true;
+    if (!inView || reduceMotion !== false || interrupted.current || !list.current) return;
     timer.current = window.setTimeout(() => {
       const viewport = list.current!;
-      const distance = viewport.scrollWidth - viewport.clientWidth;
-      let started: number;
+      let previous: number | undefined;
       const reveal = (now: number) => {
-        started ??= now;
-        const elapsed = now - started;
+        phase.current = (phase.current + (previous === undefined ? 0 : Math.min(now - previous, 64))) % 4800;
+        previous = now;
+        const elapsed = phase.current;
         const progress = elapsed <= 1800 ? elapsed / 1800 : elapsed <= 2200 ? 1 : Math.max(0, 1 - (elapsed - 2200) / 1800);
-        viewport.scrollLeft = distance * progress;
-        if (elapsed < 4000) frame.current = window.requestAnimationFrame(reveal);
+        viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) * progress;
+        frame.current = window.requestAnimationFrame(reveal);
       };
       frame.current = window.requestAnimationFrame(reveal);
     }, 800);
@@ -115,11 +103,6 @@ export const NewFeatures = () => {
     selectBrowser(index);
   };
 
-  const scrollBrowsers = (direction: number) => {
-    stopPreview();
-    list.current?.scrollBy({ left: direction * list.current.clientWidth * 0.8, behavior: reduceMotion ? 'instant' : 'smooth' });
-  };
-
   return (
     <section id="browser-picker" className="browser-picker-section page-width" aria-labelledby="picker-heading">
       <span id="how-it-works" className="section-anchor" aria-hidden="true" />
@@ -150,11 +133,7 @@ export const NewFeatures = () => {
               </div>
             </div>
           </div>
-          <div className="picker-scroll-controls">
-            <p id="picker-scroll-hint"><MoveHorizontal size={15} aria-hidden="true" />Scroll to see more browsers</p>
-            <button type="button" aria-label="Scroll browsers left" disabled={edges.start} onClick={() => scrollBrowsers(-1)}><ChevronLeft size={17} aria-hidden="true" /></button>
-            <button type="button" aria-label="Scroll browsers right" disabled={edges.end} onClick={() => scrollBrowsers(1)}><ChevronRight size={17} aria-hidden="true" /></button>
-          </div>
+          <p id="picker-scroll-hint" className="picker-scroll-hint"><MoveHorizontal size={15} aria-hidden="true" />Scroll to see more browsers</p>
           <figcaption>BROWSER PICKER / INTERACTIVE PREVIEW · SAMPLE DATA</figcaption>
         </motion.figure>
         <motion.div

@@ -106,10 +106,8 @@
 
 .workspace-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px 12px;
   margin-top: 28px;
 }
 
@@ -144,39 +142,22 @@
   box-shadow: 0 1px 3px #00000012;
 }
 
-.workspace-playback {
-  min-width: 64px;
-  min-height: 44px;
-  border: 1px solid #d6d6d6;
-  border-radius: 6px;
-  padding: 10px 12px;
-  background: transparent;
-  color: #555;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.workspace-tabs button:disabled,
-.workspace-playback:disabled { opacity: 0.5; cursor: default; }
+.workspace-tabs button:disabled { opacity: 0.5; cursor: default; }
 
 @media (hover: hover) {
-  .workspace-tabs button[aria-selected='false']:not(:disabled):hover,
-  .workspace-playback:not(:disabled):hover {
+  .workspace-tabs button[aria-selected='false']:not(:disabled):hover {
     background: #dedede;
     color: #262626;
   }
 }
 
-.workspace-tabs button:not(:disabled):active,
-.workspace-playback:not(:disabled):active {
+.workspace-tabs button:not(:disabled):active {
   background: #d4d4d4;
   color: #262626;
   box-shadow: none;
 }
 
 .workspace-tabs button:focus-visible,
-.workspace-playback:focus-visible,
 .workspace-panel:focus-visible { outline: 2px solid #555; outline-offset: 3px; }
 
 .workspace-mount {
@@ -275,17 +256,13 @@
 .picker-browser-card > span { max-width: 100%; white-space: nowrap; }
 .picker-browser-card kbd { display: grid; place-items: center; width: 20px; height: 20px; margin-top: 2px; border: 1px solid #e2e2e2; border-radius: 5px; background: #fff; color: #585858; font-family: inherit; font-size: 11px; font-weight: 400; line-height: 1; }
 .picker-browser-card:focus-visible { outline: 2px solid #737373; outline-offset: -3px; }
-.picker-scroll-controls { display: flex; align-items: center; gap: 4px; margin-top: 10px; color: var(--muted); }
-.picker-scroll-controls p { display: flex; flex: 1; align-items: center; gap: 8px; font-size: 12px; line-height: 1.5; }
-.picker-scroll-controls button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 5px; background: transparent; color: var(--body-text); cursor: pointer; }
-.picker-scroll-controls button:disabled { opacity: 0.35; cursor: default; }
+.picker-scroll-hint { display: flex; align-items: center; gap: 8px; margin-top: 16px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 @media (hover: hover) {
   .picker-browser-card:hover { background: #ededed; }
-  .picker-scroll-controls button:not(:disabled):hover { background: #e4e8e5; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .picker-browser-card, .picker-scroll-controls button { transition: background-color 120ms ease-out, scale 150ms ease-out; }
-  .picker-browser-card:not(:disabled):active, .picker-scroll-controls button:not(:disabled):active { scale: 0.96; }
+  .picker-browser-card { transition: background-color 120ms ease-out, scale 150ms ease-out; }
+  .picker-browser-card:not(:disabled):active { scale: 0.96; }
 }
 
 .picker-figure figcaption {
@@ -387,7 +364,7 @@
   .picker-preview-header { font-size: 10px; }
   .picker-preview-header > span { padding-inline: 7px; }
   .picker-preview-header > span:nth-child(2) { font-size: 9px; }
-  .picker-scroll-controls p { gap: 6px; font-size: 11px; }
+  .picker-scroll-hint { gap: 6px; font-size: 11px; }
   .picker-figure figcaption { font-size: 9px; letter-spacing: 0.2px; }
   .picker-explanation { gap: 22px; }
   .picker-explanation h2 { font-size: clamp(30px, 8vw, 38px); letter-spacing: -1.4px; }

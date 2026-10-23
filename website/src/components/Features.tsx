@@ -39,13 +39,12 @@ const workspaceViews = [
 export const Features = () => {
   const reduceMotion = useReducedMotion();
   const [activeView, setActiveView] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [inView, setInView] = useState(false);
   const [imageState, setImageState] = useState<'loading' | 'ready' | 'error'>('loading');
   const showcase = useRef<HTMLElement>(null);
+  const section = useRef<HTMLElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
-  const isPlaying = !paused && !reduceMotion;
   const imagesReady = imageState === 'ready';
 
   useEffect(() => {
@@ -67,17 +66,13 @@ export const Features = () => {
   }, []);
 
   useEffect(() => {
-    if (!isPlaying || !inView || !imagesReady) return;
+    if (reduceMotion || !inView || !imagesReady) return;
     const timer = window.setInterval(() => {
+      if (section.current?.matches(':focus-within')) return;
       setActiveView((index) => (index + 1) % workspaceViews.length);
     }, 3200);
     return () => window.clearInterval(timer);
-  }, [isPlaying, inView, imagesReady]);
-
-  const selectView = (index: number) => {
-    setPaused(true);
-    setActiveView(index);
-  };
+  }, [reduceMotion, inView, imagesReady]);
 
   const navigateTabs = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let nextIndex: number;
@@ -89,12 +84,12 @@ export const Features = () => {
       default: return;
     }
     event.preventDefault();
-    selectView(nextIndex);
+    setActiveView(nextIndex);
     tabRefs.current[nextIndex]?.focus();
   };
 
   return (
-    <section id="features" className="product-routing page-width" aria-labelledby="routing-heading">
+    <section id="features" className="product-routing page-width" aria-labelledby="routing-heading" ref={section}>
       <span id="new-features" className="section-anchor" aria-hidden="true" />
       <motion.div
         initial={reduceMotion ? false : { opacity: 0, y: 20 }}
@@ -124,7 +119,7 @@ export const Features = () => {
               ))}
             </div>
             <div className="workspace-toolbar">
-              <div className="workspace-tabs" role="tablist" aria-label="App screenshot views" onFocus={() => setPaused(true)}>
+              <div className="workspace-tabs" role="tablist" aria-label="App screenshot views">
                 {workspaceViews.map((view, index) => (
                   <button
                     key={view.id}
@@ -136,24 +131,13 @@ export const Features = () => {
                     aria-controls={`workspace-panel-${view.id}`}
                     tabIndex={activeView === index ? 0 : -1}
                     disabled={!imagesReady}
-                    onClick={() => selectView(index)}
+                    onClick={() => setActiveView(index)}
                     onKeyDown={(event) => navigateTabs(event, index)}
                   >
                     {view.label}
                   </button>
                 ))}
               </div>
-              {!reduceMotion && (
-                <button
-                  className="workspace-playback"
-                  type="button"
-                  aria-label={isPlaying ? 'Pause screenshot slideshow' : 'Play screenshot slideshow'}
-                  disabled={imageState === 'error'}
-                  onClick={() => setPaused(!paused)}
-                >
-                  {isPlaying ? 'Pause' : 'Play'}
-                </button>
-              )}
             </div>
           </div>
           <figure className="workspace-showcase" ref={showcase}>
@@ -173,7 +157,6 @@ export const Features = () => {
                   aria-hidden={!imagesReady || activeView !== index}
                   inert={!imagesReady || activeView !== index}
                   tabIndex={imagesReady && activeView === index ? 0 : -1}
-                  onFocus={() => setPaused(true)}
                 >
                   <img
                     src={`/screenshots/1.14.9/prism-${view.id}-en.png`}

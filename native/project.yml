@@ -30,8 +30,8 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: 15.0
         SWIFT_VERSION: 6.0
         ENABLE_HARDENED_RUNTIME: YES
-        MARKETING_VERSION: 1.14.13
-        CURRENT_PROJECT_VERSION: 14
+        MARKETING_VERSION: 1.15.0
+        CURRENT_PROJECT_VERSION: 15
         SPARKLE_PUBLIC_ED_KEY: ""
     info:
       path: PrismNative/Resources/Info.plist
@@ -46,6 +46,8 @@ targets:
             CFBundleURLSchemes: [https]
         LSMinimumSystemVersion: "15.0"
         NSPrincipalClass: NSApplication
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsInWebContent: true
         SUFeedURL: https://github.com/Halewwang/Prism/releases/latest/download/appcast.xml
         SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
         SUEnableAutomaticChecks: true
@@ -82,8 +84,8 @@ targets:
         SWIFT_VERSION: 6.0
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) PRISM_PUBLIC_TEST
         ENABLE_HARDENED_RUNTIME: YES
-        MARKETING_VERSION: 1.14.13
-        CURRENT_PROJECT_VERSION: 14
+        MARKETING_VERSION: 1.15.0
+        CURRENT_PROJECT_VERSION: 15
         SPARKLE_PUBLIC_ED_KEY: ""
     info:
       path: PrismNative/Resources/Info.plist
@@ -98,6 +100,8 @@ targets:
             CFBundleURLSchemes: [https]
         LSMinimumSystemVersion: "15.0"
         NSPrincipalClass: NSApplication
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsInWebContent: true
         SUFeedURL: https://github.com/Halewwang/Prism/releases/latest/download/appcast.xml
         SUPublicEDKey: $(SPARKLE_PUBLIC_ED_KEY)
         SUEnableAutomaticChecks: true
@@ -154,6 +158,8 @@ schemes:
         PrismNativeTests: [test]
     test:
       targets: [PrismNativeTests]
+      commandLineArguments:
+        "--ui-testing": true
   PrismNative-UI:
     build:
       targets:

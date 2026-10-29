@@ -535,3 +535,28 @@
 
 "rules.category.url" = "网址";
 "rules.category.application" = "应用";
+
+"selector.presentation.title" = "选择窗口模式";
+"selector.presentation.detail" = "直接选择浏览器，或先预览网页。预览窗口会记住尺寸，登录状态与外部浏览器独立。";
+"selector.presentation.compact" = "浏览器选择器";
+"selector.presentation.preview" = "链接预览";
+
+"linkPreview.panel.title" = "链接预览";
+"preview.back" = "后退";
+"preview.forward" = "前进";
+"preview.reload" = "刷新";
+"preview.recommended" = "%@ · 推荐";
+"preview.unsupportedLink" = "此链接无法在预览中打开，请使用浏览器继续。";
+"preview.download" = "请使用浏览器打开此链接以下载文件。";
+"preview.processStopped" = "预览已停止，刷新后可继续浏览。";
+"preview.ok" = "好";
+"preview.closeEsc" = "关闭预览（Esc）";
+"preview.previousBrowser" = "上一个浏览器（↑）";
+"preview.nextBrowser" = "下一个浏览器（↓）";
+"preview.zoomHelp" = "页面缩放：⌘+ / ⌘− / ⌘0；也可用触控板捏合";
+"preview.zoomLevelFormat" = "页面缩放：%ld%%";
+"preview.zoomIn" = "放大（⌘+）";
+"preview.zoomOut" = "缩小（⌘−）";
+"preview.zoomReset" = "实际大小（⌘0）";
+"preview.recoveryTitle" = "链接等待恢复";
+"preview.recoveryDetail" = "选择浏览器重试打开此地址，或取消此链接。";

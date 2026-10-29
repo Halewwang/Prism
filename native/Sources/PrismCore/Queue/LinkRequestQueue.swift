@@ -6,6 +6,7 @@ public enum LinkRequestQueueError: Error, Equatable, Sendable {
     case duplicateRequestID(UUID)
     case illegalTransition(id: UUID, from: LinkRequestState, to: LinkRequestState)
     case mismatchedHistoryRequestID(expected: UUID, actual: UUID)
+    case invalidHandoffURL
 }
 
 public actor LinkRequestQueue {
@@ -157,13 +158,17 @@ public actor LinkRequestQueue {
         }
     }
 
-    public func markLaunching(_ id: UUID, browserID: BrowserID) async throws {
+    public func markLaunching(_ id: UUID, browserID: BrowserID, handoffURL: URL? = nil) async throws {
         await acquireMutationPermit()
         defer { releaseMutationPermit() }
 
         try await mutateRequest(id) { request in
             guard request.state == .queued || request.state == .presenting || request.state == .outcomeUnknown else {
                 throw LinkRequestQueueError.illegalTransition(id: id, from: request.state, to: .launching)
+            }
+            if let handoffURL {
+                try Self.validateHandoffURL(handoffURL)
+                request.handoffURL = handoffURL
             }
             request.state = .launching
             request.lastAttemptedBrowserID = browserID
@@ -374,6 +379,11 @@ public actor LinkRequestQueue {
             let duplicate = ids.first { id in ids.filter { $0 == id }.count > 1 }!
             throw LinkRequestQueueError.duplicateRequestID(duplicate)
         }
+        for request in snapshot.pendingRequests {
+            if let handoffURL = request.handoffURL {
+                try validateHandoffURL(handoffURL)
+            }
+        }
         for terminalRecord in snapshot.terminalRecords {
             if let historyEntry = terminalRecord.historyEntry, historyEntry.requestID != terminalRecord.requestID {
                 throw LinkRequestQueueError.mismatchedHistoryRequestID(
@@ -381,6 +391,14 @@ public actor LinkRequestQueue {
                     actual: historyEntry.requestID
                 )
             }
+        }
+    }
+
+    private static func validateHandoffURL(_ url: URL) throws {
+        guard let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = url.host, !host.isEmpty else {
+            throw LinkRequestQueueError.invalidHandoffURL
         }
     }
 

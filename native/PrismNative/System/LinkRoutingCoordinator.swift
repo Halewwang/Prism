@@ -44,11 +44,13 @@ protocol LinkRoutingCoordinating: AnyObject {
     @discardableResult
     func presentForExplicitSelection(requestID: UUID) async -> Bool
     func select(browserID: BrowserID, for requestID: UUID) async
+    func select(browserID: BrowserID, for requestID: UUID, handoffURL: URL) async
     func retry(browserID: BrowserID, for requestID: UUID) async
     func canRetryFromHistory(requestID: UUID) async -> Bool
     @discardableResult
     func retryFromHistory(browserID: BrowserID, requestID: UUID) async -> Bool
     func canDeleteHistoryEntry(requestID: UUID) async -> Bool
+    func historyMaintenanceAvailabilityUpdates() -> AsyncStream<Void>
     @discardableResult
     func deleteHistoryEntry(_ entry: HistoryEntry) async -> HistoryMaintenanceResult
     func canClearHistoryEntries(_ entries: [HistoryEntry]) async -> Bool
@@ -75,12 +77,20 @@ extension LinkRoutingCoordinating {
     @discardableResult
     func presentForExplicitSelection(requestID _: UUID) async -> Bool { false }
 
+    func select(browserID: BrowserID, for requestID: UUID, handoffURL _: URL) async {
+        await select(browserID: browserID, for: requestID)
+    }
+
     func canRetryFromHistory(requestID _: UUID) async -> Bool { false }
 
     @discardableResult
     func retryFromHistory(browserID _: BrowserID, requestID _: UUID) async -> Bool { false }
 
     func canDeleteHistoryEntry(requestID _: UUID) async -> Bool { false }
+
+    func historyMaintenanceAvailabilityUpdates() -> AsyncStream<Void> {
+        AsyncStream { $0.finish() }
+    }
 
     @discardableResult
     func deleteHistoryEntry(_: HistoryEntry) async -> HistoryMaintenanceResult { .unavailable }
@@ -176,6 +186,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
     private var activeUserActionRequestIDs: Set<UUID> = []
     private var historyMaintenanceActionInFlight = false
     private var isProcessing = false
+    private var historyMaintenanceContinuations: [UUID: AsyncStream<Void>.Continuation] = [:]
 
     var hasInFlightOperations: Bool {
         isProcessing || historyMaintenanceActionInFlight
@@ -226,7 +237,10 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
               activeUserActionRequestIDs.isEmpty
         else { return .busy }
         isProcessing = true
-        defer { isProcessing = false }
+        defer {
+            isProcessing = false
+            publishHistoryMaintenanceAvailability()
+        }
 
         guard shouldContinue() else { return .paused }
         if let uncertain = firstUncertainAttempt() {
@@ -343,6 +357,16 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
     }
 
     func select(browserID: BrowserID, for requestID: UUID) async {
+        await selectBrowser(browserID: browserID, for: requestID, handoffURL: nil)
+    }
+
+    func select(browserID: BrowserID, for requestID: UUID, handoffURL: URL) async {
+        guard BootstrapLinkBuffer.accepts(handoffURL),
+              let host = handoffURL.host, !host.isEmpty else { return }
+        await selectBrowser(browserID: browserID, for: requestID, handoffURL: handoffURL)
+    }
+
+    private func selectBrowser(browserID: BrowserID, for requestID: UUID, handoffURL: URL?) async {
         guard beginUserAction(for: requestID) else { return }
         var shouldRequestContinuation = false
         defer {
@@ -354,10 +378,12 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
 
         guard uncertainAttempts[requestID] == nil,
               failedHandoffPersistence[requestID] == nil,
-              storageBlockedRequests[requestID] == nil,
-              let request = await request(withID: requestID)
+              var request = await request(withID: requestID)
         else {
             return
+        }
+        if let handoffURL = handoffURL ?? storageBlockedRequests[requestID]?.handoffURL {
+            request.handoffURL = handoffURL
         }
         let browser: BrowserDescriptor
         do {
@@ -446,6 +472,18 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         return !(await historyRequestIsOwned(requestID))
     }
 
+    func historyMaintenanceAvailabilityUpdates() -> AsyncStream<Void> {
+        let subscriptionID = UUID()
+        return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            historyMaintenanceContinuations[subscriptionID] = continuation
+            continuation.onTermination = { @Sendable [weak self] _ in
+                Task { @MainActor in
+                    self?.historyMaintenanceContinuations[subscriptionID] = nil
+                }
+            }
+        }
+    }
+
     @discardableResult
     func deleteHistoryEntry(_ entry: HistoryEntry) async -> HistoryMaintenanceResult {
         guard beginHistoryMaintenanceAction() else { return .unavailable }
@@ -522,8 +560,9 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
             }
         }
 
-        storageBlockedRequests[requestID] = nil
-        guard let request = await request(withID: requestID) else { return (false, false) }
+        let blockedRequest = storageBlockedRequests[requestID]
+        guard var request = await request(withID: requestID) else { return (false, false) }
+        if let handoffURL = blockedRequest?.handoffURL { request.handoffURL = handoffURL }
         let browser: BrowserDescriptor
         do {
             guard let available = try await availableBrowser(id: browserID) else {
@@ -636,7 +675,10 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
             }
         }
 
-        guard let request = await request(withID: requestID) else { return .notCancelled }
+        guard var request = await request(withID: requestID) else { return .notCancelled }
+        if let handoffURL = storageBlockedRequests[requestID]?.handoffURL {
+            request.handoffURL = handoffURL
+        }
         let settings = loadSettingsForRouting()
         let history = settings.values.historyEnabled ? cancellationHistory(for: request) : nil
 
@@ -685,7 +727,8 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         }
 
         do {
-            try await queue.markLaunching(request.id, browserID: browser.id)
+            try await queue.markLaunching(request.id, browserID: browser.id, handoffURL: request.handoffURL)
+            storageBlockedRequests[request.id] = nil
         } catch {
             storageBlockedRequests[request.id] = request
             presenter.present(request, context: .storageUnavailable)
@@ -704,7 +747,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         )
 
         do {
-            _ = try await browserLauncher.open(request.url, with: browser)
+            _ = try await browserLauncher.open(request.launchURL, with: browser)
         } catch {
             await handleFailedHandoff(context)
             return false
@@ -733,7 +776,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         }
         presenter.dismiss(requestID: request.id)
         if method == .manual, settings.canWriteBack {
-            saveLastUsedBrowserBestEffort(browser.id, settings: settings.values)
+            saveLastUsedBrowserBestEffort(browser.id)
         }
         await persistTerminalHistoryAndCompact(
             requestID: request.id,
@@ -831,6 +874,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
 
     private func endUserAction(for requestID: UUID) {
         activeUserActionRequestIDs.remove(requestID)
+        publishHistoryMaintenanceAvailability()
     }
 
     private func beginHistoryMaintenanceAction() -> Bool {
@@ -847,6 +891,13 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
 
     private func endHistoryMaintenanceAction() {
         historyMaintenanceActionInFlight = false
+        publishHistoryMaintenanceAvailability()
+    }
+
+    private func publishHistoryMaintenanceAvailability() {
+        for continuation in historyMaintenanceContinuations.values {
+            continuation.yield(())
+        }
     }
 
     private func historyRequestIsOwned(_ requestID: UUID) async -> Bool {
@@ -907,7 +958,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         HistoryEntry(
             id: request.id,
             requestID: request.id,
-            sanitizedURL: sanitizer.sanitize(request.url),
+            sanitizedURL: sanitizer.sanitize(request.launchURL),
             sourceBundleIdentifier: request.source.bundleIdentifier,
             sourceDisplayName: request.source.displayName,
             targetBrowserID: nil,
@@ -929,6 +980,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         ruleID: UUID?
     ) -> HistoryEntry? {
         var entry = existingOrNewHistory(for: request)
+        entry.sanitizedURL = sanitizer.sanitize(request.launchURL)
         do {
             if entry.result == .processing,
                let activeBrowserID = entry.targetBrowserID {
@@ -1022,7 +1074,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         HistoryEntry(
             id: entry.id,
             requestID: request.id,
-            sanitizedURL: sanitizer.sanitize(request.url),
+            sanitizedURL: sanitizer.sanitize(request.launchURL),
             sourceBundleIdentifier: request.source.bundleIdentifier,
             sourceDisplayName: request.source.displayName,
             targetBrowserID: browserID,
@@ -1066,10 +1118,10 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         }
     }
 
-    private func saveLastUsedBrowserBestEffort(_ browserID: BrowserID, settings: AppSettings) {
-        var updated = settings
-        updated.lastUsedBrowserID = browserID
+    private func saveLastUsedBrowserBestEffort(_ browserID: BrowserID) {
         do {
+            var updated = try settingsRepository.load()
+            updated.lastUsedBrowserID = browserID
             try settingsRepository.save(updated)
         } catch {
             warningPresenter.present(.settingsNotSaved)

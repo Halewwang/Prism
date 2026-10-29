@@ -8,12 +8,12 @@
     <img src="assets/brand/sources/brand-128.svg" alt="Prism" width="96" height="96" />
   </picture>
   <h2>Your links. In the right browser.</h2>
-  <p>A native browser router for macOS.<br />Open work links in your work browser, keep personal browsing separate, and choose a browser when you need to.</p>
-  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.14.13 / Build 14 public test</strong></p>
+  <p>A native browser router for macOS.<br />Open work links in your work browser, keep personal browsing separate, or preview a page before choosing its browser.</p>
+  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.0 / Build 15 public test</strong></p>
   <p>
     <a href="https://prismmac.vercel.app/">Website</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.14.13/Prism-1.14.13-universal-test.dmg">Download for macOS</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.14.13">Release notes</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.0/Prism-1.15.0-universal-test.dmg">Download for macOS</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.0">Release notes</a>
   </p>
 </div>
 
@@ -23,7 +23,9 @@ Set Prism as your default browser. When you open an HTTP or HTTPS link from anot
 
 - **Route by URL.** Match an exact domain, a domain and its subdomains, or text contained in a URL.
 - **Route by source app.** Give links from a confirmed source application their own browser. URL rules take priority; source detection varies by app.
-- **Choose in a moment.** The compact browser picker appears near your pointer, with number keys, arrow keys, Return, and Escape support.
+- **Preview before opening.** Browse and interact with a page in a floating preview, then hand it off to your chosen browser. Switch back to the classic browser picker in Settings at any time.
+- **Choose in a moment.** Click a browser or use number keys, arrows, and Return. Narrow preview windows use an icon-and-number menu with up/down selection; Escape closes the preview.
+- **Make room for the page.** Move and resize the preview, with its size remembered for next time. Zoom with pinch gestures or ⌘+ / ⌘− / ⌘0.
 - **Keep a useful fallback.** Show the picker, use your preferred browser, or reuse the last browser that successfully opened a link. The picker puts recently used browsers first.
 - **Find links again.** Search and filter local history, review how a link was handled, and jump to rules to correct future routing. Preview a rule without opening a browser.
 - **Keep routing local.** Rules, settings, and link history stay on your Mac. Update checks contact GitHub and can be turned off.
@@ -47,20 +49,20 @@ Choose directly when a link needs a different browser.
 
 <img src="website/public/screenshots/1.14.9/prism-selector-en.png" alt="Prism browser picker with browser icons and keyboard shortcuts" width="480" />
 
-<small>Screenshots show v1.14.9 with sample data. They do not show later changes to window motion, history filters, menu styling, or the installer, onboarding, and update interfaces.</small>
+<small>Screenshots show v1.14.9 with sample data. They do not show link previews or subsequent changes to window motion, history filters, menu styling, or the installer, onboarding, and update interfaces.</small>
 
 ## Get started
 
-1. Download [Prism-1.14.13-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.14.13/Prism-1.14.13-universal-test.dmg), open it, and drag Prism into Applications.
+1. Download [Prism-1.15.0-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.0/Prism-1.15.0-universal-test.dmg), open it, and drag Prism into Applications.
 2. Open Prism and follow setup to make it your default browser. You can also select it in **System Settings → Desktop & Dock → Default web browser**.
-3. Choose your fallback browser behavior, then add a URL or source-app rule.
+3. Choose your fallback behavior. For manual browser choices, select Link Preview or Browser Picker in Settings, then add URL or source-app rules.
 4. Open a link from an app you use and check where it goes.
 
-This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS; see the [installation instructions and public-test limitations](docs/public-test-release-1.14.13.md). The download is a Universal build for Apple Silicon and Intel Macs.
+This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS; see the [installation instructions and public-test limitations](docs/public-test-release-1.15.0.md). The download is a Universal build for Apple Silicon and Intel Macs.
 
-v1.14.13 brings a consistent layout to the disk image installer, first-run setup, and update window. Users on v1.14.11 or v1.14.12 can check for updates and install in the app.
+v1.15.0 adds interactive link previews, browser selection that adapts to window width, and page zoom. It also improves status-menu visibility over full-screen apps, desktop switching, and web resource cleanup when a preview closes. Users on native v1.14.11 or later can check for updates and install in the app.
 
-Source detection varies by app. Regex rules are not supported; Chrome / Edge profile routing is experimental.
+Link preview uses macOS WebKit and its own sign-in session; it does not inherit logins from external browsers. Website compatibility depends on the site and macOS version; open the page in your browser if its sign-in or features are unsupported. Source detection varies by app. Regex rules are not supported; Chrome / Edge profile routing is experimental.
 
 ## A few useful examples
 

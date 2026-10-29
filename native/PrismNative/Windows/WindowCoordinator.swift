@@ -27,6 +27,9 @@ final class MainWindowOpening {
 final class WindowCoordinator: LinkSelectionPresenting {
     private let mainWindowOpening: MainWindowOpening
     private let panelController: any SelectorPanelControlling
+    private let previewPanelController: any LinkPreviewPanelControlling
+    private let previewEnabled: @MainActor () -> Bool
+    private var activeIsPreview = false
     private let positioner: SelectorPositioner
     private let pointerLocation: @MainActor () -> CGPoint
     private let visibleFrames: @MainActor () -> [CGRect]
@@ -37,6 +40,8 @@ final class WindowCoordinator: LinkSelectionPresenting {
     init(
         mainWindowOpening: MainWindowOpening,
         panelController: any SelectorPanelControlling = SelectorPanelController(),
+        previewPanelController: any LinkPreviewPanelControlling = LinkPreviewPanelController(),
+        previewEnabled: @escaping @MainActor () -> Bool = { false },
         positioner: SelectorPositioner = SelectorPositioner(),
         pointerLocation: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
         visibleFrames: @escaping @MainActor () -> [CGRect] = { NSScreen.screens.map(\.visibleFrame) },
@@ -44,6 +49,8 @@ final class WindowCoordinator: LinkSelectionPresenting {
     ) {
         self.mainWindowOpening = mainWindowOpening
         self.panelController = panelController
+        self.previewPanelController = previewPanelController
+        self.previewEnabled = previewEnabled
         self.positioner = positioner
         self.pointerLocation = pointerLocation
         self.visibleFrames = visibleFrames
@@ -51,10 +58,25 @@ final class WindowCoordinator: LinkSelectionPresenting {
     }
 
     func present(_ request: LinkRequest, context: SelectorPresentationContext) {
+        let isPreview = previewEnabled()
+        if activeRequestID == request.id, isPreview == activeIsPreview, let activeSession {
+            activeSession.update(context: context)
+            return
+        }
         activeSession?.cancel()
-        let session = contentProvider.makeSession(request: request, context: context)
+        if activeRequestID != nil, activeIsPreview != isPreview {
+            if activeIsPreview { previewPanelController.hide() } else { panelController.hide() }
+        }
+        activeIsPreview = isPreview
+        let session = isPreview
+            ? contentProvider.makePreviewSession(request: request, context: context)
+            : contentProvider.makeSession(request: request, context: context)
         activeSession = session
         activeRequestID = session.requestID
+        if isPreview {
+            previewPanelController.present(content: session.content, pointer: pointerLocation(), visibleFrames: visibleFrames()) { [weak session] in session?.close() }
+            return
+        }
         let origin = positioner.origin(
             panelSize: SelectorPanel.contentSize,
             pointer: pointerLocation(),
@@ -72,7 +94,7 @@ final class WindowCoordinator: LinkSelectionPresenting {
         activeSession?.cancel()
         activeSession = nil
         activeRequestID = nil
-        panelController.hide()
+        if activeIsPreview { previewPanelController.hide() } else { panelController.hide() }
     }
 
     func showMainWindow(route: AppRoute) {

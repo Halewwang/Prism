@@ -17,8 +17,8 @@ const browsers = [
 ];
 const shortcuts = [
   ['1, 2…', 'Open with a browser’s number'],
-  ['← →', 'Choose with arrows, then press Return'],
-  ['Esc', 'Cancel the picker'],
+  ['←→ ↑↓', 'Select a browser, then press Return'],
+  ['Esc', 'Close the preview or picker'],
 ];
 
 export const NewFeatures = () => {
@@ -119,7 +119,7 @@ export const NewFeatures = () => {
           onFocusCapture={stopPreview}
         >
           <div className="picker-mount">
-            <div className="picker-preview" role="group" aria-label="Browser picker preview">
+            <div className="picker-preview" role="group" aria-label="Classic browser picker preview">
               <div className="picker-preview-header" aria-hidden="true">
                 <span><Mail size={16} />Mail</span><span>https://developer.apple.com</span><span>Cancel</span>
               </div>
@@ -134,7 +134,7 @@ export const NewFeatures = () => {
             </div>
           </div>
           <p id="picker-scroll-hint" className="picker-scroll-hint"><MoveHorizontal size={15} aria-hidden="true" />Scroll to see more browsers</p>
-          <figcaption>BROWSER PICKER / INTERACTIVE PREVIEW · SAMPLE DATA</figcaption>
+          <figcaption>CLASSIC PICKER / INTERACTIVE PREVIEW · SAMPLE DATA</figcaption>
         </motion.figure>
         <motion.div
           className="picker-explanation"
@@ -143,10 +143,11 @@ export const NewFeatures = () => {
           viewport={{ once: true, amount: 0.2 }}
           transition={{ duration: reduceMotion ? 0 : 0.7, delay: reduceMotion ? 0 : 0.1 }}
         >
-          <p className="product-label">02 / CHOOSE YOUR FALLBACK</p>
-          <h2 id="picker-heading">No matching rule?<br />Choose what happens.</h2>
-          <p className="picker-description">Use the picker, a preferred browser, or the last browser that opened a link. The picker appears near your pointer. Scroll sideways to see more browsers.</p>
-          <ul className="picker-shortcuts" aria-label="Browser picker keyboard shortcuts">
+          <p className="product-label">02 / PREVIEW OR PICK</p>
+          <h2 id="picker-heading">Preview first.<br />Pick a browser.</h2>
+          <p className="picker-description">Open a link in a floating preview, browse the page, then open it in your chosen browser. Switch between link preview and the classic picker shown here in Settings.</p>
+          <p className="picker-description">Resize the preview and Prism remembers its size. Zoom the page, or use the compact icon-and-number menu to choose a browser in a narrow window.</p>
+          <ul className="picker-shortcuts" aria-label="Browser selection keyboard shortcuts">
             {shortcuts.map(([keys, description]) => (
               <li key={keys}><kbd>{keys}</kbd><span>{description}</span></li>
             ))}

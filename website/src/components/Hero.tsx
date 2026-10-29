@@ -19,7 +19,7 @@ export const Hero = () => {
           <motion.h1 id="hero-title" initial={entrance} animate={visible} transition={{ duration: reduceMotion ? 0.15 : 0.3, ease: 'easeOut' }}>
             Your links.<br />In the right browser.
           </motion.h1>
-          <motion.p className="hero-description" initial={entrance} animate={visible} transition={{ duration: reduceMotion ? 0.15 : 0.3, delay: reduceMotion ? 0 : 0.1, ease: 'easeOut' }}>Set rules for websites and source apps. When no rule matches, choose where the link opens.</motion.p>
+          <motion.p className="hero-description" initial={entrance} animate={visible} transition={{ duration: reduceMotion ? 0.15 : 0.3, delay: reduceMotion ? 0 : 0.1, ease: 'easeOut' }}>Route links by website or source app. When you want a closer look, preview the page before choosing its browser.</motion.p>
         </div>
         <motion.div className="hero-actions" initial={entrance} animate={visible} transition={{ duration: reduceMotion ? 0.15 : 0.3, delay: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}>
           <a className="download-button" href={release.downloadUrl}>

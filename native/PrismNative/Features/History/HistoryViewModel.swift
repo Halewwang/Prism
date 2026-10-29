@@ -87,6 +87,7 @@ final class HistoryViewModel {
     private let clipboard: any HistoryClipboardWriting
     private let navigation: any HistoryNavigationHandling
     private var activeActions: [UUID: HistoryRowActivity] = [:]
+    private var maintenanceRefreshID = UUID()
     private let sanitizer = URLSanitizer.default
 
     init(
@@ -164,6 +165,14 @@ final class HistoryViewModel {
 
     func runSession() async {
         let updates = historyService.changeUpdates()
+        let maintenanceUpdates = coordinator.historyMaintenanceAvailabilityUpdates()
+        let maintenanceTask = Task { @MainActor [weak self] in
+            for await _ in maintenanceUpdates {
+                guard !Task.isCancelled else { return }
+                await self?.refreshMaintenanceAvailability()
+            }
+        }
+        defer { maintenanceTask.cancel() }
         await load()
         for await _ in updates {
             guard !Task.isCancelled else { break }
@@ -414,6 +423,8 @@ final class HistoryViewModel {
     }
 
     private func refreshMaintenanceAvailability() async {
+        let refreshID = UUID()
+        maintenanceRefreshID = refreshID
         guard !entries.isEmpty else {
             maintenanceUnavailableRequestIDs = []
             isClearMaintenanceAvailable = false
@@ -425,7 +436,9 @@ final class HistoryViewModel {
                 unavailable.insert(entry.requestID)
             }
         }
+        let canClear = await coordinator.canClearHistoryEntries(entries)
+        guard maintenanceRefreshID == refreshID else { return }
         maintenanceUnavailableRequestIDs = unavailable
-        isClearMaintenanceAvailable = await coordinator.canClearHistoryEntries(entries)
+        isClearMaintenanceAvailable = canClear
     }
 }

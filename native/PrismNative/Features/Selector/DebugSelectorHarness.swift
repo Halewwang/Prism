@@ -42,11 +42,25 @@ enum DebugUITestConfiguration {
         case failed
         case empty
         case recovery
+        case preview
+        case previewNarrow
+        case previewWide
+
+        var isPreview: Bool { self == .preview || self == .previewNarrow || self == .previewWide }
+
+        var previewSize: CGSize {
+            switch self {
+            case .previewNarrow: CGSize(width: 360, height: 640)
+            case .previewWide: CGSize(width: 1_000, height: 800)
+            default: CGSize(width: 600, height: 800)
+            }
+        }
 
         var browserCount: Int {
             switch self {
             case .three: 3
             case .five: 5
+            case .preview, .previewNarrow, .previewWide: 8
             case .failed, .recovery: 3
             case .empty: 0
             }
@@ -54,7 +68,7 @@ enum DebugUITestConfiguration {
 
         func presentationContext(firstBrowserID: BrowserID?) -> SelectorPresentationContext {
             switch self {
-            case .three, .five:
+            case .three, .five, .preview, .previewNarrow, .previewWide:
                 .normal
             case .failed:
                 .launchFailed(
@@ -194,7 +208,7 @@ struct DebugSelectorHarnessBootstrapView: View {
 }
 
 @MainActor
-final class DebugSelectorHarness {
+final class DebugSelectorHarness: NSObject {
     private final class ActivationWindow: NSWindow {
         override var canBecomeKey: Bool { true }
         override var canBecomeMain: Bool { true }
@@ -203,7 +217,9 @@ final class DebugSelectorHarness {
     private let coordinator: WindowCoordinator
     private let presentationContext: SelectorPresentationContext
     private let activationWindow: NSWindow
-    private let selectorPanel: SelectorPanel
+    private let selectorPanel: NSPanel
+    private let isPreview: Bool
+    private let previewDefaultsSuite: String?
     private var didPresent = false
 
     init(
@@ -211,22 +227,30 @@ final class DebugSelectorHarness {
         appearance: DebugUITestConfiguration.SelectorAppearance
     ) {
         let browsers = Self.makeBrowsers(count: variant.browserCount)
+        isPreview = variant.isPreview
         presentationContext = variant.presentationContext(firstBrowserID: browsers.first?.id)
-        let routing = DebugSelectorRoutingCoordinator()
+        let routing = DebugSelectorRoutingCoordinator(isPreview: variant.isPreview)
         let contentProvider = DebugSelectorContentProvider(
             browsers: browsers,
             routingCoordinator: routing
         )
         let visibleFrame = NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1_440, height: 900)
+        let contentSize = variant.isPreview ? variant.previewSize : SelectorPanel.contentSize
         let desiredOrigin = CGPoint(
-            x: visibleFrame.midX - SelectorPanel.contentSize.width / 2,
-            y: visibleFrame.midY - SelectorPanel.contentSize.height / 2
+            x: visibleFrame.midX - contentSize.width / 2,
+            y: visibleFrame.midY - contentSize.height / 2
         )
         let panel = SelectorPanel(
             contentRect: CGRect(origin: desiredOrigin, size: SelectorPanel.contentSize)
         )
         panel.appearance = appearance.nsAppearance
-        selectorPanel = panel
+        let previewPanel = LinkPreviewPanel(contentRect: CGRect(origin: desiredOrigin, size: contentSize))
+        previewPanel.appearance = appearance.nsAppearance
+        selectorPanel = variant.isPreview ? previewPanel : panel
+        let suiteName = "prism.debug.linkPreview.\(UUID().uuidString)"
+        let previewDefaults = UserDefaults(suiteName: suiteName)!
+        previewDefaultsSuite = suiteName
+        previewDefaults.set([Double(contentSize.width), Double(contentSize.height)], forKey: "linkPreview.windowSize")
         let activationWindow = ActivationWindow(
             contentRect: CGRect(origin: desiredOrigin, size: SelectorPanel.contentSize),
             styleMask: [.borderless],
@@ -243,16 +267,38 @@ final class DebugSelectorHarness {
         coordinator = WindowCoordinator(
             mainWindowOpening: MainWindowOpening(updateRoute: { _ in }),
             panelController: SelectorPanelController(panel: panel),
+            previewPanelController: LinkPreviewPanelController(panel: previewPanel, defaults: previewDefaults),
+            previewEnabled: { variant.isPreview },
             pointerLocation: {
                 CGPoint(
                     x: desiredOrigin.x - 12,
-                    y: desiredOrigin.y + SelectorPanel.contentSize.height + 12
+                    y: desiredOrigin.y + contentSize.height + 12
                 )
             },
             visibleFrames: { [visibleFrame] },
             contentProvider: contentProvider
         )
+        super.init()
         routing.presenter = coordinator
+        if variant.isPreview {
+            for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+                NotificationCenter.default.addObserver(self, selector: #selector(previewFrameChanged(_:)), name: name, object: previewPanel)
+            }
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        if let previewDefaultsSuite {
+            UserDefaults(suiteName: previewDefaultsSuite)?.removePersistentDomain(forName: previewDefaultsSuite)
+        }
+    }
+
+    @objc private func previewFrameChanged(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        let frame = window.frame
+        let marker = notification.name == NSWindow.didMoveNotification ? "PRISM_PREVIEW_DID_MOVE" : "PRISM_PREVIEW_DID_RESIZE"
+        FileHandle.standardOutput.write(Data("\(marker) x=\(frame.origin.x) y=\(frame.origin.y) w=\(frame.width) h=\(frame.height)\n".utf8))
     }
 
     func present() {
@@ -263,7 +309,7 @@ final class DebugSelectorHarness {
         NSApp.activate()
         let request = LinkRequest(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000711")!,
-            url: URL(string: "https://selector.invalid/example")!,
+            url: URL(string: isPreview ? "http://127.0.0.1:18771/start" : "https://selector.invalid/example")!,
             receivedAt: Date(timeIntervalSince1970: 711),
             source: SourceApplication(
                 bundleIdentifier: nil,
@@ -341,11 +387,36 @@ private final class DebugSelectorContentProvider: SelectorContentProviding {
             }
         )
     }
+
+    func makePreviewSession(request: LinkRequest, context: SelectorPresentationContext) -> SelectorSession {
+        let model = SelectorViewModel(
+            request: request, context: context,
+            browserCatalog: DebugSelectorBrowserCatalog(browsers: browsers, delaysScan: true),
+            routingCoordinator: routingCoordinator,
+            pendingCountProvider: pendingCountProvider, navigationHandler: navigationHandler,
+            eligibleSourceBundleIDs: []
+        )
+        let web = LinkPreviewWebModel(url: request.launchURL)
+        model.previewURL = request.launchURL
+        return SelectorSession(
+            requestID: request.id,
+            content: AnyView(LinkPreviewView(model: model, web: web, iconProvider: iconProvider)),
+            monitoringTask: model.startPendingCountMonitoring(),
+            cancelAction: { [weak model, weak web] in model?.stopPendingCountMonitoring(); web?.stop() },
+            updateAction: { [weak model] in model?.updatePresentationContext($0) },
+            closeAction: { [weak model] in Task { await model?.cancel() } }
+        )
+    }
 }
 
 @MainActor
 private final class DebugSelectorRoutingCoordinator: LinkRoutingCoordinating {
     weak var presenter: (any LinkSelectionPresenting)?
+    private let isPreview: Bool
+
+    init(isPreview: Bool) {
+        self.isPreview = isPreview
+    }
 
     func processNext(
         while _: @escaping @MainActor () -> Bool
@@ -353,8 +424,15 @@ private final class DebugSelectorRoutingCoordinator: LinkRoutingCoordinating {
         .drained
     }
 
-    func select(browserID _: BrowserID, for requestID: UUID) async {
+    func select(browserID: BrowserID, for requestID: UUID) async {
+        if isPreview {
+            FileHandle.standardOutput.write(Data("PRISM_PREVIEW_SHORTCUT_HANDOFF browserID=\(browserID.rawValue)\n".utf8))
+        }
         presenter?.dismiss(requestID: requestID)
+    }
+
+    func select(browserID: BrowserID, for requestID: UUID, handoffURL _: URL) async {
+        await select(browserID: browserID, for: requestID)
     }
 
     func retry(browserID _: BrowserID, for _: UUID) async {}
@@ -362,6 +440,9 @@ private final class DebugSelectorRoutingCoordinator: LinkRoutingCoordinating {
     func markUncertainAttemptCompleted(requestID _: UUID) async {}
 
     func cancel(requestID: UUID) async {
+        if isPreview {
+            FileHandle.standardOutput.write(Data("PRISM_PREVIEW_CANCEL\n".utf8))
+        }
         presenter?.dismiss(requestID: requestID)
     }
 }
@@ -369,13 +450,16 @@ private final class DebugSelectorRoutingCoordinator: LinkRoutingCoordinating {
 @MainActor
 private final class DebugSelectorBrowserCatalog: BrowserCataloging {
     private let browsers: [BrowserDescriptor]
+    private let delaysScan: Bool
 
-    init(browsers: [BrowserDescriptor]) {
+    init(browsers: [BrowserDescriptor], delaysScan: Bool = false) {
         self.browsers = browsers
+        self.delaysScan = delaysScan
     }
 
     func scan() async throws -> [BrowserDescriptor] {
-        browsers
+        if delaysScan { try await Task.sleep(for: .milliseconds(50)) }
+        return browsers
     }
 }
 

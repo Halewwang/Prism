@@ -3,6 +3,187 @@ import PrismCore
 import Testing
 @testable import PrismNative
 
+@Suite @MainActor struct LinkPreviewRecoveryRegressionTests {
+    @Test func successfulHandoffPreservesModeChangedWhileLaunching() async throws {
+        let harness = RoutingHarness()
+        let launcher = SuspendedBrowserLauncher()
+        let coordinator = LinkRoutingCoordinator(
+            queue: harness.queue,
+            ruleRepository: harness.rules,
+            historyRepository: harness.history,
+            settingsRepository: harness.settings,
+            browserCatalog: harness.catalog,
+            browserLauncher: launcher,
+            sourceManifest: .disabled,
+            presenter: harness.presenter,
+            warningPresenter: harness.warning
+        )
+        let request = LinkRequest.fixture(id: fixedUUID(906))
+        try await harness.queue.enqueue(request)
+        await coordinator.processNext()
+        let launching = Task { @MainActor in
+            await coordinator.select(browserID: "com.apple.Safari", for: request.id)
+        }
+        await launcher.waitUntilStarted()
+        var changed = try harness.settings.load()
+        changed.selectorPresentationMode = .preview
+        try harness.settings.save(changed)
+        #expect(try harness.settings.load().selectorPresentationMode == .preview)
+        launcher.succeed()
+        await launching.value
+
+        let saved = try harness.settings.load()
+        #expect(saved.lastUsedBrowserID == "com.apple.Safari")
+        #expect(saved.selectorPresentationMode == .preview)
+    }
+
+    @Test func failedSettingsReloadNeverWritesThePreLaunchSnapshot() async throws {
+        let harness = RoutingHarness()
+        let launcher = SuspendedBrowserLauncher()
+        let coordinator = LinkRoutingCoordinator(
+            queue: harness.queue,
+            ruleRepository: harness.rules,
+            historyRepository: harness.history,
+            settingsRepository: harness.settings,
+            browserCatalog: harness.catalog,
+            browserLauncher: launcher,
+            sourceManifest: .disabled,
+            presenter: harness.presenter,
+            warningPresenter: harness.warning
+        )
+        let request = LinkRequest.fixture(id: fixedUUID(908))
+        try await harness.queue.enqueue(request)
+        await coordinator.processNext()
+        let launching = Task { @MainActor in
+            await coordinator.select(browserID: "com.apple.Safari", for: request.id)
+        }
+        await launcher.waitUntilStarted()
+        var changed = try harness.settings.load()
+        changed.selectorPresentationMode = .preview
+        try harness.settings.save(changed)
+        harness.settings.failLoad = true
+        launcher.succeed()
+        await launching.value
+
+        #expect(harness.settings.settings.selectorPresentationMode == .preview)
+        #expect(harness.settings.settings.lastUsedBrowserID == nil)
+        #expect(harness.warning.last == .settingsNotSaved)
+        #expect(await harness.queue.next() == nil)
+    }
+
+    @Test func cancelSaveFailureRetainsPreviewHandoffURL() async throws {
+        let harness = RoutingHarness(launchResults: [.success])
+        let request = LinkRequest.fixture(id: fixedUUID(904), url: "https://original.example/start")
+        let handoffURL = URL(string: "https://current.example/retained")!
+        try await harness.queue.enqueue(request)
+        await harness.coordinator.processNext()
+        await harness.pendingStore.failNextSave()
+        await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: handoffURL)
+        #expect(harness.launcher.openedURLs.isEmpty)
+        #expect(harness.presenter.context == .storageUnavailable)
+        await harness.pendingStore.failNextSave()
+        let cancelled = await harness.coordinator.cancelForExplicitSelection(requestID: request.id)
+        #expect(cancelled == .notCancelled)
+        #expect(harness.launcher.openedURLs.isEmpty)
+
+        await harness.coordinator.retry(browserID: "com.apple.Safari", for: request.id)
+
+        #expect(harness.launcher.openedURLs == [handoffURL])
+        #expect(harness.history.entries.first?.sanitizedURL == handoffURL)
+        #expect(await harness.queue.next() == nil)
+    }
+
+    @Test func compactRecoveryDisplaysTheURLItActuallyOpens() async throws {
+        let harness = RoutingHarness(launchResults: [.failure, .success])
+        let request = LinkRequest.fixture(id: fixedUUID(905), url: "https://original.example/start")
+        let handoffURL = URL(string: "https://current.example/recovered")!
+        try await harness.queue.enqueue(request)
+        await harness.coordinator.processNext()
+        await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: handoffURL)
+        let pending = try #require(await harness.queue.next())
+        #expect(pending.url == request.url)
+        #expect(pending.launchURL == handoffURL)
+        let model = SelectorViewModel(
+            request: pending,
+            context: .launchFailed(browserID: "com.apple.Safari", message: "launch_failed"),
+            browserCatalog: harness.catalog,
+            routingCoordinator: harness.coordinator,
+            pendingCountProvider: RecoveryQueuePendingCountProvider(queue: harness.queue),
+            navigationHandler: RecoveryRegressionNavigationHandler(),
+            eligibleSourceBundleIDs: []
+        )
+        await model.prepareForPresentation()
+        await model.activateSelected()
+
+        #expect(harness.launcher.openedURLs == [handoffURL, handoffURL])
+        #expect(model.url == handoffURL)
+    }
+}
+
+@MainActor private final class RecoveryRegressionNavigationHandler: SelectorNavigationHandling, HistoryNavigationHandling {
+    func openBrowserManagement() {}
+    func openRuleEditor(prefill: SelectorRulePrefill) {}
+}
+
+@Suite @MainActor struct HistoryRoutingAvailabilityTests {
+    @Test func successfulHandoffRefreshesDeleteAvailabilityAfterRoutingCompletes() async throws {
+        let store = CompactSuspendingPendingStore()
+        let queue = LinkRequestQueue(store: store)
+        let repository = StubHistoryRepository()
+        let service = HistoryService(repository: repository)
+        let launcher = SuspendedBrowserLauncher()
+        let coordinator = LinkRoutingCoordinator(
+            queue: queue, ruleRepository: StubRuleRepository(), historyRepository: repository,
+            historyService: service, settingsRepository: StubSettingsRepository(settings: .defaults),
+            browserCatalog: StubBrowserCatalog(browsers: [testSafariDescriptor]), browserLauncher: launcher,
+            sourceManifest: .disabled, presenter: SpySelectionPresenter(), warningPresenter: SpyWarningPresenter()
+        )
+        let intake = LinkIntakeService(queue: queue, bootstrap: BootstrapLinkBuffer(), sourceAttributor: StubSourceAttributor(result: .unknown), lastActivatedSource: { nil })
+        let model = HistoryViewModel(historyService: service, queue: queue, settings: { .defaults }, coordinator: coordinator, intake: intake, clipboard: DiscardingHistoryClipboard(), navigation: RecoveryRegressionNavigationHandler())
+        let session = Task { @MainActor in await model.runSession() }
+        defer { session.cancel() }
+        while service.changeSubscriberCount == 0 { await Task.yield() }
+        let request = LinkRequest.fixture(id: fixedUUID(907))
+        try await queue.enqueue(request)
+        await coordinator.processNext()
+        let launching = Task { @MainActor in await coordinator.select(browserID: "com.apple.Safari", for: request.id) }
+        await launcher.waitUntilStarted()
+        launcher.succeed()
+        await store.waitUntilCompactSuspended()
+        for _ in 0..<1_000 {
+            if model.entries.first?.result == .success && model.maintenanceUnavailableRequestIDs.contains(request.id) { break }
+            await Task.yield()
+        }
+        let entry = try #require(model.entries.first)
+        #expect(entry.result == .success)
+        #expect(!model.canDelete(entry))
+        await store.resumeCompact()
+        await launching.value
+        #expect(await coordinator.canDeleteHistoryEntry(requestID: request.id))
+        for _ in 0..<1_000 {
+            if model.canDelete(entry) { break }
+            await Task.yield()
+        }
+        #expect(model.canDelete(entry))
+        #expect(model.canClear)
+    }
+}
+
+private actor CompactSuspendingPendingStore: PendingRequestStore {
+    private var snapshot = PendingRequestSnapshot(pendingRequests: [], terminalRecords: [])
+    private var suspended: CheckedContinuation<Void, Never>?
+    func load() -> PendingRequestSnapshot { snapshot }
+    func save(_ next: PendingRequestSnapshot) async throws {
+        if !snapshot.terminalRecords.isEmpty && next.terminalRecords.isEmpty {
+            await withCheckedContinuation { suspended = $0 }
+        }
+        snapshot = next
+    }
+    func waitUntilCompactSuspended() async { while suspended == nil { await Task.yield() } }
+    func resumeCompact() { suspended?.resume(); suspended = nil }
+}
+
+
 @Test @MainActor func receivingTwoURLsEnqueuesTwoDifferentRequests() async throws {
     let store = InMemoryPendingRequestStore()
     let queue = LinkRequestQueue(store: store)
@@ -1038,6 +1219,143 @@ import Testing
     #expect(harness.catalog.recordedBrowserUses == ["com.apple.Safari"])
 }
 
+@Test @MainActor func previewHandoffLaunchesCurrentPageAndRecordsSanitizedHistory() async throws {
+    let harness = RoutingHarness(launchResults: [.success])
+    let request = LinkRequest.fixture(id: fixedUUID(403), url: "https://original.example/start")
+    let handoffURL = URL(string: "https://current.example/page?token=secret#section")!
+    try await harness.queue.enqueue(request)
+    await harness.coordinator.processNext()
+
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: handoffURL)
+
+    #expect(harness.launcher.openedURLs == [handoffURL])
+    #expect(harness.catalog.recordedBrowserUses == ["com.apple.Safari"])
+    #expect(harness.history.entries.count == 1)
+    #expect(harness.history.entries[0].requestID == request.id)
+    #expect(harness.history.entries[0].sanitizedURL?.absoluteString == "https://current.example/page")
+    #expect(harness.history.entries[0].result == .success)
+    #expect(harness.settings.settings.lastUsedBrowserID == "com.apple.Safari")
+    #expect(await harness.queue.next() == nil)
+}
+
+@Test @MainActor func previewHandoffRetriesCurrentURLAfterFailureAndRestart() async throws {
+    let harness = RoutingHarness(launchResults: [.failure])
+    let request = LinkRequest.fixture(id: fixedUUID(404), url: "https://original.example/start")
+    let handoffURL = URL(string: "https://current.example/retry")!
+    try await harness.queue.enqueue(request)
+    await harness.coordinator.processNext()
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: handoffURL)
+    let saved = await harness.pendingStore.currentSnapshot()
+    let pending = try #require(saved.pendingRequests.first)
+    #expect(pending.url == request.url)
+    #expect(pending.handoffURL == handoffURL)
+
+    let restarted = RoutingHarness(launchResults: [.success], restoredSnapshot: saved)
+    try await restarted.queue.restore()
+    await restarted.coordinator.processNext()
+    await restarted.coordinator.retry(browserID: "com.apple.Safari", for: request.id)
+
+    #expect(harness.launcher.openedURLs == [handoffURL])
+    #expect(restarted.launcher.openedURLs == [handoffURL])
+    #expect(restarted.history.entries.first?.sanitizedURL == handoffURL)
+    #expect(await restarted.queue.next() == nil)
+}
+
+@Test @MainActor func previewHandoffRecoveringInterruptedLaunchWaitsForExplicitRetry() async throws {
+    let harness = RoutingHarness()
+    let request = LinkRequest.fixture(id: fixedUUID(407), url: "https://original.example/start")
+    let handoffURL = URL(string: "https://current.example/interrupted")!
+    try await harness.queue.enqueue(request)
+    try await harness.queue.markLaunching(request.id, browserID: "com.apple.Safari", handoffURL: handoffURL)
+    let restarted = RoutingHarness(restoredSnapshot: await harness.pendingStore.currentSnapshot())
+    try await restarted.queue.restore()
+
+    await restarted.coordinator.processNext()
+
+    #expect(restarted.launcher.openedURLs.isEmpty)
+    #expect(restarted.presenter.context == .outcomeUnknown(browserID: "com.apple.Safari"))
+
+    await restarted.coordinator.retry(browserID: "com.apple.Safari", for: request.id)
+
+    #expect(restarted.launcher.openedURLs == [handoffURL])
+}
+
+@Test @MainActor func previewHandoffUpdatesExistingFailedHistoryWhenPageChanges() async throws {
+    let harness = RoutingHarness(launchResults: [.failure, .success])
+    let request = LinkRequest.fixture(id: fixedUUID(408), url: "https://original.example/start")
+    let firstURL = URL(string: "https://current.example/first")!
+    let finalURL = URL(string: "https://current.example/final?token=secret")!
+    try await harness.queue.enqueue(request)
+    await harness.coordinator.processNext()
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: firstURL)
+
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: finalURL)
+
+    #expect(harness.launcher.openedURLs == [firstURL, finalURL])
+    #expect(harness.history.entries.count == 1)
+    #expect(harness.history.entries.first?.sanitizedURL?.absoluteString == "https://current.example/final")
+    #expect(harness.history.entries.first?.attemptCount == 2)
+}
+
+@Test @MainActor func previewHandoffSaveFailureNeverLaunchesAndRetainsURLForRetry() async throws {
+    let harness = RoutingHarness(launchResults: [.success])
+    let request = LinkRequest.fixture(id: fixedUUID(405), url: "https://original.example/start")
+    let handoffURL = URL(string: "https://current.example/retry-save")!
+    try await harness.queue.enqueue(request)
+    await harness.coordinator.processNext()
+    await harness.pendingStore.failNextSave()
+
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: handoffURL)
+
+    #expect(harness.launcher.openedURLs.isEmpty)
+    #expect(harness.presenter.context == .storageUnavailable)
+    #expect(await harness.queue.next()?.handoffURL == nil)
+
+    await harness.coordinator.retry(browserID: "com.apple.Safari", for: request.id)
+
+    #expect(harness.launcher.openedURLs == [handoffURL])
+}
+
+@Test @MainActor func previewHandoffSurvivesUnavailableBrowserAfterStorageFailure() async throws {
+    let harness = RoutingHarness(launchResults: [.success])
+    let request = LinkRequest.fixture(id: fixedUUID(409), url: "https://original.example/start")
+    let handoffURL = URL(string: "https://current.example/retained")!
+    try await harness.queue.enqueue(request)
+    await harness.coordinator.processNext()
+    await harness.pendingStore.failNextSave()
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: handoffURL)
+    let browsers = harness.catalog.browsers
+    harness.catalog.browsers = []
+
+    await harness.coordinator.retry(browserID: "com.apple.Safari", for: request.id)
+
+    #expect(harness.presenter.context == .noAvailableBrowsers)
+    #expect(harness.launcher.openedURLs.isEmpty)
+    #expect(await harness.queue.next()?.url == request.url)
+    harness.catalog.browsers = browsers
+
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id)
+
+    #expect(harness.launcher.openedURLs == [handoffURL])
+    #expect(harness.history.entries.first?.sanitizedURL == handoffURL)
+    #expect(await harness.queue.next() == nil)
+}
+
+@Test(arguments: ["file:///private/secret", "javascript:alert(1)", "about:blank", "https:/missing-host"])
+@MainActor func previewHandoffNeverLaunchesUnsupportedURL(value: String) async throws {
+    let harness = RoutingHarness(launchResults: [.success])
+    let request = LinkRequest.fixture(id: fixedUUID(406), url: "https://original.example/start")
+    try await harness.queue.enqueue(request)
+    await harness.coordinator.processNext()
+
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: URL(string: value)!)
+
+    #expect(harness.launcher.openedURLs.isEmpty)
+    #expect(await harness.queue.next()?.url == request.url)
+    #expect(await harness.queue.next()?.handoffURL == nil)
+    #expect(harness.history.entries.isEmpty)
+}
+
 @Test @MainActor func failedManualHandoffRemembersBrowserOnlyAfterSuccessfulRetry() async throws {
     let harness = RoutingHarness(launchResults: [.failure, .success])
     let request = LinkRequest.fixture(id: fixedUUID(402))
@@ -1957,13 +2275,15 @@ private final class StubBrowserLauncher: BrowserLaunching {
 
     private var results: [Result]
     private(set) var handoffCount = 0
+    private(set) var openedURLs: [URL] = []
 
     init(results: [Result]) {
         self.results = results
     }
 
-    func open(_: URL, with _: BrowserDescriptor) async throws -> BrowserLaunchResult {
+    func open(_ url: URL, with _: BrowserDescriptor) async throws -> BrowserLaunchResult {
         handoffCount += 1
+        openedURLs.append(url)
         let result = results.isEmpty ? .success : results.removeFirst()
         switch result {
         case .success:

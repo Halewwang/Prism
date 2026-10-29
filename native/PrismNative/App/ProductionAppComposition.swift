@@ -115,10 +115,20 @@ final class ProductionAppComposition {
             navigationHandler: navigationHandler,
             iconProvider: iconProvider ?? ApplicationIconProvider(),
             sourceManifest: sourceManifest,
-            operatingSystemVersion: operatingSystemVersion
+            operatingSystemVersion: operatingSystemVersion,
+            previewBrowserOrder: { [weak environment] browsers in
+                guard !browsers.isEmpty, let environment else { return browsers }
+                let entries = (try? environment.historyRepository.recent(limit: 1_000, newerThan: .distantPast)) ?? []
+                return LinkPreviewRecommendation.ordered(
+                    browsers,
+                    successfulBrowserIDs: entries.filter { $0.result == .success }.compactMap(\.targetBrowserID),
+                    fallback: environment.settings.lastUsedBrowserID
+                )
+            }
         )
         let windows = windowCoordinator ?? WindowCoordinator(
             mainWindowOpening: opening,
+            previewEnabled: { [weak environment] in environment?.settings.selectorPresentationMode == .preview },
             contentProvider: sessions
         )
         let outcomes = routingOutcomeCenter ?? LinkRoutingOutcomeCenter()

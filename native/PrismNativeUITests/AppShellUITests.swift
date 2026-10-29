@@ -214,15 +214,26 @@ final class AppShellUITests: PrismUITestCase {
 
         application.activate()
         application.activate()
+        XCTAssertTrue(waitUntil(timeout: 3) { application.state == .runningForeground })
         _ = requireElement("appShell.page.settings.content", in: application)
         XCTAssertEqual(application.windows.count, 1)
 
         requireElement("appShell.sidebar.history", in: application).click()
         _ = requireElement("appShell.page.history.content", in: application)
+        let window = requireMainWindow(in: application)
+        requireElement("history.search", in: application).click()
         application.activate()
         application.activate()
+        XCTAssertTrue(waitUntil(timeout: 3) { application.state == .runningForeground })
         _ = requireElement("appShell.page.history.content", in: application)
         XCTAssertEqual(application.windows.count, 1)
+
+        window.typeText("/cancelled")
+        let count = requireElement("history.recordCount", in: application)
+        XCTAssertTrue(waitUntil(timeout: 3) { self.accessibilityText(of: count) == "1 records" })
+        application.typeKey(",", modifierFlags: .command)
+        _ = requireElement("appShell.page.settings.content", in: application)
+        XCTAssertEqual(application.windows.count, 1, "Application commands must reuse the existing window")
     }
 
     func testSharedSettingsControlsUpdateTheirRealValues() {

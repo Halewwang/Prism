@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let bootstrapBuffer: BootstrapLinkBuffer
     private let copyCurrentSenderPID: @MainActor () -> Int32?
     private let makeStatusItemController: StatusItemControllerFactory
+    private let activateApplication: @MainActor () -> Void
     private var launchTask: Task<Void, Never>?
     private var statusItemController: StatusItemController?
     private var mainWindow: NSWindow?
@@ -63,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
         bootstrapBuffer = buffer
         copyCurrentSenderPID = AppleEventSenderReader.copyCurrentSenderPID
+        activateApplication = Self.requestApplicationActivation
         makeStatusItemController = Self.makeProductionStatusItemController
         super.init()
         configureMainWindowOpening()
@@ -79,12 +81,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         copyCurrentSenderPID: @escaping @MainActor () -> Int32?,
         makeStatusItemController: @escaping StatusItemControllerFactory = { composition in
             AppDelegate.makeProductionStatusItemController(composition: composition)
-        }
+        },
+        activateApplication: @escaping @MainActor () -> Void = AppDelegate.requestApplicationActivation
     ) {
         self.composition = composition
         bootstrapBuffer = composition.bootstrapBuffer
         self.copyCurrentSenderPID = copyCurrentSenderPID
         self.makeStatusItemController = makeStatusItemController
+        self.activateApplication = activateApplication
 #if DEBUG
         sourceProbeRecorder = SourceProbeRecorder.makeDefault()
         debugUITestMode = .disabled
@@ -264,10 +268,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private static func requestApplicationActivation() {
+        _ = NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+    }
+
     func showMainWindow() {
-        // Explicit workspace opens must take focus; ordinary activation can leave Prism behind another app.
+        // Explicit workspace opens request focus; macOS controls whether activation is granted.
         if let mainWindow {
-            _ = NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+            activateApplication()
             WindowPresentationAnimation.show(mainWindow) {
                 mainWindow.makeKeyAndOrderFront(nil)
             }
@@ -297,7 +305,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = hostingView
         window.center()
         mainWindow = window
-        _ = NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        activateApplication()
         WindowPresentationAnimation.show(window) {
             window.makeKeyAndOrderFront(nil)
         }

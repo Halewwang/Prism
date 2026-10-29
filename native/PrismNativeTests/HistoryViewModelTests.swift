@@ -6,6 +6,39 @@ import Testing
 @Suite("History model")
 @MainActor
 struct HistoryViewModelTests {
+    @Test func routingAvailabilityRefreshesWithoutReloadingHistoryAndSessionCancellationUnsubscribes() async {
+        let entry = historyVMEntry(result: .success)
+        let repository = HistoryVMRepository(entries: [entry])
+        let coordinator = HistoryVMCoordinator()
+        coordinator.maintenanceIsAvailable = false
+        let fixture = makeHistoryVM(repository: repository, coordinator: coordinator)
+        let session = Task { @MainActor in await fixture.model.runSession() }
+        while fixture.model.state == .loading || !fixture.model.maintenanceUnavailableRequestIDs.contains(entry.requestID) {
+            await Task.yield()
+        }
+        let readsBeforeAvailabilityChange = repository.readCount
+        #expect(coordinator.maintenanceSubscriberCount == 1)
+        #expect(!fixture.model.canDelete(entry))
+
+        coordinator.maintenanceIsAvailable = true
+        coordinator.publishMaintenanceAvailability()
+        for _ in 0..<1_000 {
+            if fixture.model.canDelete(entry) { break }
+            await Task.yield()
+        }
+        #expect(fixture.model.canDelete(entry))
+        #expect(fixture.model.canClear)
+        #expect(repository.readCount == readsBeforeAvailabilityChange)
+
+        session.cancel()
+        await session.value
+        for _ in 0..<1_000 {
+            if coordinator.maintenanceSubscriberCount == 0 { break }
+            await Task.yield()
+        }
+        #expect(coordinator.maintenanceSubscriberCount == 0)
+    }
+
     @Test func editMatchingRuleUsesRecordedIDAndNeverOpensALink() {
         var entry = historyVMEntry(result: .success)
         let rule = RoutingRule(id: UUID(), isEnabled: true, matcher: .exactHost("changed.example"), targetBrowserID: "new", priority: 0, label: nil, createdAt: .distantPast, updatedAt: .now)
@@ -422,6 +455,7 @@ private final class HistoryVMRepository: HistoryRepository {
     private var entries: [HistoryEntry]
     private(set) var deleteCount = 0
     private(set) var clearCount = 0
+    private(set) var readCount = 0
 
     init(entries: [HistoryEntry]) { self.entries = entries }
 
@@ -442,6 +476,7 @@ private final class HistoryVMRepository: HistoryRepository {
     }
 
     func recent(limit: Int, newerThan: Date) throws -> [HistoryEntry] {
+        readCount += 1
         if failure == .read { throw Failure.expected }
         return Array(entries.filter { $0.createdAt >= newerThan }.prefix(max(limit, 0)))
     }
@@ -463,6 +498,9 @@ private final class HistoryVMRepository: HistoryRepository {
 
 @MainActor
 private final class HistoryVMCoordinator: LinkRoutingCoordinating {
+    var maintenanceIsAvailable = true
+    private var maintenanceContinuations: [UUID: AsyncStream<Void>.Continuation] = [:]
+    var maintenanceSubscriberCount: Int { maintenanceContinuations.count }
     var retryableRequestIDs: Set<UUID>
     private(set) var retries: [(UUID, BrowserID)] = []
     private let suspendRetry: Bool
@@ -495,14 +533,26 @@ private final class HistoryVMCoordinator: LinkRoutingCoordinating {
         return true
     }
 
-    func canDeleteHistoryEntry(requestID _: UUID) async -> Bool { true }
+    func canDeleteHistoryEntry(requestID _: UUID) async -> Bool { maintenanceIsAvailable }
+    func historyMaintenanceAvailabilityUpdates() -> AsyncStream<Void> {
+        let id = UUID()
+        return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            maintenanceContinuations[id] = continuation
+            continuation.onTermination = { @Sendable [weak self] _ in
+                Task { @MainActor in self?.maintenanceContinuations[id] = nil }
+            }
+        }
+    }
+    func publishMaintenanceAvailability() {
+        for continuation in maintenanceContinuations.values { continuation.yield(()) }
+    }
     func deleteHistoryEntry(_ entry: HistoryEntry) async -> HistoryMaintenanceResult {
         if suspendDelete {
             await withCheckedContinuation { deleteSuspension = $0 }
         }
         return deleteHistoryAction(entry)
     }
-    func canClearHistoryEntries(_: [HistoryEntry]) async -> Bool { true }
+    func canClearHistoryEntries(_: [HistoryEntry]) async -> Bool { maintenanceIsAvailable }
     func clearHistoryEntries(_: [HistoryEntry]) async -> HistoryMaintenanceResult {
         if suspendClear {
             await withCheckedContinuation { clearSuspension = $0 }

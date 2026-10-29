@@ -893,18 +893,30 @@ struct MainWindowPresentationTests {
         #expect(waitUntil { !window.isMiniaturized && window.isVisible })
     }
 
-    @Test func openingActivatesTheApplicationAndMakesTheWindowKey() throws {
+    @Test func openingRequestsActivationForNewAndExistingWindows() throws {
         let fixture = DebugAppFixture.make(bootstrapBuffer: BootstrapLinkBuffer(), variant: .workspace)
-        let delegate = AppDelegate(composition: fixture.composition, copyCurrentSenderPID: { nil })
+        // Global foreground ownership is covered by AppShellUITests, not a background unit host.
+        var activationRequests = 0
+        let delegate = AppDelegate(
+            composition: fixture.composition,
+            copyCurrentSenderPID: { nil },
+            activateApplication: { activationRequests += 1 }
+        )
         let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+
         delegate.showMainWindow()
         let window = try #require(NSApplication.shared.windows.first {
             !existingWindows.contains(ObjectIdentifier($0)) && $0.title == "Prism"
         })
         defer { window.close() }
+        #expect(activationRequests == 1)
+        #expect(window.isVisible && window.canBecomeKey)
 
-        #expect(waitUntil { NSApplication.shared.isActive && window.isKeyWindow && window.isVisible },
-            "active=\(NSApplication.shared.isActive), key=\(window.isKeyWindow), visible=\(window.isVisible), alpha=\(window.alphaValue)")
+        window.close()
+        delegate.showMainWindow()
+
+        #expect(activationRequests == 2)
+        #expect(window.isVisible && window.canBecomeKey)
     }
 
     private func waitUntil(_ condition: () -> Bool) -> Bool {

@@ -89,6 +89,12 @@ struct SettingsManagementView: View {
                         symbol: "safari", tint: SettingsPalette.primary
                     ) { preferredBrowserPicker }
                 }
+                settingsSeparator
+                settingsRow(
+                    title: "selector.presentation.title",
+                    detail: "selector.presentation.detail",
+                    symbol: "macwindow", tint: SettingsPalette.primary
+                ) { selectorPresentationModePicker }
             }
 
             settingsSection("General", symbol: "slider.horizontal.3") {
@@ -240,6 +246,14 @@ struct SettingsManagementView: View {
             WorkspacePickerOption(value: UnmatchedBehavior.lastUsedBrowser, title: "Last used")
         ], compact: true)
         .accessibilityIdentifier("settings.unmatchedBehavior")
+    }
+
+    private var selectorPresentationModePicker: some View {
+        WorkspacePicker(title: "selector.presentation.title", selection: setting(\.selectorPresentationMode), options: [
+            WorkspacePickerOption(value: SelectorPresentationMode.compact, title: "selector.presentation.compact", accessibilityIdentifier: "settings.selectorPresentationMode.compact"),
+            WorkspacePickerOption(value: SelectorPresentationMode.preview, title: "selector.presentation.preview", accessibilityIdentifier: "settings.selectorPresentationMode.preview")
+        ], compact: true)
+        .accessibilityIdentifier("settings.selectorPresentationMode")
     }
 
     private var preferredBrowserPicker: some View {

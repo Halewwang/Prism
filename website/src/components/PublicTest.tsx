@@ -44,10 +44,18 @@ export const PublicTest = () => {
                 <li>Quit Prism, open the DMG, and drag Prism into Applications. Then try opening Prism.</li>
                 <li>If macOS blocks this trusted download because it cannot verify the developer, go to System Settings → Privacy &amp; Security → Open Anyway, then confirm Open. Follow <a href="https://support.apple.com/en-us/102445">Apple’s first-open guidance</a>. Do not use this step for a malware or damaged-app warning.</li>
               </ol>
+              <h3>New in v{release.version}</h3>
+              <ul>
+                <li>Preview and interact with a web page before opening it in a browser. Choose link preview or the classic browser picker in Settings.</li>
+                <li>Resize the preview window and keep its size for next time. Zoom pages with pinch gestures or ⌘+ / ⌘− / ⌘0.</li>
+                <li>Browser choices adapt to the window width. Narrow windows use an icon-and-number menu with arrow-key selection and number shortcuts.</li>
+                <li>Improved menu visibility in full-screen apps and behavior when switching desktops. Closing a preview releases its web resources.</li>
+              </ul>
               <h3>Updating this public test</h3>
               <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in Settings, then ask you to confirm installation. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>
               <h3>What still needs real-world testing</h3>
               <ul>
+                <li>Link preview uses the macOS WebKit engine and its own sign-in session; it does not inherit logins from external browsers. Compatibility varies by website and macOS version; open a page in your browser if its sign-in or features are unsupported.</li>
                 <li>Source-app routing only runs for a confirmed sender. Real-app coverage is still incomplete; not every app or link can be identified.</li>
                 <li>Stable Chrome and Edge profile targets are experimental. Cold and already-running launches, account context, and profile removal still need real-browser validation.</li>
                 <li>The Intel binary is included, but this release has not been verified on a physical Intel Mac. Supported macOS versions have not all been tested.</li>

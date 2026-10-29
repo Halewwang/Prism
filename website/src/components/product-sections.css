@@ -219,7 +219,8 @@
 
 .picker-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.24fr) minmax(0, 1fr);
+  grid-template-areas: "demo copy";
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
   align-items: center;
   gap: 52px;
   border-top: 1px solid var(--line);
@@ -227,9 +228,16 @@
 }
 
 .picker-figure {
+  grid-area: demo;
   min-width: 0;
   margin: 0;
 }
+
+.preview-mode-tabs { width: fit-content; }
+.picker-explanation .workspace-toolbar { margin-top: 0; }
+.selection-demo-panel { min-width: 0; }
+.selection-demo-panel > .picker-mount { min-height: 550px; }
+.picker-mode-note { color: var(--body-text); font-size: 13px; line-height: 1.6; }
 
 .picker-mount {
   display: flex;
@@ -273,6 +281,7 @@
 }
 
 .picker-explanation {
+  grid-area: copy;
   display: flex;
   flex-direction: column;
   gap: 26px;
@@ -337,7 +346,7 @@
   .product-editorial { grid-template-columns: 1fr; gap: 40px; }
   .routing-copy { width: 100%; max-width: 560px; justify-self: center; }
   .workspace-showcase { justify-self: center; }
-  .picker-layout { grid-template-columns: 1fr; gap: 36px; padding-block: 56px 0; }
+  .picker-layout { grid-template-areas: "copy" "demo"; grid-template-columns: 1fr; gap: 36px; padding-block: 56px 0; }
   .picker-figure,
   .picker-explanation { width: 100%; max-width: 560px; justify-self: center; }
   .picker-explanation { padding-bottom: 0; }
@@ -361,6 +370,7 @@
   .workspace-caption { gap: 8px; }
   .picker-layout { gap: 32px; padding-top: 48px; }
   .picker-mount { padding: 24px 18px; border-radius: 12px; }
+  .selection-demo-panel > .picker-mount { min-height: 500px; }
   .picker-preview-header { font-size: 10px; }
   .picker-preview-header > span { padding-inline: 7px; }
   .picker-preview-header > span:nth-child(2) { font-size: 9px; }

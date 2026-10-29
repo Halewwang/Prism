@@ -166,6 +166,30 @@ struct SelectorInputMappingTests {
 @Suite("Selector model")
 @MainActor
 struct SelectorViewModelTests {
+    @Test func recoveredHandoffURLDrivesCompactDisplayAndDomainRulePrefill() {
+        let original = URL(string: "https://original.example/start")!
+        let handoffURL = URL(string: "https://current.example/recovered")!
+        let request = LinkRequest(
+            id: UUID(), url: original, receivedAt: .now, source: .unknown,
+            state: .presenting, handoffURL: handoffURL
+        )
+        let navigation = RecordingSelectorNavigationHandler()
+        let browsers = makeBrowsers(count: 1)
+        let model = SelectorViewModel(
+            request: request, context: .normal, browsers: browsers,
+            browserCatalog: MutableBrowserCatalog(results: [.success(browsers)]),
+            routingCoordinator: RecordingRoutingCoordinator(),
+            pendingCountProvider: MutablePendingCountProvider(count: 1),
+            navigationHandler: navigation, eligibleSourceBundleIDs: []
+        )
+
+        model.openDomainRule(browserID: browsers[0].id)
+
+        #expect(model.url == handoffURL)
+        #expect(request.url == original)
+        #expect(navigation.rulePrefills == [.domain(host: "current.example", browserID: browsers[0].id)])
+    }
+
     @Test func arrowsWrapAndNumericShortcutsRevealInstalledBrowsersOnly() {
         let fixture = SelectorFixture(browserCount: 10)
         let model = fixture.model
@@ -208,6 +232,38 @@ struct SelectorViewModelTests {
 
         #expect(fixture.routing.calls.isEmpty)
         #expect(fixture.model.selectedIndex == 0)
+    }
+
+    @Test func previewShortcutHandsOffCurrentPageWithOriginalRequestIdentity() async {
+        let fixture = SelectorFixture(browserCount: 3)
+        let current = URL(string: "https://current.example/next")!
+        fixture.model.previewURL = current
+        await fixture.model.activateShortcut(2)
+        #expect(fixture.routing.calls == [
+            .previewSelect(browserID: fixture.browsers[1].id, requestID: fixture.request.id, url: current)
+        ])
+        #expect(fixture.model.url == fixture.request.url)
+    }
+
+    @Test func uncertainRecoveryLocksPreviewAndUsesExplicitRetry() async {
+        let fixture = SelectorFixture(browserCount: 3)
+        fixture.model.previewURL = URL(string: "https://current.example/next")!
+        fixture.model.updatePresentationContext(.outcomeUnknown(browserID: fixture.browsers[0].id))
+        #expect(fixture.model.previewRequiresRecovery)
+        await fixture.model.activateShortcut(1)
+        #expect(fixture.routing.calls == [.retry(browserID: fixture.browsers[0].id, requestID: fixture.request.id)])
+    }
+
+    @Test func unavailableBrowserContextRefreshesCatalogWithoutReplacingRequest() async {
+        let catalog = MutableBrowserCatalog(results: [.success([])])
+        let fixture = SelectorFixture(browserCount: 3, browserCatalog: catalog)
+        fixture.model.updatePresentationContext(.noAvailableBrowsers)
+        for _ in 0 ..< 1_000 {
+            if fixture.model.browsers.isEmpty { break }
+            await Task.yield()
+        }
+        #expect(fixture.model.browsers.isEmpty)
+        #expect(fixture.model.requestID == fixture.request.id)
     }
 
     @Test func enterEscapeAndMouseActionsUseExactRequestAndNeverDismissDirectly() async {
@@ -534,6 +590,7 @@ private struct SelectorFixture {
 private final class RecordingRoutingCoordinator: LinkRoutingCoordinating {
     enum Call: Equatable {
         case select(browserID: BrowserID, requestID: UUID)
+        case previewSelect(browserID: BrowserID, requestID: UUID, url: URL)
         case retry(browserID: BrowserID, requestID: UUID)
         case markCompleted(requestID: UUID)
         case cancel(requestID: UUID)
@@ -549,6 +606,10 @@ private final class RecordingRoutingCoordinator: LinkRoutingCoordinating {
 
     func select(browserID: BrowserID, for requestID: UUID) async {
         calls.append(.select(browserID: browserID, requestID: requestID))
+    }
+
+    func select(browserID: BrowserID, for requestID: UUID, handoffURL: URL) async {
+        calls.append(.previewSelect(browserID: browserID, requestID: requestID, url: handoffURL))
     }
 
     func retry(browserID: BrowserID, for requestID: UUID) async {

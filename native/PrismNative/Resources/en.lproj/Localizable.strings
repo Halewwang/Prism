@@ -480,3 +480,28 @@
 
 "rules.category.url" = "URL";
 "rules.category.application" = "Application";
+
+"selector.presentation.title" = "Selection window";
+"selector.presentation.detail" = "Choose a browser directly or preview the page. Preview size is remembered; website sign-ins are separate from your browsers.";
+"selector.presentation.compact" = "Browser selector";
+"selector.presentation.preview" = "Link preview";
+
+"linkPreview.panel.title" = "Link preview";
+"preview.back" = "Back";
+"preview.forward" = "Forward";
+"preview.reload" = "Reload";
+"preview.recommended" = "%@ · Recommended";
+"preview.unsupportedLink" = "This link cannot open in the preview. Continue in a browser.";
+"preview.download" = "Open this link in a browser to download the file.";
+"preview.processStopped" = "The preview stopped. Reload to continue.";
+"preview.ok" = "OK";
+"preview.closeEsc" = "Close preview (Esc)";
+"preview.previousBrowser" = "Previous browser (↑)";
+"preview.nextBrowser" = "Next browser (↓)";
+"preview.zoomHelp" = "Page zoom: ⌘+ / ⌘− / ⌘0; pinch to zoom";
+"preview.zoomLevelFormat" = "Page zoom: %ld%%";
+"preview.zoomIn" = "Zoom In (⌘+)";
+"preview.zoomOut" = "Zoom Out (⌘−)";
+"preview.zoomReset" = "Actual Size (⌘0)";
+"preview.recoveryTitle" = "Link waiting for recovery";
+"preview.recoveryDetail" = "Choose a browser to retry this address, or cancel the link.";

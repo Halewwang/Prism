@@ -7,6 +7,7 @@ final class SettingsRecord {
     @Attribute(.unique) var key: String
     var language: String
     var unmatchedBehavior: String
+    var selectorPresentationMode: String? = nil
     var preferredBrowserID: String?
     var lastUsedBrowserID: String?
     var historyEnabled: Bool
@@ -21,6 +22,7 @@ final class SettingsRecord {
         key = "current"
         language = settings.language.rawValue
         unmatchedBehavior = settings.unmatchedBehavior.rawValue
+        selectorPresentationMode = settings.selectorPresentationMode.rawValue
         preferredBrowserID = settings.preferredBrowserID?.rawValue
         lastUsedBrowserID = settings.lastUsedBrowserID?.rawValue
         historyEnabled = settings.historyEnabled
@@ -50,13 +52,15 @@ final class SettingsRecord {
             automaticRulesEnabled: automaticRulesEnabled,
             showMenuBarItem: showMenuBarItem,
             onboardingCompleted: onboardingCompleted,
-            schemaVersion: 1
+            schemaVersion: 1,
+            selectorPresentationMode: selectorPresentationMode.flatMap(SelectorPresentationMode.init(rawValue:)) ?? .compact
         )
     }
 
     func replace(with settings: AppSettings) {
         language = settings.language.rawValue
         unmatchedBehavior = settings.unmatchedBehavior.rawValue
+        selectorPresentationMode = settings.selectorPresentationMode.rawValue
         preferredBrowserID = settings.preferredBrowserID?.rawValue
         lastUsedBrowserID = settings.lastUsedBrowserID?.rawValue
         historyEnabled = settings.historyEnabled

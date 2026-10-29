@@ -29,18 +29,27 @@ final class SelectorSession {
     let content: AnyView
     private var monitoringTask: Task<Void, Never>?
     private var cancelAction: (@MainActor () -> Void)?
+    private let updateAction: @MainActor (SelectorPresentationContext) -> Void
+    private let closeAction: @MainActor () -> Void
 
     init(
         requestID: UUID,
         content: AnyView,
         monitoringTask: Task<Void, Never>? = nil,
-        cancelAction: @escaping @MainActor () -> Void = {}
+        cancelAction: @escaping @MainActor () -> Void = {},
+        updateAction: @escaping @MainActor (SelectorPresentationContext) -> Void = { _ in },
+        closeAction: @escaping @MainActor () -> Void = {}
     ) {
         self.requestID = requestID
         self.content = content
         self.monitoringTask = monitoringTask
         self.cancelAction = cancelAction
+        self.updateAction = updateAction
+        self.closeAction = closeAction
     }
+
+    func update(context: SelectorPresentationContext) { updateAction(context) }
+    func close() { closeAction() }
 
     func cancel() {
         monitoringTask?.cancel()
@@ -62,6 +71,13 @@ final class SelectorSession {
 @MainActor
 protocol SelectorContentProviding: AnyObject {
     func makeSession(request: LinkRequest, context: SelectorPresentationContext) -> SelectorSession
+    func makePreviewSession(request: LinkRequest, context: SelectorPresentationContext) -> SelectorSession
+}
+
+extension SelectorContentProviding {
+    func makePreviewSession(request: LinkRequest, context: SelectorPresentationContext) -> SelectorSession {
+        makeSession(request: request, context: context)
+    }
 }
 
 @MainActor
@@ -74,6 +90,7 @@ final class SelectorSessionFactory: SelectorContentProviding {
 
     private let navigationHandler: any SelectorNavigationHandling
     private let iconProvider: any ApplicationIconProviding
+    private let previewBrowserOrder: @MainActor ([BrowserDescriptor]) -> [BrowserDescriptor]
 
     init(
         browserCatalog: any BrowserCataloging,
@@ -82,7 +99,8 @@ final class SelectorSessionFactory: SelectorContentProviding {
         navigationHandler: any SelectorNavigationHandling,
         iconProvider: any ApplicationIconProviding,
         sourceManifest: SourceSupportManifest,
-        operatingSystemVersion: OperatingSystemVersion
+        operatingSystemVersion: OperatingSystemVersion,
+        previewBrowserOrder: @escaping @MainActor ([BrowserDescriptor]) -> [BrowserDescriptor] = { $0 }
     ) {
         self.browserCatalog = browserCatalog
         self.routingCoordinator = routingCoordinator
@@ -91,6 +109,7 @@ final class SelectorSessionFactory: SelectorContentProviding {
         self.iconProvider = iconProvider
         self.sourceManifest = sourceManifest
         self.operatingSystemVersion = operatingSystemVersion
+        self.previewBrowserOrder = previewBrowserOrder
     }
 
     func makeSession(request: LinkRequest, context: SelectorPresentationContext) -> SelectorSession {
@@ -110,7 +129,29 @@ final class SelectorSessionFactory: SelectorContentProviding {
             monitoringTask: monitoringTask,
             cancelAction: { [weak model] in
                 model?.stopPendingCountMonitoring()
-            }
+            },
+            updateAction: { [weak model] in model?.updatePresentationContext($0) },
+            closeAction: { [weak model] in Task { await model?.cancel() } }
+        )
+    }
+
+    func makePreviewSession(request: LinkRequest, context: SelectorPresentationContext) -> SelectorSession {
+        let model = SelectorViewModel(
+            request: request, context: context, browserCatalog: browserCatalog,
+            routingCoordinator: routingCoordinator, pendingCountProvider: pendingCountProvider,
+            navigationHandler: navigationHandler,
+            eligibleSourceBundleIDs: sourceManifest.eligibleBundleIDs(for: operatingSystemVersion),
+            browserOrder: previewBrowserOrder
+        )
+        let web = LinkPreviewWebModel(url: request.launchURL)
+        model.previewURL = request.launchURL
+        return SelectorSession(
+            requestID: request.id,
+            content: AnyView(LinkPreviewView(model: model, web: web, iconProvider: iconProvider).id(request.id)),
+            monitoringTask: model.startPendingCountMonitoring(),
+            cancelAction: { [weak model, weak web] in model?.stopPendingCountMonitoring(); web?.stop() },
+            updateAction: { [weak model] in model?.updatePresentationContext($0) },
+            closeAction: { [weak model] in Task { await model?.cancel() } }
         )
     }
 }

@@ -33,9 +33,35 @@ import Testing
         appearance: .dark,
         captureURL: captureURL
     ))
+    #expect(DebugUITestConfiguration.SelectorVariant.five.browserCount == 5)
     #expect(mode.isUITesting)
     #expect(!mode.mayInstallSystemStatusItem)
     #expect(!mode.mayUseSystemServices)
+}
+
+@Test(arguments: ["preview", "previewNarrow", "previewWide"])
+func previewSelectorFixturesRequireTheExistingSafetyFlag(variant: String) {
+    #expect(DebugUITestConfiguration.parse(arguments: [
+        "Prism", "--selector-harness", variant, "--selector-appearance", "light",
+    ]) == .disabled)
+    let mode = DebugUITestConfiguration.parse(arguments: [
+        "Prism", "--ui-testing", "--selector-harness", variant, "--selector-appearance", "light",
+    ])
+    guard case let .selector(parsed, _, _) = mode else {
+        Issue.record("Preview fixture was not recognized")
+        return
+    }
+    #expect(parsed.rawValue == variant)
+    #expect(parsed.isPreview)
+    #expect(parsed.browserCount == 8)
+    #expect(parsed.presentationContext(firstBrowserID: nil) == .normal)
+    #expect(mode.blocksNormalLaunch)
+    #expect(!mode.mayUseSystemServices)
+    #expect(!mode.mayInstallSystemStatusItem)
+}
+
+@Test func widePreviewFixtureUsesTheRequestedCanvasSize() {
+    #expect(DebugUITestConfiguration.SelectorVariant.previewWide.previewSize == CGSize(width: 1_000, height: 800))
 }
 
 @Test(arguments: [

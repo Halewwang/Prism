@@ -39,7 +39,8 @@ final class SelectorViewModel {
     let requestID: UUID
     let url: URL
     let source: SourceApplication
-    let presentationContext: SelectorPresentationContext
+    private(set) var presentationContext: SelectorPresentationContext
+    var previewURL: URL?
 
     private(set) var browsers: [BrowserDescriptor]
     private(set) var selectedIndex: Int
@@ -54,6 +55,7 @@ final class SelectorViewModel {
     private let pendingCountProvider: any SelectorPendingCountProviding
     private let navigationHandler: any SelectorNavigationHandling
     private let eligibleSourceBundleIDs: Set<String>
+    @ObservationIgnored private let browserOrder: @MainActor ([BrowserDescriptor]) -> [BrowserDescriptor]
     @ObservationIgnored private var pendingCountMonitoringTask: Task<Void, Never>?
 
     init(
@@ -64,19 +66,21 @@ final class SelectorViewModel {
         routingCoordinator: any LinkRoutingCoordinating,
         pendingCountProvider: any SelectorPendingCountProviding,
         navigationHandler: any SelectorNavigationHandling,
-        eligibleSourceBundleIDs: Set<String>
+        eligibleSourceBundleIDs: Set<String>,
+        browserOrder: @escaping @MainActor ([BrowserDescriptor]) -> [BrowserDescriptor] = { $0 }
     ) {
         requestID = request.id
-        url = request.url
+        url = request.launchURL
         source = request.source
         presentationContext = context
-        let orderedBrowsers = Self.availableAndOrdered(browsers)
+        let orderedBrowsers = browserOrder(Self.availableAndOrdered(browsers))
         self.browsers = orderedBrowsers
         self.browserCatalog = browserCatalog
         self.routingCoordinator = routingCoordinator
         self.pendingCountProvider = pendingCountProvider
         self.navigationHandler = navigationHandler
         self.eligibleSourceBundleIDs = eligibleSourceBundleIDs
+        self.browserOrder = browserOrder
         pendingCount = 0
         isLoading = false
         scanFailureMessage = nil
@@ -166,6 +170,13 @@ final class SelectorViewModel {
         return false
     }
 
+    var previewRequiresRecovery: Bool {
+        switch presentationContext {
+        case .outcomeUnknown, .storageUnavailable: true
+        case .normal, .noAvailableBrowsers, .ruleSkipped, .launchFailed: false
+        }
+    }
+
     var requiresExplicitRecoveryBrowser: Bool {
         switch presentationContext {
         case let .outcomeUnknown(browserID):
@@ -248,6 +259,13 @@ final class SelectorViewModel {
         }
     }
 
+    func updatePresentationContext(_ context: SelectorPresentationContext) {
+        presentationContext = context
+        if case .noAvailableBrowsers = context {
+            Task { [weak self] in await self?.rescan() }
+        }
+    }
+
     @discardableResult
     func startPendingCountMonitoring() -> Task<Void, Never> {
         stopPendingCountMonitoring()
@@ -279,7 +297,7 @@ final class SelectorViewModel {
         defer { isLoading = false }
         do {
             let scanned = try await browserCatalog.scanForSelector()
-            browsers = Self.availableAndOrdered(scanned)
+            browsers = browserOrder(Self.availableAndOrdered(scanned))
             if browsers.isEmpty {
                 selectedIndex = 0
                 revealBrowserID = nil
@@ -308,6 +326,15 @@ final class SelectorViewModel {
         selectBrowser(id: id)
         isPerformingAction = true
         defer { isPerformingAction = false }
+        if let previewURL {
+            switch presentationContext {
+            case .normal, .noAvailableBrowsers, .ruleSkipped, .launchFailed:
+                await routingCoordinator.select(browserID: id, for: requestID, handoffURL: previewURL)
+                return
+            case .outcomeUnknown, .storageUnavailable:
+                break
+            }
+        }
         switch presentationContext {
         case .normal, .noAvailableBrowsers, .ruleSkipped:
             await routingCoordinator.select(browserID: id, for: requestID)

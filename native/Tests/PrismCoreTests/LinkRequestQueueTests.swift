@@ -133,6 +133,89 @@ import Testing
     #expect((await store.latestSnapshot).pendingRequests.first?.state == .outcomeUnknown)
 }
 
+@Test func restoredPreviewHandoffRetainsCurrentURLAlongsideOriginalRequest() async throws {
+    let original = request(id: .test(21), url: "https://example.com/original", state: .launching)
+    let handoffURL = "https://preview.example/current?token=secret#section"
+    var payload = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+    payload["handoffURL"] = handoffURL
+    let interrupted = try JSONDecoder().decode(LinkRequest.self, from: JSONSerialization.data(withJSONObject: payload))
+    let store = InMemoryPendingRequestStore(seed: [interrupted])
+    let queue = LinkRequestQueue(store: store)
+
+    try await queue.restore()
+
+    let restored = try #require(await queue.next())
+    let saved = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(restored)) as? [String: Any])
+    #expect(restored.url == original.url)
+    #expect(restored.id == original.id)
+    #expect(restored.state == .outcomeUnknown)
+    #expect(saved["handoffURL"] as? String == handoffURL)
+}
+
+@Test func previewHandoffAndLaunchStateCommitTogether() async throws {
+    let original = request(id: .test(22), url: "https://example.com/original", state: .presenting)
+    let handoffURL = URL(string: "https://preview.example/current")!
+    let store = InMemoryPendingRequestStore(seed: [original])
+    let queue = LinkRequestQueue(store: store)
+    try await queue.restore()
+    await store.failNextSave()
+
+    await expectStoreFailure {
+        try await queue.markLaunching(original.id, browserID: "com.apple.Safari", handoffURL: handoffURL)
+    }
+
+    #expect(await queue.next() == original)
+    #expect((await store.latestSnapshot).pendingRequests == [original])
+
+    try await queue.markLaunching(original.id, browserID: "com.apple.Safari", handoffURL: handoffURL)
+    let launching = try #require(await queue.snapshot().first)
+    #expect(launching.url == original.url)
+    #expect(launching.handoffURL == handoffURL)
+    #expect(launching.state == .launching)
+    #expect(launching.attemptCount == 1)
+    #expect((await store.latestSnapshot).pendingRequests == [launching])
+}
+
+@Test(arguments: ["file:///private/secret", "javascript:alert(1)", "about:blank", "https:/missing-host"])
+func previewHandoffRejectsUnsupportedURLs(value: String) async throws {
+    let original = request(id: .test(23), url: "https://example.com/original", state: .presenting)
+    let store = InMemoryPendingRequestStore(seed: [original])
+    let queue = LinkRequestQueue(store: store)
+    try await queue.restore()
+
+    await #expect(throws: LinkRequestQueueError.invalidHandoffURL) {
+        try await queue.markLaunching(original.id, browserID: "com.apple.Safari", handoffURL: URL(string: value)!)
+    }
+
+    #expect(await queue.next() == original)
+    #expect(await store.saveCount == 0)
+}
+
+@Test func legacyLinkRequestDecodesWithoutPreviewHandoffURL() throws {
+    let original = request(id: .test(24), url: "https://example.com/original")
+    var payload = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+    payload.removeValue(forKey: "handoffURL")
+
+    let decoded = try JSONDecoder().decode(LinkRequest.self, from: JSONSerialization.data(withJSONObject: payload))
+
+    #expect(decoded.handoffURL == nil)
+    #expect(decoded.launchURL == original.url)
+}
+
+@Test func restoredPreviewHandoffRejectsUnsupportedURLBeforeRestoringQueue() async throws {
+    var original = request(id: .test(25), url: "https://example.com/original", state: .launching)
+    original.handoffURL = URL(string: "file:///private/secret")!
+    let store = InMemoryPendingRequestStore(seed: [original])
+    let queue = LinkRequestQueue(store: store)
+
+    await #expect(throws: LinkRequestQueueError.invalidHandoffURL) {
+        try await queue.restore()
+    }
+
+    #expect(await queue.snapshot().isEmpty)
+    #expect(await store.saveCount == 0)
+}
+
 @Test func restoreAtomicallyScrubsEveryTerminalHistoryWhileRecoveringPendingStates() async throws {
     let launching = request(id: .test(201), url: "https://example.com/launching", state: .launching)
     let presenting = request(id: .test(202), url: "https://example.com/presenting", state: .presenting)

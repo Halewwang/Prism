@@ -40,6 +40,9 @@ public struct LinkRequest: Codable, Equatable, Sendable {
     public var attemptCount: Int
     public var lastAttemptedBrowserID: BrowserID?
     public var reopenedFromHistoryEntryID: UUID?
+    public var handoffURL: URL?
+
+    public var launchURL: URL { handoffURL ?? url }
 
     public init(
         id: UUID,
@@ -49,7 +52,8 @@ public struct LinkRequest: Codable, Equatable, Sendable {
         state: LinkRequestState = .queued,
         attemptCount: Int = 0,
         lastAttemptedBrowserID: BrowserID? = nil,
-        reopenedFromHistoryEntryID: UUID? = nil
+        reopenedFromHistoryEntryID: UUID? = nil,
+        handoffURL: URL? = nil
     ) {
         self.id = id
         self.url = url
@@ -59,6 +63,7 @@ public struct LinkRequest: Codable, Equatable, Sendable {
         self.attemptCount = attemptCount
         self.lastAttemptedBrowserID = lastAttemptedBrowserID
         self.reopenedFromHistoryEntryID = reopenedFromHistoryEntryID
+        self.handoffURL = handoffURL
     }
 }
 

@@ -10,7 +10,7 @@ export const Header = () => (
       </a>
       <nav className="main-nav" aria-label="Main navigation">
         <a href="#features">Features</a>
-        <a href="#browser-picker">Browser picker</a>
+        <a href="#browser-picker">Preview &amp; pick</a>
         <a href={release.repositoryUrl}>GitHub ↗</a>
       </nav>
       <a className="header-download" href={release.downloadUrl}>

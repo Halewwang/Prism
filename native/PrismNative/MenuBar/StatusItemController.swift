@@ -27,23 +27,71 @@ protocol StatusItemHosting: AnyObject {
 }
 
 @MainActor
-final class AppKitStatusItemHost: StatusItemHosting {
+final class AppKitStatusItemHost: NSObject, StatusItemHosting {
     private let statusItem: NSStatusItem
+    private var menuPanel: StatusItemMenuPanel?
+    private var visibilityObservation: NSKeyValueObservation?
 
     init(statusBar: NSStatusBar = .system) {
         statusItem = statusBar.statusItem(withLength: NSStatusItem.squareLength)
+        super.init()
         if let button = statusItem.button {
             button.image = StatusItemVisuals.prismMark()
             button.toolTip = "Prism"
         }
+        visibilityObservation = statusItem.observe(\.isVisible, options: [.new]) { [weak self] _, change in
+            guard change.newValue == false else { return }
+            MainActor.assumeIsolated { self?.menuPanel?.dismiss() }
+        }
+    }
+
+    isolated deinit {
+        visibilityObservation?.invalidate()
+        menuPanel?.dismiss()
+        if #available(macOS 27.0, *) {
+            statusItem.expandedInterfaceSession?.cancel()
+            statusItem.expandedInterfaceDelegate = nil
+        }
+        statusItem.statusBar?.removeStatusItem(statusItem)
     }
 
     func install(menu: NSMenu) {
-        statusItem.menu = menu
+        menuPanel?.dismiss()
+        if #available(macOS 27.0, *) {
+            // Keep the exact NSMenu model; only its presentation changes on affected systems.
+            statusItem.menu = nil
+            menuPanel = StatusItemMenuPanel(menu: menu, cancelSession: { [weak self] in
+                self?.statusItem.expandedInterfaceSession?.cancel()
+            }, statusButtonRect: { [weak self] in self?.buttonScreenRect() })
+            statusItem.expandedInterfaceDelegate = self
+        } else {
+            statusItem.menu = menu
+        }
     }
 
     func setVisible(_ isVisible: Bool) {
+        if !isVisible { menuPanel?.dismiss() }
         statusItem.isVisible = isVisible
+    }
+
+    private func buttonScreenRect() -> NSRect? {
+        guard let button = statusItem.button, let window = button.window else { return nil }
+        return window.convertToScreen(button.convert(button.bounds, to: nil))
+    }
+}
+
+@available(macOS 27.0, *)
+extension AppKitStatusItemHost: @preconcurrency NSStatusItemExpandedInterfaceDelegate {
+    func statusItem(_ statusItem: NSStatusItem, didBegin session: NSStatusItemExpandedInterfaceSession) {
+        guard statusItem.isVisible, let anchor = buttonScreenRect() else { session.cancel(); return }
+        // The button lies in the menu bar, outside visibleFrame. Locate its full display first.
+        let screen = NSScreen.screens.first { $0.frame.intersects(anchor) }
+            ?? statusItem.button?.window?.screen ?? NSScreen.main
+        menuPanel?.present(anchor: anchor, visibleFrames: screen.map { [$0.visibleFrame] } ?? [])
+    }
+
+    func statusItemDidEndExpandedInterfaceSession(_ statusItem: NSStatusItem, animated: Bool) {
+        menuPanel?.dismiss(cancelSession: false)
     }
 }
 

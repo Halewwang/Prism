@@ -6,6 +6,7 @@ import chromeIcon from '../assets/browsers/chrome.png';
 import diaIcon from '../assets/browsers/dia.png';
 import arcIcon from '../assets/browsers/arc.png';
 import firefoxIcon from '../assets/browsers/firefox.png';
+import { LinkPreviewDemo } from './LinkPreviewDemo';
 import './product-sections.css';
 
 const browsers = [
@@ -23,6 +24,8 @@ const shortcuts = [
 
 export const NewFeatures = () => {
   const reduceMotion = useReducedMotion();
+  const [mode, setMode] = useState<'preview' | 'picker'>('preview');
+  const modeTabs = useRef<(HTMLButtonElement | null)[]>([]);
   const preview = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const cards = useRef<(HTMLButtonElement | null)[]>([]);
@@ -57,10 +60,10 @@ export const NewFeatures = () => {
     return () => {
       viewport.removeEventListener('wheel', wheel);
     };
-  }, [stopPreview]);
+  }, [stopPreview, mode]);
 
   useEffect(() => {
-    if (!inView || reduceMotion !== false || interrupted.current || !list.current) return;
+    if (mode !== 'picker' || !inView || reduceMotion !== false || interrupted.current || !list.current) return;
     timer.current = window.setTimeout(() => {
       const viewport = list.current!;
       let previous: number | undefined;
@@ -78,7 +81,7 @@ export const NewFeatures = () => {
       window.clearTimeout(timer.current);
       window.cancelAnimationFrame(frame.current);
     };
-  }, [inView, reduceMotion]);
+  }, [inView, reduceMotion, mode]);
 
   const selectBrowser = (index: number) => {
     stopPreview();
@@ -103,10 +106,49 @@ export const NewFeatures = () => {
     selectBrowser(index);
   };
 
+  const navigateModes = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    let next: 'preview' | 'picker';
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') next = mode === 'preview' ? 'picker' : 'preview';
+    else if (event.key === 'Home') next = 'preview';
+    else if (event.key === 'End') next = 'picker';
+    else return;
+    event.preventDefault();
+    setMode(next);
+    modeTabs.current[next === 'preview' ? 0 : 1]?.focus({ preventScroll: true });
+  };
+
   return (
     <section id="browser-picker" className="browser-picker-section page-width" aria-labelledby="picker-heading">
       <span id="how-it-works" className="section-anchor" aria-hidden="true" />
       <div className="picker-layout">
+        <motion.div
+          className="picker-explanation"
+          initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: reduceMotion ? 0 : 0.7, delay: reduceMotion ? 0 : 0.1 }}
+        >
+          <p className="product-label">02 / PREVIEW OR PICK</p>
+          <h2 id="picker-heading">Preview first.<br />Pick a browser.</h2>
+          <p className="picker-description">Open a link in a floating preview, browse the page, then open it in your chosen browser. The page and browser choices stay together in one compact window.</p>
+          <p className="picker-description">Resize the preview and Prism remembers its size. Zoom the page, or use the compact icon-and-number menu to choose a browser in a narrow window.</p>
+          <p className="picker-mode-note">Prefer a quick choice? Keep the classic browser picker. Both modes are available in Settings.</p>
+          <div className="workspace-toolbar">
+            <div className="workspace-tabs preview-mode-tabs" role="tablist" aria-label="Selection window modes" onKeyDown={navigateModes}>
+              {(['preview', 'picker'] as const).map((value, index) => (
+                <button key={value} ref={element => { modeTabs.current[index] = element; }} type="button" role="tab" id={`mode-tab-${value}`} aria-controls={`mode-panel-${value}`} aria-selected={mode === value} tabIndex={mode === value ? 0 : -1} onClick={() => setMode(value)}>
+                  {value === 'preview' ? 'Link preview' : 'Browser picker'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <ul className="picker-shortcuts" aria-label="Browser selection keyboard shortcuts">
+            {shortcuts.map(([keys, description]) => (
+              <li key={keys}><kbd>{keys}</kbd><span>{description}</span></li>
+            ))}
+          </ul>
+        </motion.div>
         <motion.figure
           ref={preview}
           className="picker-figure"
@@ -118,41 +160,29 @@ export const NewFeatures = () => {
           onKeyDownCapture={stopPreview}
           onFocusCapture={stopPreview}
         >
-          <div className="picker-mount">
-            <div className="picker-preview" role="group" aria-label="Classic browser picker preview">
-              <div className="picker-preview-header" aria-hidden="true">
-                <span><Mail size={16} />Mail</span><span>https://developer.apple.com</span><span>Cancel</span>
-              </div>
-              <div ref={list} className="picker-browser-list" role="group" aria-label="Browser choices" aria-describedby="picker-scroll-hint" onKeyDown={navigateBrowsers}>
-                {browsers.map((browser, index) => (
-                  <button key={browser.name} ref={(element) => { cards.current[index] = element; }} className="picker-browser-card" type="button" aria-label={`Preview ${browser.name}`} aria-pressed={selected === index} onFocus={() => setSelected(index)} onClick={() => selectBrowser(index)}>
-                    <img src={browser.icon} alt="" width={40} height={40} />
-                    <span>{browser.name}</span><kbd aria-hidden="true">{index + 1}</kbd>
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="selection-demo-panel" role="tabpanel" id="mode-panel-preview" aria-labelledby="mode-tab-preview" hidden={mode !== 'preview'}>
+            {mode === 'preview' && <LinkPreviewDemo />}
           </div>
-          <p id="picker-scroll-hint" className="picker-scroll-hint"><MoveHorizontal size={15} aria-hidden="true" />Scroll to see more browsers</p>
-          <figcaption>CLASSIC PICKER / INTERACTIVE PREVIEW · SAMPLE DATA</figcaption>
+          <div className="selection-demo-panel" role="tabpanel" id="mode-panel-picker" aria-labelledby="mode-tab-picker" hidden={mode !== 'picker'}>
+            {mode === 'picker' && <div className="picker-mount">
+              <div className="picker-preview" role="group" aria-label="Classic browser picker preview">
+                <div className="picker-preview-header" aria-hidden="true">
+                  <span><Mail size={16} />Mail</span><span>https://developer.apple.com</span><span>Cancel</span>
+                </div>
+                <div ref={list} className="picker-browser-list" role="group" aria-label="Browser choices" aria-describedby="picker-scroll-hint" onKeyDown={navigateBrowsers}>
+                  {browsers.map((browser, index) => (
+                    <button key={browser.name} ref={(element) => { cards.current[index] = element; }} className="picker-browser-card" type="button" aria-label={`Preview ${browser.name}`} aria-pressed={selected === index} onFocus={() => setSelected(index)} onClick={() => selectBrowser(index)}>
+                      <img src={browser.icon} alt="" width={40} height={40} />
+                      <span>{browser.name}</span><kbd aria-hidden="true">{index + 1}</kbd>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>}
+          </div>
+          {mode === 'picker' && <p id="picker-scroll-hint" className="picker-scroll-hint"><MoveHorizontal size={15} aria-hidden="true" />Scroll to see more browsers</p>}
+          <figcaption>{mode === 'preview' ? 'LINK PREVIEW / V1.15.0 INTERFACE · GOOGLE PAGE CAPTURE' : 'CLASSIC PICKER / INTERACTIVE PREVIEW · SAMPLE DATA'}</figcaption>
         </motion.figure>
-        <motion.div
-          className="picker-explanation"
-          initial={reduceMotion ? false : { opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: reduceMotion ? 0 : 0.7, delay: reduceMotion ? 0 : 0.1 }}
-        >
-          <p className="product-label">02 / PREVIEW OR PICK</p>
-          <h2 id="picker-heading">Preview first.<br />Pick a browser.</h2>
-          <p className="picker-description">Open a link in a floating preview, browse the page, then open it in your chosen browser. Switch between link preview and the classic picker shown here in Settings.</p>
-          <p className="picker-description">Resize the preview and Prism remembers its size. Zoom the page, or use the compact icon-and-number menu to choose a browser in a narrow window.</p>
-          <ul className="picker-shortcuts" aria-label="Browser selection keyboard shortcuts">
-            {shortcuts.map(([keys, description]) => (
-              <li key={keys}><kbd>{keys}</kbd><span>{description}</span></li>
-            ))}
-          </ul>
-        </motion.div>
       </div>
     </section>
   );

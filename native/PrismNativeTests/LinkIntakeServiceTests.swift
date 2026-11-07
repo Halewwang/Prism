@@ -1316,6 +1316,75 @@ private actor CompactSuspendingPendingStore: PendingRequestStore {
     #expect(harness.launcher.openedURLs == [handoffURL])
 }
 
+@Test @MainActor func recoveryRetryUsesEditedURLAfterLaunchingSaveFailed() async throws {
+    let harness = RoutingHarness(launchResults: [.success])
+    let request = LinkRequest.fixture(url: "https://original.example/start")
+    let firstURL = URL(string: "https://current.example/first")!
+    let editedURL = URL(string: "https://edited.example/next?token=secret&safe=kept#section")!
+    try await harness.queue.enqueue(request)
+    await harness.coordinator.processNext()
+    await harness.pendingStore.failNextSave()
+    await harness.coordinator.select(browserID: "com.apple.Safari", for: request.id, handoffURL: firstURL)
+    #expect(harness.presenter.context == .storageUnavailable)
+
+    await harness.coordinator.retry(browserID: "com.apple.Safari", for: request.id, handoffURL: editedURL)
+
+    #expect(harness.launcher.openedURLs == [editedURL])
+    #expect(harness.history.entries.first?.sanitizedURL?.absoluteString == "https://edited.example/next?safe=kept")
+    #expect(await harness.queue.snapshot().isEmpty)
+}
+
+@Test(arguments: [false, true])
+@MainActor func recoveryRetryUsesEditedURLAfterTerminalSaveFailed(handoffFailed: Bool) async throws {
+    let harness = RoutingHarness(
+        automaticBrowserID: "com.apple.Safari",
+        launchResults: handoffFailed ? [.failure, .success] : [.success, .success]
+    )
+    let request = LinkRequest.fixture(url: "https://original.example/start")
+    let editedURL = URL(string: "https://edited.example/recovered")!
+    try await harness.queue.enqueue(request)
+    await harness.pendingStore.failSave(afterAdditionalSuccessfulSaves: 1)
+    await harness.coordinator.processNext()
+    #expect(await harness.queue.snapshot().first?.state == .launching)
+
+    await harness.coordinator.retry(browserID: "com.apple.Safari", for: request.id, handoffURL: editedURL)
+
+    #expect(harness.launcher.openedURLs == [request.url, editedURL])
+    #expect(harness.history.entries.first?.sanitizedURL == editedURL)
+    #expect(harness.history.entries.first?.requestID == request.id)
+    #expect(harness.history.entries.first?.attemptCount == 2)
+    #expect(await harness.queue.snapshot().isEmpty)
+}
+
+@Test @MainActor func recoveryRetryNeverLaunchesEditedURLBeforeRepairIsSaved() async throws {
+    let harness = RoutingHarness(automaticBrowserID: "com.apple.Safari", launchResults: [.success, .success])
+    let request = LinkRequest.fixture()
+    let editedURL = URL(string: "https://edited.example/recovered")!
+    try await harness.queue.enqueue(request)
+    await harness.pendingStore.failSave(afterAdditionalSuccessfulSaves: 1)
+    await harness.coordinator.processNext()
+    await harness.pendingStore.failNextSave()
+
+    await harness.coordinator.retry(browserID: "com.apple.Safari", for: request.id, handoffURL: editedURL)
+
+    #expect(harness.launcher.openedURLs == [request.url])
+    #expect(await harness.queue.snapshot().first?.state == .launching)
+    #expect(harness.presenter.context == .outcomeUnknown(browserID: "com.apple.Safari"))
+}
+
+@Test(arguments: ["file:///private/secret", "javascript:alert(1)", "about:blank", "https:/missing-host"])
+@MainActor func recoveryRetryRejectsUnsupportedEditedURL(value: String) async throws {
+    let request = LinkRequest.fixture(state: .outcomeUnknown)
+    let harness = RoutingHarness(restoredSnapshot: .init(pendingRequests: [request], terminalRecords: []))
+    try await harness.queue.restore()
+
+    await harness.coordinator.retry(browserID: "com.apple.Safari", for: request.id, handoffURL: URL(string: value)!)
+
+    #expect(harness.launcher.openedURLs.isEmpty)
+    #expect(await harness.queue.next() == request)
+    #expect(harness.history.entries.isEmpty)
+}
+
 @Test @MainActor func previewHandoffSurvivesUnavailableBrowserAfterStorageFailure() async throws {
     let harness = RoutingHarness(launchResults: [.success])
     let request = LinkRequest.fixture(id: fixedUUID(409), url: "https://original.example/start")

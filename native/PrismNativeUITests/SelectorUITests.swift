@@ -98,6 +98,31 @@ final class SelectorUITests: XCTestCase {
         XCTAssertTrue(waitUntil(timeout: 2) { !panel.exists })
     }
 
+    func testAddressCanBeCopiedAndEditedWithoutTriggeringBrowserShortcuts() {
+        let application = launchSelector(variant: "three", appearance: "light")
+        defer { terminateSelector(application) }
+        let panel = selectorPanel(in: application)
+        let address = panel.textFields["selector.urlInput"]
+        XCTAssertTrue(address.waitForExistence(timeout: 2))
+        address.click()
+        address.typeKey("a", modifierFlags: .command)
+        address.typeText("https://edited.example/123")
+        address.typeKey(.leftArrow, modifierFlags: [])
+        address.typeKey(.rightArrow, modifierFlags: [])
+        XCTAssertTrue(panel.exists)
+        XCTAssertEqual(address.value as? String, "https://edited.example/123")
+        address.typeKey("a", modifierFlags: .command)
+        address.typeKey("c", modifierFlags: .command)
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "https://edited.example/123")
+        address.typeText("https://")
+        address.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(panel.exists)
+        address.typeKey("a", modifierFlags: .command)
+        address.typeText("https://edited.example/456")
+        element("selector.browser.selector-fixture-1", in: panel).click()
+        XCTAssertTrue(waitUntil(timeout: 2) { !panel.exists })
+    }
+
     func testDraggingFromBrowserCardScrollsWithoutActivatingABrowser() {
         let application = launchSelector(variant: "five", appearance: "light")
         defer { terminateSelector(application) }

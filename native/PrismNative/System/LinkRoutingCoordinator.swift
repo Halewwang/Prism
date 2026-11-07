@@ -46,6 +46,7 @@ protocol LinkRoutingCoordinating: AnyObject {
     func select(browserID: BrowserID, for requestID: UUID) async
     func select(browserID: BrowserID, for requestID: UUID, handoffURL: URL) async
     func retry(browserID: BrowserID, for requestID: UUID) async
+    func retry(browserID: BrowserID, for requestID: UUID, handoffURL: URL) async
     func canRetryFromHistory(requestID: UUID) async -> Bool
     @discardableResult
     func retryFromHistory(browserID: BrowserID, requestID: UUID) async -> Bool
@@ -79,6 +80,10 @@ extension LinkRoutingCoordinating {
 
     func select(browserID: BrowserID, for requestID: UUID, handoffURL _: URL) async {
         await select(browserID: browserID, for: requestID)
+    }
+
+    func retry(browserID: BrowserID, for requestID: UUID, handoffURL _: URL) async {
+        await retry(browserID: browserID, for: requestID)
     }
 
     func canRetryFromHistory(requestID _: UUID) async -> Bool { false }
@@ -412,8 +417,22 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
     }
 
     func retry(browserID: BrowserID, for requestID: UUID) async {
+        await retryUserAction(browserID: browserID, requestID: requestID, handoffURL: nil)
+    }
+
+    func retry(browserID: BrowserID, for requestID: UUID, handoffURL: URL) async {
+        guard BootstrapLinkBuffer.accepts(handoffURL),
+              let host = handoffURL.host, !host.isEmpty else { return }
+        await retryUserAction(browserID: browserID, requestID: requestID, handoffURL: handoffURL)
+    }
+
+    private func retryUserAction(browserID: BrowserID, requestID: UUID, handoffURL: URL?) async {
         guard beginUserAction(for: requestID) else { return }
-        let result = await retryWhileOwningUserAction(browserID: browserID, requestID: requestID)
+        let result = await retryWhileOwningUserAction(
+            browserID: browserID,
+            requestID: requestID,
+            handoffURL: handoffURL
+        )
         endUserAction(for: requestID)
         if result.shouldRequestContinuation {
             continuationRequester?.requestRoutingContinuation()
@@ -537,12 +556,13 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
 
     private func retryWhileOwningUserAction(
         browserID: BrowserID,
-        requestID: UUID
+        requestID: UUID,
+        handoffURL: URL? = nil
     ) async -> (accepted: Bool, shouldRequestContinuation: Bool) {
 
         if let failedPersistence = failedHandoffPersistence[requestID] {
             let repaired = await retryFailedHandoffPersistence(failedPersistence)
-            return (repaired, false)
+            guard repaired, handoffURL != nil else { return (repaired, false) }
         }
 
         if let uncertain = uncertainAttempts[requestID] {
@@ -562,7 +582,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
 
         let blockedRequest = storageBlockedRequests[requestID]
         guard var request = await request(withID: requestID) else { return (false, false) }
-        if let handoffURL = blockedRequest?.handoffURL { request.handoffURL = handoffURL }
+        if let handoffURL = handoffURL ?? blockedRequest?.handoffURL { request.handoffURL = handoffURL }
         let browser: BrowserDescriptor
         do {
             guard let available = try await availableBrowser(id: browserID) else {

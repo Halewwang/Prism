@@ -7,6 +7,7 @@ struct LinkPreviewView: View {
     @State var web: LinkPreviewWebModel
     let iconProvider: any ApplicationIconProviding
     @FocusState private var browsersFocused: Bool
+    @FocusState private var addressFocused: Bool
     @State private var initialBrowserNavigationEnabled = true
     @State private var browserCandidatesVisible = false
     @Environment(\.colorSchemeContrast) private var contrast
@@ -90,6 +91,13 @@ struct LinkPreviewView: View {
         .onChange(of: browsersFocused) { _, focused in
             if !focused { browserCandidatesVisible = false }
         }
+        .onChange(of: addressFocused) { _, focused in
+            if focused {
+                initialBrowserNavigationEnabled = false
+                browserCandidatesVisible = false
+                browsersFocused = false
+            }
+        }
         .onChange(of: model.previewRequiresRecovery) { _, recovery in
             web.navigationEnabled = !recovery
             if recovery { web.webView.stopLoading() }
@@ -141,11 +149,19 @@ struct LinkPreviewView: View {
         HStack(spacing: 4) {
             navigationButton("chevron.left", label: String(localized: "preview.back", defaultValue: "Back"), enabled: web.canGoBack && !model.previewRequiresRecovery, id: "back", action: web.goBack)
             navigationButton("chevron.right", label: String(localized: "preview.forward", defaultValue: "Forward"), enabled: web.canGoForward && !model.previewRequiresRecovery, id: "forward", action: web.goForward)
-            Text(web.currentURL.absoluteString)
+            TextField(String(localized: "selector.url", defaultValue: "Link"), text: $model.addressText)
+                .textFieldStyle(.plain)
                 .font(.system(size: 12)).foregroundStyle(SelectorPalette.secondaryText)
-                .lineLimit(1).truncationMode(.tail)
+                .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
-                .background(LinkPreviewWindowDragRegion())
+                .focused($addressFocused)
+                .onSubmit {
+                    guard let url = model.validatedAddressURL(), !model.previewRequiresRecovery else { return }
+                    model.addressText = url.absoluteString
+                    web.load(url)
+                }
+                .disabled(model.isPerformingAction)
+                .accessibilityLabel(String(localized: "selector.url", defaultValue: "Link"))
                 .help(web.currentURL.absoluteString + "\n" + String(localized: "preview.zoomHelp", defaultValue: "Page zoom: ⌘+ / ⌘− / ⌘0; pinch to zoom"))
                 .accessibilityIdentifier("linkPreview.url")
             navigationButton("arrow.clockwise", label: String(localized: "preview.reload", defaultValue: "Reload"), enabled: !model.previewRequiresRecovery, id: "reload", action: web.reload)

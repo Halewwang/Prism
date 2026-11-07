@@ -9,11 +9,11 @@
   </picture>
   <h2>Your links. In the right browser.</h2>
   <p>A native browser router for macOS.<br />Open work links in your work browser, keep personal browsing separate, or preview a page before choosing its browser.</p>
-  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.0 / Build 15 public test</strong></p>
+  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.1 / Build 16 public test</strong></p>
   <p>
     <a href="https://prismmac.vercel.app/">Website</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.0/Prism-1.15.0-universal-test.dmg">Download for macOS</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.0">Release notes</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.1/Prism-1.15.1-universal-test.dmg">Download for macOS</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.1">Release notes</a>
   </p>
 </div>
 
@@ -53,14 +53,14 @@ Choose directly when a link needs a different browser.
 
 ## Get started
 
-1. Download [Prism-1.15.0-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.0/Prism-1.15.0-universal-test.dmg), open it, and drag Prism into Applications.
+1. Download [Prism-1.15.1-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.1/Prism-1.15.1-universal-test.dmg), open it, and drag Prism into Applications.
 2. Open Prism and follow setup to make it your default browser. You can also select it in **System Settings → Desktop & Dock → Default web browser**.
 3. Choose your fallback behavior. For manual browser choices, select Link Preview or Browser Picker in Settings, then add URL or source-app rules.
 4. Open a link from an app you use and check where it goes.
 
-This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS; see the [installation instructions and public-test limitations](docs/public-test-release-1.15.0.md). The download is a Universal build for Apple Silicon and Intel Macs.
+This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS; see the [installation instructions and public-test limitations](docs/public-test-release-1.15.1.md). The download is a Universal build for Apple Silicon and Intel Macs.
 
-v1.15.0 adds interactive link previews, browser selection that adapts to window width, and page zoom. It also improves status-menu visibility over full-screen apps, desktop switching, and web resource cleanup when a preview closes. Users on native v1.14.11 or later can check for updates and install in the app.
+v1.15.1 lets you select, copy, paste, and edit the address in the browser picker and link preview. Choosing a browser opens the edited address; Return loads it inside the preview, and recovery retries preserve your changes. Users on native v1.14.11 or later can check for updates and install in the app.
 
 Link preview uses macOS WebKit and its own sign-in session; it does not inherit logins from external browsers. Website compatibility depends on the site and macOS version; open the page in your browser if its sign-in or features are unsupported. Source detection varies by app. Regex rules are not supported; Chrome / Edge profile routing is experimental.
 

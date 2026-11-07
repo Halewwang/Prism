@@ -40,7 +40,17 @@ final class SelectorViewModel {
     let url: URL
     let source: SourceApplication
     private(set) var presentationContext: SelectorPresentationContext
-    var previewURL: URL?
+    var addressText: String {
+        didSet { addressError = nil }
+    }
+    var previewURL: URL? {
+        didSet {
+            if addressText == (oldValue ?? url).absoluteString {
+                addressText = (previewURL ?? url).absoluteString
+            }
+        }
+    }
+    private var addressError: String?
 
     private(set) var browsers: [BrowserDescriptor]
     private(set) var selectedIndex: Int
@@ -71,6 +81,7 @@ final class SelectorViewModel {
     ) {
         requestID = request.id
         url = request.launchURL
+        addressText = request.launchURL.absoluteString
         source = request.source
         presentationContext = context
         let orderedBrowsers = browserOrder(Self.availableAndOrdered(browsers))
@@ -105,7 +116,8 @@ final class SelectorViewModel {
     }
 
     var accessibleFailureMessage: String? {
-        switch presentationContext {
+        if let addressError { return addressError }
+        return switch presentationContext {
         case let .launchFailed(_, message):
             message
         case .outcomeUnknown:
@@ -126,6 +138,7 @@ final class SelectorViewModel {
     }
 
     var isFailurePresentation: Bool {
+        if addressError != nil { return true }
         if case let .ruleSkipped(reason) = presentationContext {
             switch reason {
             case .noMatchingRule, .rulesPaused, .sourceNotConfirmed: return false
@@ -190,7 +203,7 @@ final class SelectorViewModel {
     }
 
     var canCreateDomainRule: Bool {
-        guard let host = url.host(percentEncoded: false) else { return false }
+        guard let host = parsedAddressURL?.host(percentEncoded: false) else { return false }
         return !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
@@ -321,11 +334,39 @@ final class SelectorViewModel {
         await activateBrowser(id: selectedBrowser.id)
     }
 
+    private var parsedAddressURL: URL? {
+        let text = addressText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !text.contains(where: \.isWhitespace),
+              let candidate = URL(string: text),
+              let address = candidate.scheme == nil ? URL(string: "https://" + text) : candidate,
+              LinkPreviewNavigationPolicy.canOpen(address)
+        else { return nil }
+        return address
+    }
+
+    func validatedAddressURL() -> URL? {
+        guard let address = parsedAddressURL else {
+            addressError = String(localized: "selector.url.invalid", defaultValue: "Enter a valid HTTP or HTTPS address.")
+            return nil
+        }
+        addressError = nil
+        return address
+    }
+
     func activateBrowser(id: BrowserID) async {
-        guard browsers.contains(where: { $0.id == id }), !isPerformingAction else { return }
+        guard browsers.contains(where: { $0.id == id }), !isPerformingAction,
+              let address = validatedAddressURL() else { return }
         selectBrowser(id: id)
         isPerformingAction = true
         defer { isPerformingAction = false }
+        if address != (previewURL ?? url) {
+            if previewRequiresRecovery {
+                await routingCoordinator.retry(browserID: id, for: requestID, handoffURL: address)
+            } else {
+                await routingCoordinator.select(browserID: id, for: requestID, handoffURL: address)
+            }
+            return
+        }
         if let previewURL {
             switch presentationContext {
             case .normal, .noAvailableBrowsers, .ruleSkipped, .launchFailed:
@@ -351,10 +392,15 @@ final class SelectorViewModel {
 
     func retryRecovery(browserID: BrowserID? = nil) async {
         let candidate = browserID ?? presentationContext.preferredBrowserID
-        guard let candidate, browsers.contains(where: { $0.id == candidate }), !isPerformingAction else { return }
+        guard let candidate, browsers.contains(where: { $0.id == candidate }), !isPerformingAction,
+              let address = validatedAddressURL() else { return }
         isPerformingAction = true
         defer { isPerformingAction = false }
-        await routingCoordinator.retry(browserID: candidate, for: requestID)
+        if address != (previewURL ?? url) {
+            await routingCoordinator.retry(browserID: candidate, for: requestID, handoffURL: address)
+        } else {
+            await routingCoordinator.retry(browserID: candidate, for: requestID)
+        }
     }
 
     func markCompleted() async {
@@ -376,7 +422,7 @@ final class SelectorViewModel {
     }
 
     func openDomainRule(browserID: BrowserID) {
-        guard canCreateDomainRule, let host = url.host(percentEncoded: false) else { return }
+        guard canCreateDomainRule, let host = parsedAddressURL?.host(percentEncoded: false) else { return }
         navigationHandler.openRuleEditor(prefill: .domain(host: host, browserID: browserID))
     }
 

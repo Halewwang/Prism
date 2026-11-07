@@ -46,10 +46,10 @@ export const PublicTest = () => {
               </ol>
               <h3>New in v{release.version}</h3>
               <ul>
-                <li>Preview and interact with a web page before opening it in a browser. Choose link preview or the classic browser picker in Settings.</li>
-                <li>Resize the preview window and keep its size for next time. Zoom pages with pinch gestures or ⌘+ / ⌘− / ⌘0.</li>
-                <li>Browser choices adapt to the window width. Narrow windows use an icon-and-number menu with arrow-key selection and number shortcuts.</li>
-                <li>Improved menu visibility in full-screen apps and behavior when switching desktops. Closing a preview releases its web resources.</li>
+                <li>Select, copy, paste, and edit the address in both the browser picker and link preview.</li>
+                <li>Choose a browser to open the edited address without pressing Return first.</li>
+                <li>Press Return in the preview address field to load the new page inside the preview.</li>
+                <li>Recovery retries preserve address edits. Invalid addresses are rejected before navigation or browser handoff.</li>
               </ul>
               <h3>Updating this public test</h3>
               <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in Settings, then ask you to confirm installation. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>

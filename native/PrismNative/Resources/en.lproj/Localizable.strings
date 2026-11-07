@@ -1,6 +1,7 @@
 "selector.cancel" = "Cancel";
 "selector.source" = "Source";
 "selector.url" = "Link";
+"selector.url.invalid" = "Enter a valid HTTP or HTTPS address.";
 "selector.failure.help" = "Failure details";
 "selector.rescan" = "Rescan";
 "selector.openBrowserManagement" = "Open Browser Management";

@@ -166,6 +166,55 @@ struct SelectorInputMappingTests {
 @Suite("Selector model")
 @MainActor
 struct SelectorViewModelTests {
+    @Test func editedAddressIsHandedOffWithoutChangingTheOriginalRequest() async {
+        let fixture = SelectorFixture(browserCount: 2)
+        fixture.model.addressText = "  edited.example/path?token=keep#section  "
+
+        await fixture.model.activateShortcut(2)
+
+        #expect(fixture.routing.calls == [.previewSelect(
+            browserID: fixture.browsers[1].id, requestID: fixture.request.id,
+            url: URL(string: "https://edited.example/path?token=keep#section")!
+        )])
+        #expect(fixture.model.url == fixture.request.url)
+    }
+
+    @Test(arguments: ["", "   ", "https://", "javascript:alert(1)", "file:///tmp/test", "not a web address"])
+    func invalidEditedAddressDoesNotOpenABrowser(address: String) async {
+        let fixture = SelectorFixture(browserCount: 1)
+        fixture.model.addressText = address
+
+        await fixture.model.activateSelected()
+
+        #expect(fixture.routing.calls.isEmpty)
+        #expect(fixture.model.accessibleFailureMessage != nil)
+        fixture.model.addressText = fixture.request.url.absoluteString
+        #expect(fixture.model.accessibleFailureMessage == nil)
+    }
+
+    @Test func pageNavigationUpdatesTheAddressWithoutOverwritingAnEdit() {
+        let fixture = SelectorFixture(browserCount: 1)
+        let page = URL(string: "https://page.example/next")!
+        fixture.model.previewURL = page
+        #expect(fixture.model.addressText == page.absoluteString)
+        fixture.model.addressText = "https://edited.example/"
+        fixture.model.previewURL = URL(string: "https://page.example/redirect")!
+        #expect(fixture.model.addressText == "https://edited.example/")
+    }
+
+    @Test(arguments: [SelectorPresentationContext.outcomeUnknown(browserID: "browser-0"), .storageUnavailable])
+    func editedRecoveryAddressUsesExplicitRetry(context: SelectorPresentationContext) async {
+        let fixture = SelectorFixture(browserCount: 1, context: context)
+        let edited = URL(string: "https://edited.example/recovery")!
+        fixture.model.addressText = edited.absoluteString
+
+        await fixture.model.retryRecovery(browserID: fixture.browsers[0].id)
+
+        #expect(fixture.routing.calls == [.editedRetry(
+            browserID: fixture.browsers[0].id, requestID: fixture.request.id, url: edited
+        )])
+    }
+
     @Test func recoveredHandoffURLDrivesCompactDisplayAndDomainRulePrefill() {
         let original = URL(string: "https://original.example/start")!
         let handoffURL = URL(string: "https://current.example/recovered")!
@@ -592,6 +641,7 @@ private final class RecordingRoutingCoordinator: LinkRoutingCoordinating {
         case select(browserID: BrowserID, requestID: UUID)
         case previewSelect(browserID: BrowserID, requestID: UUID, url: URL)
         case retry(browserID: BrowserID, requestID: UUID)
+        case editedRetry(browserID: BrowserID, requestID: UUID, url: URL)
         case markCompleted(requestID: UUID)
         case cancel(requestID: UUID)
     }
@@ -614,6 +664,10 @@ private final class RecordingRoutingCoordinator: LinkRoutingCoordinating {
 
     func retry(browserID: BrowserID, for requestID: UUID) async {
         calls.append(.retry(browserID: browserID, requestID: requestID))
+    }
+
+    func retry(browserID: BrowserID, for requestID: UUID, handoffURL: URL) async {
+        calls.append(.editedRetry(browserID: browserID, requestID: requestID, url: handoffURL))
     }
 
     func markUncertainAttemptCompleted(requestID: UUID) async {

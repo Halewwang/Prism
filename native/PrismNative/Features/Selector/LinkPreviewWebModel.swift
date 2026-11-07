@@ -32,6 +32,7 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
     @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private var hasStopped = false
     @ObservationIgnored private var downloadFallback: LinkPreviewDownloadFallback?
+    @ObservationIgnored private var uncommittedAddress: URL?
     @ObservationIgnored var browserShortcutAction: (@MainActor (Int) -> Void)?
     @ObservationIgnored private var browserShortcutCount = 0
     @ObservationIgnored private var shortcutFrames: [String: WKFrameInfo] = [:]
@@ -73,6 +74,7 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
     }
 
     var handoffURL: URL {
+        if let uncommittedAddress { return uncommittedAddress }
         if let downloadFallback, downloadFallback.remainsValid(for: webView.backForwardList.currentItem?.url) {
             return downloadFallback.url
         }
@@ -88,16 +90,18 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     func load(_ url: URL) {
         guard !hasStopped, navigationEnabled, LinkPreviewNavigationPolicy.canOpen(url) else { return }
+        uncommittedAddress = url
+        downloadFallback = nil
         errorMessage = nil
         currentURL = url
         webView.load(URLRequest(url: url))
     }
 
-    func goBack() { errorMessage = nil; webView.goBack() }
-    func goForward() { errorMessage = nil; webView.goForward() }
+    func goBack() { uncommittedAddress = nil; downloadFallback = nil; errorMessage = nil; webView.goBack() }
+    func goForward() { uncommittedAddress = nil; downloadFallback = nil; errorMessage = nil; webView.goForward() }
     func reload() {
         errorMessage = nil
-        if downloadFallback != nil || webView.url == nil { load(currentURL) } else { webView.reload() }
+        if uncommittedAddress != nil || downloadFallback != nil || webView.url == nil { load(currentURL) } else { webView.reload() }
     }
 
     var zoomPercentage: Int { Int((pageScale * 100).rounded()) }
@@ -112,6 +116,8 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
     func stop() {
         guard !hasStopped else { return }
         hasStopped = true
+        uncommittedAddress = nil
+        downloadFallback = nil
         let dialogs = scriptDialogs
         scriptDialogs.removeAll()
         for dialog in dialogs.values {
@@ -160,7 +166,8 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
             self.downloadFallback = nil
             errorMessage = nil
         }
-        if let url = downloadFallback?.url ?? webView.url, LinkPreviewNavigationPolicy.canOpen(url) { currentURL = url }
+        if uncommittedAddress == nil, let url = downloadFallback?.url ?? webView.url,
+           LinkPreviewNavigationPolicy.canOpen(url) { currentURL = url }
         canGoBack = webView.canGoBack
         canGoForward = webView.canGoForward
         isLoading = webView.isLoading
@@ -194,6 +201,7 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
                  decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
         if !response.canShowMIMEType, response.isForMainFrame {
             if let url = response.response.url, LinkPreviewNavigationPolicy.canOpen(url) {
+                uncommittedAddress = nil
                 downloadFallback = LinkPreviewDownloadFallback(url: url, documentURL: webView.backForwardList.currentItem?.url)
                 currentURL = url
             }
@@ -205,7 +213,7 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         downloadFallback = nil; errorMessage = nil; update()
     }
-    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) { update() }
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) { uncommittedAddress = nil; update() }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { update() }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) { failed(error) }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) { failed(error) }

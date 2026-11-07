@@ -1,4 +1,5 @@
 import AppKit
+import Network
 import Testing
 import WebKit
 @testable import PrismNative
@@ -6,6 +7,68 @@ import WebKit
 @Suite("Preview web lifecycle")
 @MainActor
 struct LinkPreviewWebLifecycleTests {
+    @Test func submittedAddressReplacesDownloadFallbackImmediatelyAndSurvivesFailure() async throws {
+        _ = NSApplication.shared
+        let listener = try NWListener(using: .tcp, on: .any)
+        defer { listener.cancel() }
+        let queue = DispatchQueue(label: "PreviewDownloadFixture")
+        listener.newConnectionHandler = { connection in
+            connection.start(queue: queue)
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 16_384) { _, _, _, _ in
+                let response = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=fixture.bin\r\nContent-Length: 7\r\nConnection: close\r\n\r\nfixture"
+                connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })
+            }
+        }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            listener.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    listener.stateUpdateHandler = nil
+                    continuation.resume()
+                case let .failed(error):
+                    listener.stateUpdateHandler = nil
+                    continuation.resume(throwing: error)
+                default: break
+                }
+            }
+            listener.start(queue: queue)
+        }
+        let port = try #require(listener.port)
+        let download = URL(string: "http://127.0.0.1:\(port.rawValue)/file.bin")!
+        let model = makeModel()
+        defer { model.stop() }
+        model.load(download)
+        let reachedDownload = try await waitUntil {
+            model.errorMessage == String(localized: "preview.download", defaultValue: "Open this link in a browser to download the file.")
+        }
+        #expect(reachedDownload)
+        #expect(model.handoffURL == download)
+        let submitted = URL(string: "http://127.0.0.1:\(port.rawValue)/next")!
+
+        model.load(submitted)
+
+        #expect(model.currentURL == submitted)
+        #expect(model.handoffURL == submitted)
+        model.webView(model.webView, didFailProvisionalNavigation: nil, withError: URLError(.cannotConnectToHost))
+        #expect(model.currentURL == submitted)
+        #expect(model.handoffURL == submitted)
+    }
+
+    @Test func submittedAddressHandsOffImmediatelyAfterAnExistingPage() async throws {
+        _ = NSApplication.shared
+        let model = makeModel()
+        defer { model.stop() }
+        model.webView.loadHTMLString("<!doctype html><p>Existing page</p>", baseURL: URL(string: "https://history.invalid/one"))
+        let loaded = try await waitForJavaScript(model.webView, "document.readyState === 'complete' ? 1 : 0", expected: 1)
+        #expect(loaded)
+        let submitted = URL(string: "http://127.0.0.1:18771/next")!
+
+        model.load(submitted)
+
+        #expect(model.currentURL == submitted)
+        #expect(model.handoffURL == submitted)
+    }
+
     @Test func downloadFallbackExpiresWhenTheDisplayedHistoryEntryChanges() {
         let page = URL(string: "https://example.com/start")!
         let download = URL(string: "https://example.com/file.bin")!

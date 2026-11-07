@@ -11,6 +11,7 @@ struct SelectorView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var showsFailureHelp = false
     @FocusState private var hasKeyboardFocus: Bool
+    @FocusState private var addressHasFocus: Bool
 
     private let iconProvider: any ApplicationIconProviding
 
@@ -42,14 +43,17 @@ struct SelectorView: View {
             hasKeyboardFocus = true
         }
         .onKeyPress(.leftArrow) {
+            guard !addressHasFocus else { return .ignored }
             model.selectPrevious()
             return .handled
         }
         .onKeyPress(.rightArrow) {
+            guard !addressHasFocus else { return .ignored }
             model.selectNext()
             return .handled
         }
         .onKeyPress(.return) {
+            guard !addressHasFocus else { return .ignored }
             Task { await model.activateSelected() }
             return .handled
         }
@@ -60,6 +64,7 @@ struct SelectorView: View {
         .onKeyPress(characters: .decimalDigits) { keyPress in
             guard let character = keyPress.characters.first,
                   let number = character.wholeNumberValue,
+                  !addressHasFocus,
                   hasKeyboardFocus,
                   model.canActivateShortcut(number)
             else { return .ignored }
@@ -139,12 +144,15 @@ struct SelectorView: View {
                     .foregroundStyle(model.isFailurePresentation ? SelectorPalette.error : SelectorPalette.secondaryText)
                     .accessibilityHidden(true)
             }
-            Text(model.url.absoluteString)
+            TextField(String(localized: "selector.url", defaultValue: "Link"), text: $model.addressText)
+                .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(SelectorPalette.secondaryText)
                 .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 0)
+                .focused($addressHasFocus)
+                .disabled(model.isPerformingAction)
+                .onSubmit { Task { await model.activateSelected() } }
+                .accessibilityIdentifier("selector.urlInput")
             if let failureMessage = model.accessibleFailureMessage {
                 Button {
                     showsFailureHelp.toggle()
@@ -164,9 +172,9 @@ struct SelectorView: View {
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .selectorHeaderField(contrast: contrast, failure: model.isFailurePresentation)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "selector.url", defaultValue: "Link"))
-        .accessibilityValue(model.accessibleFailureMessage ?? model.url.absoluteString)
+        .accessibilityValue(model.accessibleFailureMessage ?? model.addressText)
         .accessibilityIdentifier("selector.url")
     }
 

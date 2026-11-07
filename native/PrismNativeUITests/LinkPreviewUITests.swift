@@ -51,6 +51,57 @@ final class LinkPreviewUITests: XCTestCase {
         XCTAssertTrue(waitUntil { !panel.exists })
     }
 
+    func testAddressCanBeCopiedEditedAndSubmittedWithoutBrowserShortcuts() throws {
+        let app = launchPreview(narrow: true)
+        let panel = previewPanel(in: app)
+        _ = element("linkPreview.browser.1", in: panel)
+        let address = panel.textFields["linkPreview.url"]
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
+        let original = try XCTUnwrap(address.value as? String)
+        address.click()
+        address.typeKey("a", modifierFlags: .command)
+        address.typeKey("c", modifierFlags: .command)
+        address.typeText("replacement")
+        address.typeKey("a", modifierFlags: .command)
+        address.typeKey("v", modifierFlags: .command)
+        XCTAssertEqual(address.value as? String, original, "Copy and paste must preserve the full address")
+
+        address.typeKey("a", modifierFlags: .command)
+        address.typeText("http://127.0.0.1:18771/next")
+        address.typeKey(.leftArrow, modifierFlags: [])
+        address.typeKey(.rightArrow, modifierFlags: [])
+        address.typeKey(.upArrow, modifierFlags: [])
+        address.typeKey(.downArrow, modifierFlags: [])
+        XCTAssertTrue(panel.exists, "Editing address digits must not launch a browser")
+        XCTAssertTrue(element("linkPreview.browser.1", in: panel).exists,
+            "Address arrow keys must not change the selected browser")
+        address.typeKey(.return, modifierFlags: [])
+
+        XCTAssertTrue(app.staticTexts["Next fixture page"].waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntil { self.urlText(in: panel).hasSuffix("/next") })
+        XCTAssertTrue(panel.exists, "Return in the address field must navigate inside the preview")
+    }
+
+    func testBrowserClickValidatesUnsubmittedAddressEdits() {
+        let app = launchPreview()
+        let panel = previewPanel(in: app)
+        let browser = element("linkPreview.browser.2", in: panel)
+        let address = panel.textFields["linkPreview.url"]
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
+        address.click()
+        address.typeKey("a", modifierFlags: .command)
+        address.typeText("javascript:alert(1)")
+
+        browser.click()
+
+        XCTAssertTrue(panel.exists, "An invalid edited address must not hand off the previous page")
+        address.click()
+        address.typeKey("a", modifierFlags: .command)
+        address.typeText("https://edited.example/123")
+        browser.click()
+        XCTAssertTrue(waitUntil { !panel.exists }, "A valid address edit must not require Return before browser handoff")
+    }
+
     func testBrowserNumberShortcutAfterScanWorksFromWebContent() {
         let app = launchPreview()
         let panel = previewPanel(in: app)
@@ -322,7 +373,7 @@ final class LinkPreviewUITests: XCTestCase {
     }
 
     private func assertPageZoom(_ percentage: Int, in panel: XCUIElement, application: XCUIApplication) {
-        element("linkPreview.url", in: panel).rightClick()
+        element("linkPreview.reload", in: panel).rightClick()
         XCTAssertTrue(application.menuItems["Page zoom: \(percentage)%"].waitForExistence(timeout: 3))
         application.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(panel.exists)

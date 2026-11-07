@@ -1,6 +1,7 @@
 "selector.cancel" = "取消";
 "selector.source" = "来源";
 "selector.url" = "链接";
+"selector.url.invalid" = "请输入有效的 HTTP 或 HTTPS 地址。";
 "selector.failure.help" = "失败详情";
 "selector.rescan" = "重新扫描";
 "selector.openBrowserManagement" = "打开浏览器管理";

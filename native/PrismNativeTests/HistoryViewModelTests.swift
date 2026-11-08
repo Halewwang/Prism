@@ -1,11 +1,79 @@
+import AppKit
 import Foundation
 import PrismCore
+import SwiftUI
 import Testing
 @testable import PrismNative
 
 @Suite("History model")
 @MainActor
 struct HistoryViewModelTests {
+    @Test func initialHistoryLayoutDoesNotReadRulesForEverySavedLink() async {
+        let entries = (0..<5_000).map { index in
+            historyVMEntry(id: historyVMFixedUUID(1_000 + index), result: .success)
+        }
+        var settings = AppSettings.defaults
+        settings.historyLimit = 5_000
+        let fixture = makeHistoryVM(entries: entries, settings: settings)
+        await fixture.model.load()
+        let rules = HistoryRenderingRuleRepository()
+        let environment = AppEnvironment(
+            route: .history, unmatchedBehavior: .alwaysAsk,
+            updateChecker: DisabledUpdateChecker(), ruleRepository: rules,
+            historyRepository: HistoryVMRepository(entries: entries),
+            browserPreferenceRepository: InMemoryBrowserPreferenceRepository(),
+            settingsRepository: InMemorySettingsRepository()
+        )
+        let hosting = NSHostingView(rootView: HistoryView(model: fixture.model, testLink: {}).environment(environment))
+        hosting.frame = CGRect(x: 0, y: 0, width: 800, height: 640)
+        let started = ContinuousClock.now
+        hosting.layoutSubtreeIfNeeded()
+        print("History initial layout: \(started.duration(to: .now)); rules reads: \(rules.readCount)")
+        #expect(fixture.model.entries.count == 5_000)
+        #expect(rules.readCount <= 1)
+    }
+
+    @Test func historyGroupLayoutBuildsOnlyTheVisibleRows() {
+        let counter = HistoryRenderingCounter()
+        let hosting = NSHostingView(rootView:
+            PageColumn(title: "History", accessibilityIdentifier: "history.performance") {
+                VStack {
+                    Text("Today")
+                    SettingsGroup {
+                        ForEach(0..<5_000) { index in
+                            HistoryRenderingProbeRow(index: index, counter: counter)
+                        }
+                    }
+                }
+            }
+        )
+        hosting.frame = CGRect(x: 0, y: 0, width: 800, height: 640)
+        hosting.layoutSubtreeIfNeeded()
+        print("History initial row bodies: \(counter.count)")
+        #expect(counter.count > 0)
+        #expect(counter.count < 100)
+    }
+
+    @Test(arguments: [0, 1, 2])
+    func nativeMissingAndUnknownApplicationIconsKeepHistoryRowsCompact(variant: Int) {
+        let entry = historyVMEntry(
+            result: .success, targetBrowserID: variant == 2 ? nil : "com.example.Browser",
+            sourceBundleIdentifier: variant == 2 ? nil : "com.example.Source",
+            sourceDisplayName: variant == 2 ? "Unknown" : "Source"
+        )
+        let image = variant == 0 ? NSImage(size: NSSize(width: 512, height: 512)) : nil
+        let hosting = NSHostingView(rootView: HistoryRow(
+            entry: entry, presentation: HistoryRowPresentation(safeURL: entry.sanitizedURL),
+            isRetryAvailable: false, isPerformingAction: false, activity: nil,
+            canReopen: false, reopenDisabledReason: "", canDelete: true, deleteDisabledReason: "",
+            retry: {}, reopen: {}, copyURL: {}, createRule: {}, delete: {},
+            sourceIcon: image, browserIcon: image
+        ))
+        hosting.frame = CGRect(x: 0, y: 0, width: 800, height: 72)
+        hosting.layoutSubtreeIfNeeded()
+        #expect(hosting.fittingSize.height == 72)
+    }
+
     @Test func routingAvailabilityRefreshesWithoutReloadingHistoryAndSessionCancellationUnsubscribes() async {
         let entry = historyVMEntry(result: .success)
         let repository = HistoryVMRepository(entries: [entry])
@@ -388,6 +456,26 @@ struct HistoryViewModelTests {
 }
 
 @MainActor
+private final class HistoryRenderingRuleRepository: RuleRepository {
+    private(set) var readCount = 0
+    func all() throws -> [RoutingRule] { readCount += 1; return [] }
+    func upsert(_: RoutingRule) throws {}
+    func delete(id _: UUID) throws {}
+}
+
+@MainActor
+private final class HistoryRenderingCounter { var count = 0 }
+
+private struct HistoryRenderingProbeRow: View {
+    let index: Int
+    let counter: HistoryRenderingCounter
+    var body: some View {
+        counter.count += 1
+        return Text("\(index)").frame(height: 72)
+    }
+}
+
+@MainActor
 private struct HistoryVMFixture {
     let model: HistoryViewModel
     let historyService: HistoryService
@@ -401,7 +489,8 @@ private func makeHistoryVM(
     repository: HistoryVMRepository? = nil,
     coordinator: HistoryVMCoordinator? = nil,
     intake: HistoryVMIntake? = nil,
-    navigation: HistoryVMNavigation? = nil
+    navigation: HistoryVMNavigation? = nil,
+    settings: AppSettings = .defaults
 ) -> HistoryVMFixture {
     let repository = repository ?? HistoryVMRepository(entries: entries)
     let coordinator = coordinator ?? HistoryVMCoordinator()
@@ -432,7 +521,7 @@ private func makeHistoryVM(
     let model = HistoryViewModel(
         historyService: historyService,
         queue: queue,
-        settings: { .defaults },
+        settings: { settings },
         coordinator: coordinator,
         intake: intake,
         clipboard: clipboard,
@@ -609,14 +698,16 @@ private func historyVMEntry(
     id: UUID = historyVMFixedUUID(100),
     result: HistoryResult,
     url: String? = "https://example.com/safe",
-    targetBrowserID: BrowserID? = "com.apple.Safari"
+    targetBrowserID: BrowserID? = "com.apple.Safari",
+    sourceBundleIdentifier: String? = "com.example.source",
+    sourceDisplayName: String = "Source"
 ) -> HistoryEntry {
     return HistoryEntry(
         id: id,
         requestID: id,
         sanitizedURL: url.flatMap(URL.init(string:)),
-        sourceBundleIdentifier: "com.example.source",
-        sourceDisplayName: "Source",
+        sourceBundleIdentifier: sourceBundleIdentifier,
+        sourceDisplayName: sourceDisplayName,
         targetBrowserID: targetBrowserID,
         targetDisplayName: targetBrowserID == nil ? nil : "Safari",
         method: targetBrowserID == nil ? nil : .manual,

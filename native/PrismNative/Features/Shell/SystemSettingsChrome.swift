@@ -9,7 +9,7 @@ struct PageColumn<Content: View>: View {
     var body: some View {
         GeometryReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                LazyVStack(alignment: .leading, spacing: 24) {
                     content()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -101,7 +101,7 @@ struct SettingsGroup<Content: View>: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        LazyVStack(alignment: .leading, spacing: 0) {
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)

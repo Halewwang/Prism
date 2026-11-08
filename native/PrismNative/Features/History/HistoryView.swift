@@ -7,6 +7,8 @@ struct HistoryView: View {
     let testLink: () -> Void
     @State private var query = ""
     @State private var resultFilter: HistoryResultFilter = .all
+    @State private var currentRules: [RoutingRule]?
+    @State private var iconProvider = ApplicationIconProvider()
 
     var body: some View {
         Group {
@@ -28,7 +30,10 @@ struct HistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WorkspaceLayout.contentSurface)
-        .task { await model.runSession() }
+        .task {
+            currentRules = try? environment.ruleRepository.all()
+            await model.runSession()
+        }
         .alert(
             "History Action Failed",
             isPresented: Binding(
@@ -76,7 +81,8 @@ struct HistoryView: View {
     }
 
     private var content: some View {
-        PageColumn(title: "History", accessibilityIdentifier: "appShell.page.history.content") {
+        let filteredEntries = self.filteredEntries
+        return PageColumn(title: "History", accessibilityIdentifier: "appShell.page.history.content") {
             HStack(spacing: 12) {
                 WorkspaceSearchField(placeholder: "Search URL, source app, or browser", text: $query, horizontalPadding: 11)
                     .frame(minWidth: 180, maxWidth: 340)
@@ -201,8 +207,10 @@ struct HistoryView: View {
             copyURL: { model.copyURL(entry) },
             createRule: { model.createRule(entry) },
             delete: { model.requestDelete(entry) },
-            currentRules: try? environment.ruleRepository.all(),
-            editRule: { model.editMatchingRule(entry, currentRules: try? environment.ruleRepository.all()) }
+            currentRules: currentRules,
+            editRule: { model.editMatchingRule(entry, currentRules: try? environment.ruleRepository.all()) },
+            sourceIcon: entry.sourceBundleIdentifier.flatMap { iconProvider.icon(bundleIdentifier: $0) },
+            browserIcon: entry.targetBrowserID.flatMap { iconProvider.icon(for: $0) }
         )
     }
 

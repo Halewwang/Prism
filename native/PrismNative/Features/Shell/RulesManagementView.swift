@@ -479,7 +479,11 @@ struct RulesManagementView: View {
         defer { isLoading = false }
         do {
             browsers = try await browserCatalog.scan()
-            installedApplications = InstalledApplicationCatalog.load()
+            let applications = await Task.detached(priority: .userInitiated) {
+                InstalledApplicationCatalog.load()
+            }.value
+            guard !Task.isCancelled else { return }
+            installedApplications = applications
             rules = try normalizePriorities(in: environment.ruleRepository.all())
             if draft == nil, environment.pendingSelectorRulePrefill != nil {
                 beginCreatingRule()

@@ -61,6 +61,56 @@ import XCTest
     #expect(browsers.allSatisfy { $0.availability == .available && $0.origin == .system })
 }
 
+@Suite("Browser catalog identities")
+@MainActor
+struct BrowserCatalogIdentityTests {
+    private static let selfIdentities = [
+        "com.prism.app", "com.prism.address-test.selector", "com.prism.address-edit-qa",
+        "COM.PRISM.Address-Edit-QA", "com.prism", "org.example.PRISMDevelopment"
+    ]
+
+    @Test func excludesPrismVariantsFromSystemDiscoverySavedCustomBrowsersAndTheSelector() async throws {
+        let fixtures = try TemporaryApplicationBundles(Self.selfIdentities.enumerated().map {
+            ("Variant \($0.offset).app", $0.element)
+        } + [
+            ("Prism.app", "com.example.browser"),
+            ("Unrelated Browser.app", "com.prismatic.browser"),
+            ("Safari.app", "com.apple.Safari")
+        ])
+        defer { fixtures.remove() }
+        let catalog = BrowserCatalogService(
+            workspace: StubWorkspaceClient(applicationURLs: fixtures.urls),
+            customBrowsers: zip(Self.selfIdentities, fixtures.urls).map {
+                browserDescriptor(bundleIdentifier: $0.0, applicationURL: $0.1, origin: .custom)
+            },
+            prismBundleIdentifier: "org.example.prismdevelopment",
+            profileDiscovery: ChromiumProfileDiscovery(userDataDirectories: [:])
+        )
+
+        let expected: [BrowserID] = ["com.example.browser", "com.prismatic.browser", "com.apple.Safari"]
+        #expect(try await catalog.scan().map(\.id) == expected)
+        #expect(try await catalog.scanForSelector().map(\.id) == expected)
+    }
+
+    @Test(arguments: selfIdentities)
+    func rejectsPrismVariantsAsCustomBrowsers(_ bundleIdentifier: String) throws {
+        let fixtures = try TemporaryApplicationBundles([("Prism.app", bundleIdentifier)])
+        defer { fixtures.remove() }
+        let preferences = InMemoryBrowserPreferenceRepository()
+        let catalog = BrowserCatalogService(
+            workspace: StubWorkspaceClient(applicationURLs: fixtures.urls),
+            browserPreferences: preferences,
+            prismBundleIdentifier: "org.example.prismdevelopment",
+            profileDiscovery: ChromiumProfileDiscovery(userDataDirectories: [:])
+        )
+
+        #expect(throws: BrowserCatalogError.invalidApplication) {
+            try catalog.saveCustomBrowser(at: fixtures.urls[0])
+        }
+        #expect(try preferences.customBrowsers().isEmpty)
+    }
+}
+
 @Test @MainActor func catalogMergesValidCustomBrowsersAndAppliesSavedSelectorOrder() async throws {
     let fixtures = try TemporaryApplicationBundles([
         ("Safari.app", "com.apple.Safari"),
@@ -937,6 +987,75 @@ private final class TemporaryChromiumProfiles {
 @Suite("Native application icons")
 @MainActor
 struct ApplicationIconProviderTests {
+    @Test func canonicalSourceIdentityResolvesTheInstalledHostAndCachesItsIcon() {
+        let workspace = IconCountingWorkspace()
+        let applicationURL = URL(fileURLWithPath: "/Applications/DingTalk.app")
+        var lookups: [String] = []
+        var catalogReads = 0
+        let provider = ApplicationIconProvider(workspace: workspace, applicationURL: {
+            lookups.append($0)
+            return nil
+        }, installedApplications: {
+            catalogReads += 1
+            return [
+                InstalledApplication(bundleIdentifier: "5ZSL2CJU2T.com.dingtalk.mac", displayName: "钉钉", applicationURL: applicationURL),
+                InstalledApplication(bundleIdentifier: "5ZSL2CJU2T.com.dingtalk.mac.helper.renderer", displayName: "Helper", applicationURL: URL(fileURLWithPath: "/Applications/Helper.app")),
+                InstalledApplication(bundleIdentifier: "com.example.unrelated", displayName: "钉钉", applicationURL: URL(fileURLWithPath: "/Applications/Unrelated.app")),
+            ]
+        })
+
+        let images = (0..<5_000).map { _ in provider.icon(bundleIdentifier: "com.dingtalk.mac") }
+        #expect(images.allSatisfy { $0 === workspace.image })
+        #expect(lookups == ["com.dingtalk.mac"])
+        #expect(catalogReads == 1)
+        #expect(workspace.iconReads == [applicationURL])
+    }
+
+    @Test func canonicalSourceIdentityDoesNotChooseBetweenAmbiguousHostApplications() {
+        let workspace = IconCountingWorkspace()
+        var catalogReads = 0
+        let provider = ApplicationIconProvider(workspace: workspace, applicationURL: { _ in nil }, installedApplications: {
+            catalogReads += 1
+            return [
+                InstalledApplication(bundleIdentifier: "5ZSL2CJU2T.com.dingtalk.mac", displayName: "钉钉", applicationURL: URL(fileURLWithPath: "/Applications/DingTalk.app")),
+                InstalledApplication(bundleIdentifier: "ABCDE12345.com.dingtalk.mac", displayName: "Other", applicationURL: URL(fileURLWithPath: "/Applications/Other.app")),
+            ]
+        })
+
+        #expect(provider.icon(bundleIdentifier: "com.dingtalk.mac") == nil)
+        #expect(provider.icon(bundleIdentifier: "com.dingtalk.mac") == nil)
+        #expect(catalogReads == 1)
+        #expect(workspace.iconReads.isEmpty)
+    }
+
+    @Test func differentMissingSourceIdentitiesShareOneInstalledApplicationSnapshot() {
+        let workspace = IconCountingWorkspace()
+        var catalogReads = 0
+        let provider = ApplicationIconProvider(workspace: workspace, applicationURL: { _ in nil }, installedApplications: {
+            catalogReads += 1
+            return []
+        })
+
+        #expect(provider.icon(bundleIdentifier: "com.example.MissingSource") == nil)
+        #expect(provider.icon(bundleIdentifier: "com.example.OtherMissingSource") == nil)
+        #expect(catalogReads == 1)
+        #expect(workspace.iconReads.isEmpty)
+    }
+
+    @Test func exactBundleLookupAvoidsInstalledApplicationScan() {
+        let workspace = IconCountingWorkspace()
+        let applicationURL = URL(fileURLWithPath: "/Applications/Exact.app")
+        var catalogReads = 0
+        let provider = ApplicationIconProvider(workspace: workspace, applicationURL: { _ in applicationURL }, installedApplications: {
+            catalogReads += 1
+            return []
+        })
+
+        #expect(provider.icon(bundleIdentifier: "ABCDE12345.com.example.Exact") === workspace.image)
+        #expect(catalogReads == 0)
+        #expect(workspace.iconReads == [applicationURL])
+    }
+
     @Test func repeatedApplicationIconsReuseTheNativeImage() {
         let workspace = IconCountingWorkspace()
         let provider = ApplicationIconProvider(workspace: workspace)
@@ -978,7 +1097,7 @@ struct ApplicationIconProviderTests {
         let provider = ApplicationIconProvider(workspace: workspace, applicationURL: {
             lookups.append($0)
             return nil
-        })
+        }, installedApplications: { [] })
 
         #expect(provider.icon(bundleIdentifier: "com.example.Missing") == nil)
         #expect(provider.icon(bundleIdentifier: "com.example.Missing") == nil)

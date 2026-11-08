@@ -46,10 +46,8 @@ export const PublicTest = () => {
               </ol>
               <h3>New in v{release.version}</h3>
               <ul>
-                <li>Updated icon proportions and sizes across the app, menu bar, and title bar.</li>
-                <li>Check for Updates directly from the menu bar menu.</li>
-                <li>Smoother switching between Rules, History, and Settings, with history rows rendered as needed and installed-app discovery moved to the background.</li>
-                <li>History shows cached source-app and destination-browser icons, including browser profile targets, with initials when an app icon is unavailable.</li>
+                <li>Source-app icons now resolve saved normalized identifiers, including DingTalk, in History, the browser picker, and link preview.</li>
+                <li>Prism and its test copies are excluded from browser choices and cannot be added as custom browsers.</li>
               </ul>
               <h3>Updating this public test</h3>
               <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in the app, then ask you to confirm installation. In this version, start a check in Settings or the menu bar menu. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>

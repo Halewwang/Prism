@@ -43,7 +43,7 @@ final class BrowserCatalogService: BrowserCataloging {
         configuredCustomBrowsers = customBrowsers
         configuredSelectorOrder = savedSelectorOrder
         self.browserPreferences = browserPreferences
-        self.prismBundleIdentifier = prismBundleIdentifier
+        self.prismBundleIdentifier = prismBundleIdentifier.lowercased()
         self.profileDiscovery = profileDiscovery
     }
 
@@ -179,8 +179,15 @@ final class BrowserCatalogService: BrowserCataloging {
               let bundle = Bundle(url: resolvedURL),
               fileManager.isReadableFile(atPath: resolvedURL.appending(path: "Contents/Info.plist").path),
               let bundleIdentifier = bundle.bundleIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !bundleIdentifier.isEmpty,
-              bundleIdentifier != prismBundleIdentifier else {
+              !bundleIdentifier.isEmpty else {
+            return nil
+        }
+
+        // QA builds register web handlers under other identities in Prism's namespace.
+        let normalizedIdentifier = bundleIdentifier.lowercased()
+        guard normalizedIdentifier != prismBundleIdentifier,
+              normalizedIdentifier != "com.prism",
+              !normalizedIdentifier.hasPrefix("com.prism.") else {
             return nil
         }
 

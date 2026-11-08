@@ -19,6 +19,8 @@ struct HistoryRow: View {
     let delete: () -> Void
     var currentRules: [RoutingRule]? = nil
     var editRule: (() -> Void)? = nil
+    var sourceIcon: NSImage? = nil
+    var browserIcon: NSImage? = nil
 
     private static let listTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -90,7 +92,7 @@ struct HistoryRow: View {
 
     private var detailsButtonContent: some View {
         HStack(spacing: 14) {
-            initialIcon(presentation.safeHost ?? "?", side: 32)
+            applicationIcon(sourceIcon, fallbackName: sourceIconFallbackName, side: 32)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(presentation.safeHost ?? localized("URL not saved"))
@@ -108,7 +110,7 @@ struct HistoryRow: View {
                 }
                 .frame(height: 20)
                 HStack(spacing: 6) {
-                    initialIcon(entry.sourceDisplayName == "Unknown" ? "?" : displayedSource, side: 16)
+                    applicationIcon(sourceIcon, fallbackName: sourceIconFallbackName, side: 16)
                     Text(displayedSource).lineLimit(1)
                     Image(systemName: "arrow.right")
                         .font(.system(size: 12))
@@ -122,7 +124,7 @@ struct HistoryRow: View {
                             .frame(width: 14, height: 14)
                             .accessibilityHidden(true)
                     } else {
-                        initialIcon(targetText, side: 16)
+                        applicationIcon(browserIcon, fallbackName: targetText, side: 16)
                     }
                     Text(targetText)
                         .foregroundStyle(entry.targetBrowserID == nil ? SettingsPalette.muted : SettingsPalette.tertiary)
@@ -150,6 +152,10 @@ struct HistoryRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var sourceIconFallbackName: String {
+        entry.sourceDisplayName == "Unknown" ? "?" : displayedSource
+    }
+
     private func initialIcon(_ name: String, side: CGFloat) -> some View {
         Text(String(name.first ?? "?").uppercased())
             .font(.system(size: side == 32 ? 13 : 9, weight: .semibold))
@@ -158,6 +164,20 @@ struct HistoryRow: View {
             .background(SettingsPalette.sidebar, in: RoundedRectangle(cornerRadius: side == 32 ? 8 : 4))
             .overlay(RoundedRectangle(cornerRadius: side == 32 ? 8 : 4).stroke(SettingsPalette.border, lineWidth: 1))
             .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func applicationIcon(_ image: NSImage?, fallbackName: String, side: CGFloat) -> some View {
+        if let image {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: side, height: side)
+                .accessibilityHidden(true)
+        } else {
+            initialIcon(fallbackName, side: side)
+        }
     }
 
     private var details: some View {

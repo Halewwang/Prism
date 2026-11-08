@@ -96,13 +96,14 @@ extension AppKitStatusItemHost: @preconcurrency NSStatusItemExpandedInterfaceDel
 }
 
 @MainActor
-final class StatusItemController: NSObject {
+final class StatusItemController: NSObject, NSMenuDelegate {
     private let host: any StatusItemHosting
     private let mainWindowOpening: MainWindowOpening
     private let environment: AppEnvironment
     private let terminate: @MainActor () -> Void
     private let menu = NSMenu(title: "Prism")
     private var automaticRulesItem: NSMenuItem!
+    private var checkForUpdatesItem: NSMenuItem!
 
     init(
         host: any StatusItemHosting = AppKitStatusItemHost(),
@@ -125,12 +126,15 @@ final class StatusItemController: NSObject {
     private func configureMenu() {
         menu.removeAllItems()
         menu.autoenablesItems = false
+        menu.delegate = self
         menu.addItem(makeItem(title: localized("status.openPrism", "Open Prism"), action: #selector(openPrism), symbol: "rectangle.on.rectangle"))
 
         automaticRulesItem = makeItem(title: "", action: #selector(toggleAutomaticRules), symbol: "pause.circle")
         menu.addItem(automaticRulesItem)
 
         menu.addItem(.separator())
+        checkForUpdatesItem = makeItem(title: localized("status.checkForUpdates", "Check for Updates"), action: #selector(checkForUpdates), symbol: "arrow.triangle.2.circlepath")
+        menu.addItem(checkForUpdatesItem)
         menu.addItem(makeItem(title: localized("status.quit", "Quit Prism"), action: #selector(quitPrism), symbol: "power"))
     }
 
@@ -149,7 +153,12 @@ final class StatusItemController: NSObject {
         automaticRulesItem.image = StatusItemVisuals.menuSymbol(
             environment.settings.automaticRulesEnabled ? "pause.circle" : "play.circle"
         )
+        checkForUpdatesItem.isEnabled = environment.updateChecker.canCheckForUpdates
         host.setVisible(environment.settings.showMenuBarItem)
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        checkForUpdatesItem.isEnabled = environment.updateChecker.canCheckForUpdates
     }
 
     private func observeSettings() {
@@ -189,5 +198,10 @@ final class StatusItemController: NSObject {
 
     @objc private func quitPrism() {
         terminate()
+    }
+
+    @objc private func checkForUpdates() {
+        guard environment.updateChecker.canCheckForUpdates else { return }
+        environment.updateChecker.checkForUpdates()
     }
 }

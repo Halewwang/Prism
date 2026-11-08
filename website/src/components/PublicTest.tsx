@@ -46,13 +46,13 @@ export const PublicTest = () => {
               </ol>
               <h3>New in v{release.version}</h3>
               <ul>
-                <li>Select, copy, paste, and edit the address in both the browser picker and link preview.</li>
-                <li>Choose a browser to open the edited address without pressing Return first.</li>
-                <li>Press Return in the preview address field to load the new page inside the preview.</li>
-                <li>Recovery retries preserve address edits. Invalid addresses are rejected before navigation or browser handoff.</li>
+                <li>Updated icon proportions and sizes across the app, menu bar, and title bar.</li>
+                <li>Check for Updates directly from the menu bar menu.</li>
+                <li>Smoother switching between Rules, History, and Settings, with history rows rendered as needed and installed-app discovery moved to the background.</li>
+                <li>History shows cached source-app and destination-browser icons, including browser profile targets, with initials when an app icon is unavailable.</li>
               </ul>
               <h3>Updating this public test</h3>
-              <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in Settings, then ask you to confirm installation. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>
+              <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in the app, then ask you to confirm installation. In this version, start a check in Settings or the menu bar menu. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>
               <h3>What still needs real-world testing</h3>
               <ul>
                 <li>Link preview uses the macOS WebKit engine and its own sign-in session; it does not inherit logins from external browsers. Compatibility varies by website and macOS version; open a page in your browser if its sign-in or features are unsupported.</li>

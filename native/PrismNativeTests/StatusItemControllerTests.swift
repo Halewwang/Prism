@@ -20,6 +20,7 @@ struct StatusItemControllerTests {
             "Open Prism",
             "Pause Automatic Rules",
             "<separator>",
+            "Check for Updates",
             "Quit Prism",
         ])
         #expect(menu.items.filter { !$0.isSeparatorItem }.allSatisfy { $0.image != nil })
@@ -99,7 +100,7 @@ struct StatusItemControllerTests {
         _ = fixture.makeController()
         let menu = try #require(fixture.host.menu)
 
-        try invokeItem(at: 3, in: menu)
+        try invokeItem(at: 4, in: menu)
 
         #expect(fixture.termination.count == 1)
         #expect(fixture.windows.routes.isEmpty)
@@ -123,6 +124,53 @@ struct StatusItemControllerTests {
         #expect(fixture.host.isVisible)
 
         _ = controller
+    }
+
+    @Test func checkForUpdatesUsesTheSharedCheckerWithoutOpeningTheMainWindow() async throws {
+        let checker = RecordingStatusItemUpdateChecker()
+        var settings = AppSettings.defaults
+        settings.language = .english
+        let fixture = await StatusItemFixture.make(route: .history, settings: settings, updateChecker: checker)
+        _ = fixture.makeController()
+        let menu = try #require(fixture.host.menu)
+        let item = try #require(menu.items.first { $0.title == "Check for Updates" })
+
+        #expect(item.isEnabled)
+        try invokeItem(at: menu.index(of: item), in: menu)
+
+        #expect(checker.checkCount == 1)
+        #expect(fixture.windows.routes.isEmpty)
+        #expect(fixture.environment.route == .history)
+    }
+
+    @Test func updateAvailabilityRefreshesBeforeTheMenuPanelOpens() async throws {
+        let checker = RecordingStatusItemUpdateChecker()
+        checker.canCheckForUpdates = false
+        var settings = AppSettings.defaults
+        settings.language = .english
+        let fixture = await StatusItemFixture.make(route: .history, settings: settings, updateChecker: checker)
+        _ = fixture.makeController()
+        let menu = try #require(fixture.host.menu)
+        let item = try #require(menu.items.first { $0.title == "Check for Updates" })
+        let panel = StatusItemMenuPanel(menu: menu, cancelSession: {}, orderFront: { _ in })
+        defer { panel.dismiss() }
+
+        #expect(!item.isEnabled)
+        try invokeItem(at: menu.index(of: item), in: menu)
+        #expect(checker.checkCount == 0)
+
+        checker.canCheckForUpdates = true
+        panel.present(anchor: NSRect(x: 100, y: 800, width: 24, height: 18),
+                      visibleFrames: [NSRect(x: 0, y: 0, width: 1000, height: 800)])
+        #expect(item.isEnabled)
+        #expect(panel.button(for: item)?.isEnabled == true)
+        panel.dismiss()
+
+        checker.canCheckForUpdates = false
+        panel.present(anchor: NSRect(x: 100, y: 800, width: 24, height: 18),
+                      visibleFrames: [NSRect(x: 0, y: 0, width: 1000, height: 800)])
+        #expect(!item.isEnabled)
+        #expect(panel.button(for: item)?.isEnabled == false)
     }
 
     @Test func automaticRulesLabelTracksChangesFromTheMainWindow() async throws {
@@ -165,6 +213,7 @@ struct StatusItemControllerTests {
         let menu = try #require(fixture.host.menu)
         #expect(menu.items[0].title == "打开 Prism")
         #expect(menu.items[1].title == "暂停自动规则")
+        #expect(menu.items[3].title == "检查更新")
     }
 
     private func menuLabel(_ item: NSMenuItem) -> String {
@@ -172,6 +221,7 @@ struct StatusItemControllerTests {
     }
 
     private func invokeItem(at index: Int, in menu: NSMenu) throws {
+        try #require(menu.items.indices.contains(index))
         let item = menu.items[index]
         let action = try #require(item.action)
         #expect(NSApplication.shared.sendAction(action, to: item.target, from: item))
@@ -213,12 +263,16 @@ private final class StatusItemFixture {
         return await make(route: route, settings: settings)
     }
 
-    static func make(route: AppRoute, settings: AppSettings) async -> StatusItemFixture {
+    static func make(
+        route: AppRoute,
+        settings: AppSettings,
+        updateChecker: (any UpdateChecking)? = nil
+    ) async -> StatusItemFixture {
         let repository = StatusItemSettingsRepository(settings: settings)
         let environment = AppEnvironment(
             route: route,
             unmatchedBehavior: settings.unmatchedBehavior,
-            updateChecker: DisabledUpdateChecker(),
+            updateChecker: updateChecker ?? DisabledUpdateChecker(),
             ruleRepository: InMemoryRuleRepository(),
             historyRepository: InMemoryHistoryRepository(),
             browserPreferenceRepository: InMemoryBrowserPreferenceRepository(),
@@ -248,6 +302,16 @@ private final class StatusItemFixture {
         retainedController = controller
         return controller
     }
+}
+
+@MainActor
+private final class RecordingStatusItemUpdateChecker: UpdateChecking {
+    let events = AsyncStream<UpdateEvent> { $0.finish() }
+    var canCheckForUpdates = true
+    var automaticallyChecksForUpdates = false
+    private(set) var checkCount = 0
+
+    func checkForUpdates() { checkCount += 1 }
 }
 
 @MainActor

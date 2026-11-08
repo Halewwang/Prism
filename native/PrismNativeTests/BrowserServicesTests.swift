@@ -933,3 +933,71 @@ private final class TemporaryChromiumProfiles {
     #expect(workspace.openedURLs == [url])
     #expect(workspace.profileLaunches.isEmpty)
 }
+
+@Suite("Native application icons")
+@MainActor
+struct ApplicationIconProviderTests {
+    @Test func repeatedApplicationIconsReuseTheNativeImage() {
+        let workspace = IconCountingWorkspace()
+        let provider = ApplicationIconProvider(workspace: workspace)
+        let applicationURL = URL(fileURLWithPath: "/Applications/Example.app")
+
+        let first = provider.icon(for: applicationURL)
+        let second = provider.icon(for: applicationURL)
+
+        #expect(first === second)
+        #expect(workspace.iconReads == [applicationURL])
+    }
+
+    @Test func browserProfilesShareTheirApplicationIconAndBundleLookup() {
+        let workspace = IconCountingWorkspace()
+        let applicationURL = URL(fileURLWithPath: "/Applications/Example.app")
+        var lookups: [String] = []
+        let provider = ApplicationIconProvider(workspace: workspace, applicationURL: {
+            lookups.append($0)
+            return applicationURL
+        })
+        let profile = ChromiumProfileDescriptor(
+            directoryName: "Profile 1", displayName: "Work",
+            userDataDirectory: URL(fileURLWithPath: "/tmp/profile-fixture")
+        )
+        let base = provider.icon(bundleIdentifier: "com.example.Browser")
+        let profiled = provider.icon(for: profile.browserID(bundleIdentifier: "com.example.Browser"))
+        let defaultProfile = provider.icon(for: BrowserID("com.example.Browser::profile::Default"))
+
+        #expect(base === workspace.image)
+        #expect(profiled === base)
+        #expect(defaultProfile === base)
+        #expect(lookups == ["com.example.Browser"])
+        #expect(workspace.iconReads == [applicationURL])
+    }
+
+    @Test func unavailableApplicationsKeepTheFallbackWithoutRepeatedLookups() {
+        let workspace = IconCountingWorkspace()
+        var lookups: [String] = []
+        let provider = ApplicationIconProvider(workspace: workspace, applicationURL: {
+            lookups.append($0)
+            return nil
+        })
+
+        #expect(provider.icon(bundleIdentifier: "com.example.Missing") == nil)
+        #expect(provider.icon(bundleIdentifier: "com.example.Missing") == nil)
+        #expect(provider.icon(for: BrowserID("com.example.Missing::profile::Default")) == nil)
+        #expect(lookups == ["com.example.Missing"])
+        #expect(workspace.iconReads.isEmpty)
+    }
+}
+
+@MainActor
+private final class IconCountingWorkspace: WorkspaceClient {
+    private(set) var iconReads: [URL] = []
+    let image = NSImage(size: NSSize(width: 32, height: 32))
+
+    func applicationURLs(toOpen _: URL) -> [URL] { [] }
+    func open(_: URL, with _: URL) async throws {}
+    func openApplication(at _: URL, arguments _: [String]) async throws {}
+    func icon(for applicationURL: URL) -> NSImage {
+        iconReads.append(applicationURL)
+        return image
+    }
+}

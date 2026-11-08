@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-struct InstalledApplication: Identifiable, Hashable {
+struct InstalledApplication: Identifiable, Hashable, Sendable {
     let bundleIdentifier: String
     let displayName: String
     let applicationURL: URL

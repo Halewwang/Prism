@@ -40,6 +40,7 @@ final class StatusItemMenuPanel: NSObject {
         self.visibleFrames = visibleFrames
         if isPresented { refresh(); return }
         isPresented = true
+        menu.delegate?.menuNeedsUpdate?(menu)
         menu.update()
         refresh()
         guard isPresented else { return }

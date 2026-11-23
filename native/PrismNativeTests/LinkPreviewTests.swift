@@ -67,8 +67,10 @@ struct LinkPreviewTests {
             #expect(CGRect(origin: .zero, size: size).contains(frame))
             #expect(frame.minY == 61)
             #expect(frame.height == 6 * LinkPreviewMetrics.candidateRowHeight + 5 * LinkPreviewMetrics.candidateRowSpacing + 6)
-            #expect(frame.width == LinkPreviewMetrics.browserWidth + 2 * LinkPreviewMetrics.browserInset)
-            if size.width >= 360 { #expect(frame.minX == size.width - 147) }
+            #expect(frame.width == min(LinkPreviewMetrics.candidateWidth, size.width - 14))
+            if size.width >= 360 {
+                #expect(frame.maxX == size.width - 77)
+            }
         }
         let one = LinkPreviewMetrics.candidateFrame(windowSize: CGSize(width: 360, height: 480), count: 1)
         #expect(one.height == LinkPreviewMetrics.candidateRowHeight + 6)

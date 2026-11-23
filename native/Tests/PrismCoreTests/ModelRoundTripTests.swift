@@ -62,6 +62,7 @@ import Testing
     #expect(settings.historyRetentionDays == 30)
     #expect(settings.automaticRulesEnabled)
     #expect(settings.showMenuBarItem)
+    #expect(!settings.hideDockIcon)
     #expect(!settings.onboardingCompleted)
     #expect(settings.schemaVersion == 1)
 }
@@ -212,4 +213,70 @@ import Testing
     let profile = try #require(roundTrip["profile"] as? [String: Any])
     #expect(profile["directoryName"] as? String == "Profile 1")
     #expect(profile["displayName"] as? String == "工作")
+}
+
+@Test func browserDescriptorSupportsAlternateNamesAndLegacyJSON() throws {
+    let base = BrowserDescriptor(
+        id: "com.google.Chrome",
+        bundleIdentifier: "com.google.Chrome",
+        displayName: "Google Chrome",
+        applicationURL: URL(fileURLWithPath: "/Applications/Google Chrome.app"),
+        securityScopedBookmark: nil,
+        origin: .system,
+        availability: .available,
+        selectorOrder: 0
+    )
+    #expect(base.displayName == "Google Chrome")
+    #expect(base.originalDisplayName == "Google Chrome")
+    #expect(base.alternateName == nil)
+    #expect(!base.hasAlternateName)
+    #expect(base.tooltipDisplayName == "Google Chrome")
+
+    let renamed = base.withAlternateName("  Work\nAccount  ")
+    #expect(renamed.displayName == "Work Account")
+    #expect(renamed.originalDisplayName == "Google Chrome")
+    #expect(renamed.alternateName == "Work Account")
+    #expect(renamed.hasAlternateName)
+    #expect(renamed.tooltipDisplayName == "Work Account (Google Chrome)")
+
+    let roundTripped = try JSONDecoder().decode(BrowserDescriptor.self, from: JSONEncoder().encode(renamed))
+    #expect(roundTripped == renamed)
+
+    let cleared = renamed.withAlternateName("   ")
+    #expect(cleared.displayName == "Google Chrome")
+    #expect(cleared.originalDisplayName == "Google Chrome")
+    #expect(cleared.alternateName == nil)
+    #expect(!cleared.hasAlternateName)
+
+    let truncated = base.withAlternateName(String(repeating: "A", count: 80))
+    #expect(truncated.alternateName?.count == BrowserDescriptor.maxAlternateNameLength)
+
+    let legacyJSON = Data("""
+    {
+      "id": "com.apple.Safari",
+      "bundleIdentifier": "com.apple.Safari",
+      "displayName": "Safari",
+      "applicationURL": "file:///Applications/Safari.app",
+      "origin": "system",
+      "availability": "available",
+      "selectorOrder": 1
+    }
+    """.utf8)
+    let legacyDecoded = try JSONDecoder().decode(BrowserDescriptor.self, from: legacyJSON)
+    #expect(legacyDecoded.displayName == "Safari")
+    #expect(legacyDecoded.originalDisplayName == "Safari")
+    #expect(legacyDecoded.alternateName == nil)
+}
+
+@Test func appSettingsRoundTripsHideDockIconAndDefaultsLegacyJSONToFalse() throws {
+    var settings = AppSettings.defaults
+    settings.hideDockIcon = true
+    let encoded = try JSONEncoder().encode(settings)
+    let decoded = try JSONDecoder().decode(AppSettings.self, from: encoded)
+    #expect(decoded.hideDockIcon == true)
+
+    var payload = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    payload.removeValue(forKey: "hideDockIcon")
+    let legacyDecoded = try JSONDecoder().decode(AppSettings.self, from: JSONSerialization.data(withJSONObject: payload))
+    #expect(legacyDecoded.hideDockIcon == false)
 }

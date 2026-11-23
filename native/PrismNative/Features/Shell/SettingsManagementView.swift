@@ -132,6 +132,13 @@ struct SettingsManagementView: View {
                     symbol: "menubar.rectangle", tint: SettingsPalette.primary,
                     isOn: showMenuBarItem, identifier: "settings.showMenuBarItem"
                 )
+                settingsSeparator
+                settingsToggle(
+                    "settings.hideDockIcon.title",
+                    detail: "settings.hideDockIcon.detail",
+                    symbol: "dock.rectangle", tint: SettingsPalette.primary,
+                    isOn: hideDockIcon, identifier: "settings.hideDockIcon"
+                )
                 if loginItemState == .requiresApproval {
                     settingsSeparator
                     settingsAction("Open Login Items Settings", symbol: "gearshape", tint: SettingsPalette.primary, identifier: "settings.openLoginItems") {
@@ -306,7 +313,11 @@ struct SettingsManagementView: View {
         WorkspacePicker(title: "Preferred browser", selection: preferredBrowserID, options:
             [WorkspacePickerOption(value: BrowserID?.none, title: "Choose a browser")]
             + browsers.filter { $0.availability == .available }.map {
-                WorkspacePickerOption(value: BrowserID?.some($0.id), title: $0.displayName)
+                WorkspacePickerOption(
+                    value: BrowserID?.some($0.id),
+                    title: $0.displayName,
+                    searchText: $0.originalDisplayName
+                )
             },
             compact: true
         )
@@ -527,6 +538,10 @@ struct SettingsManagementView: View {
 
     private var showMenuBarItem: Binding<Bool> {
         setting(\.showMenuBarItem)
+    }
+
+    private var hideDockIcon: Binding<Bool> {
+        setting(\.hideDockIcon)
     }
 
     private var historyEnabled: Binding<Bool> {

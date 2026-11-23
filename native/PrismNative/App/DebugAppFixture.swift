@@ -563,12 +563,14 @@ private final class DebugAppBrowserCatalog: BrowserCataloging {
     func scan() async throws -> [BrowserDescriptor] {
         recorder.recordBrowserScan()
         let order = try preferences.orderedBrowserIDs()
+        let alternateNames = try preferences.browserAlternateNames()
         let positions = Dictionary(order.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: min)
         return browsers.enumerated().sorted {
             (positions[$0.element.id] ?? (order.count + $0.offset)) < (positions[$1.element.id] ?? (order.count + $1.offset))
         }.enumerated().map { index, element in
-            let browser = element.element
-            return BrowserDescriptor(id: browser.id, bundleIdentifier: browser.bundleIdentifier, displayName: browser.displayName, applicationURL: browser.applicationURL, securityScopedBookmark: browser.securityScopedBookmark, origin: browser.origin, availability: browser.availability, selectorOrder: index, profile: browser.profile)
+            element.element
+                .withAlternateName(alternateNames[element.element.id])
+                .withSelectorOrder(index)
         }
     }
 

@@ -28,6 +28,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var historyRetentionDays: Int
     public var automaticRulesEnabled: Bool
     public var showMenuBarItem: Bool
+    public var hideDockIcon: Bool
     public var onboardingCompleted: Bool
     public var schemaVersion: Int
 
@@ -43,7 +44,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         showMenuBarItem: Bool,
         onboardingCompleted: Bool,
         schemaVersion: Int,
-        selectorPresentationMode: SelectorPresentationMode = .compact
+        selectorPresentationMode: SelectorPresentationMode = .compact,
+        hideDockIcon: Bool = false
     ) {
         self.language = language
         self.unmatchedBehavior = unmatchedBehavior
@@ -55,6 +57,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.historyRetentionDays = historyRetentionDays
         self.automaticRulesEnabled = automaticRulesEnabled
         self.showMenuBarItem = showMenuBarItem
+        self.hideDockIcon = hideDockIcon
         self.onboardingCompleted = onboardingCompleted
         self.schemaVersion = schemaVersion
     }
@@ -63,7 +66,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case language, unmatchedBehavior, selectorPresentationMode
         case preferredBrowserID, lastUsedBrowserID
         case historyEnabled, historyLimit, historyRetentionDays
-        case automaticRulesEnabled, showMenuBarItem, onboardingCompleted, schemaVersion
+        case automaticRulesEnabled, showMenuBarItem, hideDockIcon, onboardingCompleted, schemaVersion
     }
 
     public init(from decoder: Decoder) throws {
@@ -81,7 +84,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
             showMenuBarItem: try values.decode(Bool.self, forKey: .showMenuBarItem),
             onboardingCompleted: try values.decode(Bool.self, forKey: .onboardingCompleted),
             schemaVersion: try values.decode(Int.self, forKey: .schemaVersion),
-            selectorPresentationMode: mode.flatMap(SelectorPresentationMode.init(rawValue:)) ?? .compact
+            selectorPresentationMode: mode.flatMap(SelectorPresentationMode.init(rawValue:)) ?? .compact,
+            hideDockIcon: try values.decodeIfPresent(Bool.self, forKey: .hideDockIcon) ?? false
         )
     }
 

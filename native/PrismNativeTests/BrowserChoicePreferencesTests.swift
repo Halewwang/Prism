@@ -90,6 +90,111 @@ struct BrowserChoicePreferencesTests {
         #expect(environment.consumeBrowserManagement())
         #expect(!environment.consumeBrowserManagement())
     }
+
+    @Test func alternateNamesSurviveOrderHiddenAndRecentUpdates() throws {
+        let container = try ModelContainerFactory.make(inMemory: true).container
+        let repository = SwiftDataBrowserPreferenceRepository(container: container)
+        try repository.saveOrder(["a", "b"])
+        try repository.saveHiddenBrowserIDs(["b"])
+        try repository.saveRecentBrowserIDs(["b", "a"])
+        try repository.saveBrowserAlternateNames([
+            "a": "  Work Browser  ",
+            "b": "   ",
+        ])
+
+        let second = SwiftDataBrowserPreferenceRepository(container: container)
+        #expect(try second.browserAlternateNames() == ["a": "Work Browser"])
+        try second.saveOrder(["b", "a"])
+        try second.saveHiddenBrowserIDs([])
+        try second.saveRecentBrowserIDs(["a"])
+
+        let third = SwiftDataBrowserPreferenceRepository(container: container)
+        #expect(try third.browserAlternateNames() == ["a": "Work Browser"])
+        #expect(try third.orderedBrowserIDs() == ["b", "a"])
+        #expect(try third.hiddenBrowserIDs().isEmpty)
+        #expect(try third.recentBrowserIDs() == ["a"])
+
+        try third.saveBrowserAlternateNames([:])
+        #expect(try SwiftDataBrowserPreferenceRepository(container: container).browserAlternateNames().isEmpty)
+    }
+
+    @Test func catalogAppliesAlternateNamesGloballyIncludingProfilesAndPreservesOriginalNames() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let app = root.appending(path: "Chrome.app")
+        let contents = app.appending(path: "Contents")
+        try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+        let plist = try PropertyListSerialization.data(
+            fromPropertyList: ["CFBundleIdentifier": "com.google.Chrome", "CFBundleName": "Chrome"],
+            format: .xml,
+            options: 0
+        )
+        try plist.write(to: contents.appending(path: "Info.plist"))
+        let dataRoot = root.appending(path: "User Data")
+        let directory = dataRoot.appending(path: "Profile 1")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data(#"{"profile":{"info_cache":{"Profile 1":{"name":"工作"}}}}"#.utf8).write(to: dataRoot.appending(path: "Local State"))
+
+        let preferences = InMemoryBrowserPreferenceRepository()
+        let catalog = BrowserCatalogService(
+            workspace: ChoiceWorkspace(applicationURL: app),
+            browserPreferences: preferences,
+            profileDiscovery: ChromiumProfileDiscovery(userDataDirectories: ["com.google.Chrome": dataRoot])
+        )
+        let initial = try await catalog.scan()
+        let profile = try #require(initial.first { $0.profile != nil })
+
+        try preferences.saveBrowserAlternateNames([
+            "com.google.Chrome": "Main Chrome",
+            profile.id: "Work ID 01",
+        ])
+
+        let scanned = try await catalog.scan()
+        let renamedMain = try #require(scanned.first { $0.id == "com.google.Chrome" })
+        let renamedProfile = try #require(scanned.first { $0.id == profile.id })
+        #expect(renamedMain.displayName == "Main Chrome")
+        #expect(renamedMain.originalDisplayName == "Chrome")
+        #expect(renamedMain.tooltipDisplayName == "Main Chrome (Chrome)")
+        #expect(renamedProfile.displayName == "Work ID 01")
+        #expect(renamedProfile.originalDisplayName == "Chrome · 工作")
+        #expect(renamedProfile.tooltipDisplayName == "Work ID 01 (Chrome · 工作)")
+
+        let forSelector = try await catalog.scanForSelector()
+        #expect(forSelector.first { $0.id == profile.id }?.displayName == "Work ID 01")
+
+        let managed = BrowserManagementPresentation.browsers(
+            discovered: scanned,
+            custom: [],
+            alternateNames: [:]
+        )
+        #expect(managed.first { $0.id == "com.google.Chrome" }?.displayName == "Chrome")
+        #expect(managed.first { $0.id == profile.id }?.displayName == "Chrome · 工作")
+    }
+
+    @Test func dockIconVisibilityPolicyAndSettingsPersistence() throws {
+        #expect(DockIconVisibilityPolicy.activationPolicy(hideDockIcon: false, hasOpenStandardWindow: false) == .regular)
+        #expect(DockIconVisibilityPolicy.activationPolicy(hideDockIcon: false, hasOpenStandardWindow: true) == .regular)
+        #expect(DockIconVisibilityPolicy.activationPolicy(hideDockIcon: true, hasOpenStandardWindow: true) == .regular)
+        #expect(DockIconVisibilityPolicy.activationPolicy(hideDockIcon: true, hasOpenStandardWindow: false) == .accessory)
+
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
+            styleMask: [.titled, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        #expect(!DockIconVisibilityPolicy.isStandardAppWindow(panel))
+
+        let container = try ModelContainerFactory.make(inMemory: true).container
+        let settingsRepo = SwiftDataSettingsRepository(container: container)
+        var settings = AppSettings.defaults
+        #expect(!settings.hideDockIcon)
+        settings.hideDockIcon = true
+        try settingsRepo.save(settings)
+
+        let reloaded = try SwiftDataSettingsRepository(container: container).load()
+        #expect(reloaded.hideDockIcon)
+    }
 }
 
 @MainActor

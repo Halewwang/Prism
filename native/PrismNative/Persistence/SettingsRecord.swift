@@ -15,6 +15,7 @@ final class SettingsRecord {
     var historyRetentionDays: Int
     var automaticRulesEnabled: Bool
     var showMenuBarItem: Bool
+    var hideDockIcon: Bool? = nil
     var onboardingCompleted: Bool
     var schemaVersion: Int
 
@@ -30,6 +31,7 @@ final class SettingsRecord {
         historyRetentionDays = settings.historyRetentionDays
         automaticRulesEnabled = settings.automaticRulesEnabled
         showMenuBarItem = settings.showMenuBarItem
+        hideDockIcon = settings.hideDockIcon
         onboardingCompleted = settings.onboardingCompleted
         schemaVersion = 1
     }
@@ -53,7 +55,8 @@ final class SettingsRecord {
             showMenuBarItem: showMenuBarItem,
             onboardingCompleted: onboardingCompleted,
             schemaVersion: 1,
-            selectorPresentationMode: selectorPresentationMode.flatMap(SelectorPresentationMode.init(rawValue:)) ?? .compact
+            selectorPresentationMode: selectorPresentationMode.flatMap(SelectorPresentationMode.init(rawValue:)) ?? .compact,
+            hideDockIcon: hideDockIcon ?? false
         )
     }
 
@@ -68,6 +71,7 @@ final class SettingsRecord {
         historyRetentionDays = settings.historyRetentionDays
         automaticRulesEnabled = settings.automaticRulesEnabled
         showMenuBarItem = settings.showMenuBarItem
+        hideDockIcon = settings.hideDockIcon
         onboardingCompleted = settings.onboardingCompleted
         schemaVersion = 1
     }

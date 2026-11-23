@@ -324,8 +324,8 @@ struct LinkPreviewView: View {
         )
         .disabled(model.isPerformingAction)
         .help(index == 0
-            ? String(format: String(localized: "preview.recommended", defaultValue: "%@ · Recommended"), browser.displayName)
-            : browser.displayName)
+            ? String(format: String(localized: "preview.recommended", defaultValue: "%@ · Recommended"), browser.tooltipDisplayName)
+            : browser.tooltipDisplayName)
         .contextMenu { browserRuleContextMenu(for: browser) }
         .accessibilityIdentifier("linkPreview.browser.\(index + 1)")
     }
@@ -372,14 +372,16 @@ struct LinkPreviewView: View {
             ScrollView(.vertical) {
                 VStack(spacing: LinkPreviewMetrics.candidateRowSpacing) {
                     ForEach(Array(model.browsers.enumerated()), id: \.element.id) { index, browser in
-                        LinkPreviewBrowserChoice(
+                        LinkPreviewBrowserCandidateRow(
+                            name: browser.displayName,
                             icon: iconProvider.icon(for: browser.applicationURL),
-                            shortcut: model.shortcut(forBrowserAt: index), selected: model.selectedIndex == index,
+                            shortcut: model.shortcut(forBrowserAt: index),
+                            selected: model.selectedIndex == index,
                             accessibilityLabel: model.browserAccessibilityLabel(at: index),
                             action: { activateBrowser(browser.id) }
                         )
                         .focusable(false)
-                        .help(browser.displayName)
+                        .help(browser.tooltipDisplayName)
                         .accessibilityAddTraits(model.selectedIndex == index ? .isSelected : [])
                         .disabled(model.isPerformingAction)
                         .contextMenu { browserRuleContextMenu(for: browser) }
@@ -463,6 +465,50 @@ private struct LinkPreviewBrowserChoice: View {
             .contentShape(RoundedRectangle(cornerRadius: 7))
         }
         .buttonStyle(.plain).onHover { hovered = $0 }
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
+private struct LinkPreviewBrowserCandidateRow: View {
+    let name: String
+    let icon: NSImage
+    let shortcut: Int?
+    let selected: Bool
+    let accessibilityLabel: String
+    let action: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
+                Text(name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(SelectorPalette.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 4)
+                if let shortcut {
+                    Text(String(shortcut))
+                        .font(.system(size: 9).monospacedDigit())
+                        .foregroundStyle(SelectorPalette.secondaryText)
+                        .frame(width: 16, height: 16)
+                        .background(SelectorPalette.shortcutBackground, in: RoundedRectangle(cornerRadius: 4))
+                        .overlay { RoundedRectangle(cornerRadius: 4).stroke(SelectorPalette.border, lineWidth: 0.5) }
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: LinkPreviewMetrics.candidateRowHeight, maxHeight: LinkPreviewMetrics.candidateRowHeight)
+            .background(selected || hovered ? SelectorPalette.selected : .clear, in: RoundedRectangle(cornerRadius: 7))
+            .contentShape(RoundedRectangle(cornerRadius: 7))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovered = $0 }
         .accessibilityLabel(accessibilityLabel)
     }
 }

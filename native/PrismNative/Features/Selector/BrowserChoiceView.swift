@@ -31,6 +31,7 @@ struct BrowserChoiceView: View {
                     .foregroundStyle(SelectorPalette.primaryText)
                     .lineLimit(1)
                     .truncationMode(.tail)
+                    .padding(.horizontal, 6)
                     .padding(.top, isRecoveryCompact ? 3 : 7)
                 if let shortcut {
                     KeyboardShortcutBadge(number: shortcut)
@@ -65,7 +66,7 @@ struct BrowserChoiceView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .help(Text(verbatim: browser.displayName))
+        .help(Text(verbatim: browser.tooltipDisplayName))
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(isSelected ? .isSelected : [])

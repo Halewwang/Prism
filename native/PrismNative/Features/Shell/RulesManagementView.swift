@@ -266,6 +266,7 @@ struct RulesManagementView: View {
             return rule.displayName.localizedCaseInsensitiveContains(searchText)
                 || matchDetail(rule).localizedCaseInsensitiveContains(searchText)
                 || browserName(for: rule.targetBrowserID).localizedCaseInsensitiveContains(searchText)
+                || (browsers.first(where: { $0.id == rule.targetBrowserID })?.originalDisplayName.localizedCaseInsensitiveContains(searchText) ?? false)
         }
     }
 
@@ -370,8 +371,8 @@ struct RulesManagementView: View {
                 .font(.system(size: 16))
                 .foregroundStyle(SettingsPalette.muted)
                 .accessibilityHidden(true)
+            let targetBrowser = browsers.first(where: { $0.id == rule.targetBrowserID })
             HStack(spacing: 7) {
-                let targetBrowser = browsers.first(where: { $0.id == rule.targetBrowserID })
                 ApplicationIconView(
                     bundleIdentifier: targetBrowser?.bundleIdentifier,
                     applicationURL: targetBrowser?.availability == .available ? targetBrowser?.applicationURL : nil,
@@ -384,6 +385,7 @@ struct RulesManagementView: View {
                     .foregroundStyle(SettingsPalette.tertiary)
                     .lineLimit(1)
             }
+            .help(targetBrowser?.tooltipDisplayName ?? String(localized: "Unavailable browser"))
             .frame(width: 130, alignment: .leading)
             Toggle("Enable rule", isOn: Binding(
                 get: { rule.isEnabled },
@@ -805,7 +807,11 @@ private struct RuleEditorSheet: View {
     private var browserOptions: [WorkspacePickerOption<BrowserID?>] {
         [WorkspacePickerOption(value: BrowserID?.none, title: "Choose a browser")]
             + browsers.filter { $0.availability == .available }.map {
-                WorkspacePickerOption(value: BrowserID?.some($0.id), title: $0.displayName)
+                WorkspacePickerOption(
+                    value: BrowserID?.some($0.id),
+                    title: $0.displayName,
+                    searchText: $0.originalDisplayName
+                )
             }
     }
 

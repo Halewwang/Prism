@@ -1,6 +1,31 @@
 import AppKit
 import Carbon
+import Observation
 import SwiftUI
+
+enum DockIconVisibilityPolicy {
+    static func activationPolicy(
+        hideDockIcon: Bool,
+        hasOpenStandardWindow: Bool
+    ) -> NSApplication.ActivationPolicy {
+        (hideDockIcon && !hasOpenStandardWindow) ? .accessory : .regular
+    }
+
+    @MainActor
+    static func isStandardAppWindow(_ window: NSWindow) -> Bool {
+        guard !(window is NSPanel),
+              window.sheetParent == nil,
+              window.level == .normal,
+              window.styleMask.contains(.titled)
+        else { return false }
+        return window.isVisible || window.isMiniaturized
+    }
+
+    @MainActor
+    static func hasOpenStandardWindow(in windows: [NSWindow], excluding excludedWindow: NSWindow? = nil) -> Bool {
+        windows.contains { $0 !== excludedWindow && isStandardAppWindow($0) }
+    }
+}
 
 private final class MainWindowHostingView: NSHostingView<AnyView> {
     override var acceptsFirstResponder: Bool { true }
@@ -15,9 +40,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let copyCurrentSenderPID: @MainActor () -> Int32?
     private let makeStatusItemController: StatusItemControllerFactory
     private let activateApplication: @MainActor () -> Void
+    private let applyActivationPolicy: @MainActor (NSApplication.ActivationPolicy) -> Void
     private var launchTask: Task<Void, Never>?
     private var statusItemController: StatusItemController?
     private var mainWindow: NSWindow?
+    private var windowLifecycleObservers: [NSObjectProtocol] = []
 
     var retainedStatusItemController: StatusItemController? {
         statusItemController
@@ -65,10 +92,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bootstrapBuffer = buffer
         copyCurrentSenderPID = AppleEventSenderReader.copyCurrentSenderPID
         activateApplication = Self.requestApplicationActivation
+        applyActivationPolicy = Self.applyApplicationActivationPolicy
         makeStatusItemController = Self.makeProductionStatusItemController
         super.init()
         configureMainWindowOpening()
         configureUpdateInstallation()
+        installWindowLifecycleObservers()
+        observeDockIconSetting()
 #if DEBUG
         if debugUITestMode == .application || debugUITestMode == .malformedSelector {
             activateDebugApplicationFixture()
@@ -82,13 +112,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         makeStatusItemController: @escaping StatusItemControllerFactory = { composition in
             AppDelegate.makeProductionStatusItemController(composition: composition)
         },
-        activateApplication: @escaping @MainActor () -> Void = AppDelegate.requestApplicationActivation
+        activateApplication: @escaping @MainActor () -> Void = AppDelegate.requestApplicationActivation,
+        applyActivationPolicy: @escaping @MainActor (NSApplication.ActivationPolicy) -> Void = AppDelegate.applyApplicationActivationPolicy
     ) {
         self.composition = composition
         bootstrapBuffer = composition.bootstrapBuffer
         self.copyCurrentSenderPID = copyCurrentSenderPID
         self.makeStatusItemController = makeStatusItemController
         self.activateApplication = activateApplication
+        self.applyActivationPolicy = applyActivationPolicy
 #if DEBUG
         sourceProbeRecorder = SourceProbeRecorder.makeDefault()
         debugUITestMode = .disabled
@@ -96,6 +128,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
         super.init()
         configureUpdateInstallation()
+        installWindowLifecycleObservers()
+        observeDockIconSetting()
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -182,6 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launchTask = Task { @MainActor [weak self] in
             await composition.finishLaunchingOnce()
             self?.presentMainWindowIfStartupRequiresAttention()
+            self?.synchronizeDockIconVisibility()
         }
         installGetURLHandler()
     }
@@ -250,6 +285,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        for observer in windowLifecycleObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        windowLifecycleObservers.removeAll()
         composition.activationTracker.stop()
     }
 
@@ -321,7 +360,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.activate()
     }
 
+    private static func applyApplicationActivationPolicy(_ policy: NSApplication.ActivationPolicy) {
+        guard NSApplication.shared.activationPolicy() != policy else { return }
+        _ = NSApplication.shared.setActivationPolicy(policy)
+    }
+
+    private func installWindowLifecycleObservers() {
+        let center = NotificationCenter.default
+        windowLifecycleObservers.append(
+            center.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { [weak self] notification in
+                let closingWindow = notification.object as? NSWindow
+                MainActor.assumeIsolated {
+                    self?.synchronizeDockIconVisibility(excluding: closingWindow)
+                }
+            }
+        )
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didBecomeMainNotification] {
+            windowLifecycleObservers.append(
+                center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        self?.synchronizeDockIconVisibility()
+                    }
+                }
+            )
+        }
+    }
+
+    private func observeDockIconSetting() {
+        withObservationTracking {
+            _ = environment.settings.hideDockIcon
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.synchronizeDockIconVisibility()
+                self.observeDockIconSetting()
+            }
+        }
+    }
+
+    func synchronizeDockIconVisibility(
+        excluding closingWindow: NSWindow? = nil,
+        assumingOpenWindow: Bool = false
+    ) {
+#if DEBUG
+        guard !debugUITestMode.isUITesting else { return }
+#endif
+        let hasOpenWindow = assumingOpenWindow
+            || DockIconVisibilityPolicy.hasOpenStandardWindow(in: NSApp.windows, excluding: closingWindow)
+        let targetPolicy = DockIconVisibilityPolicy.activationPolicy(
+            hideDockIcon: environment.settings.hideDockIcon,
+            hasOpenStandardWindow: hasOpenWindow
+        )
+        applyActivationPolicy(targetPolicy)
+    }
+
     func showMainWindow() {
+        synchronizeDockIconVisibility(assumingOpenWindow: true)
         // Explicit workspace opens request focus; macOS controls whether activation is granted.
         if let mainWindow {
             activateApplication()

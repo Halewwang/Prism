@@ -652,3 +652,24 @@
 "settings.rulesBackup.exportFailed" = "Prism 无法导出规则。";
 "settings.rulesBackup.importFailed" = "Prism 无法从该文件导入规则。";
 "settings.rulesBackup.invalidFile" = "所选文件不是有效的 Prism 规则备份。";
+
+/* Browser alternate names, visibility checklist & Dock icon */
+"browsers.selectorVisibilityHeader" = "勾选即显示在选择器中";
+"browsers.visibleCountFormat" = "已显示 %lld / %lld";
+"browsers.hiddenInSelector" = "已隐藏";
+"browsers.allHiddenNotice" = "当前未勾选任何浏览器。路由规则仍会生效，但选择器中将不会显示可选项。";
+"browsers.visibility.hideHelp" = "已在选择器中显示，点击取消勾选以隐藏。";
+"browsers.visibility.showHelp" = "未在选择器中显示，点击勾选以显示。";
+"browsers.visibility.accessibility" = "在选择器中显示 %@";
+"browsers.setAlternateName" = "设置备用名称";
+"browsers.setAlternateNameFor" = "为 %@ 设置备用名称";
+"browsers.setAlternateNameMenu" = "设置备用名称…";
+"browsers.resetAlternateName" = "恢复默认名称";
+"browsers.alternateName.title" = "设置备用名称";
+"browsers.alternateName.fieldLabel" = "备用名称";
+"browsers.alternateName.placeholder" = "例如：工作、个人、账号 A";
+"browsers.alternateName.hint" = "将显示在浏览器选择器、规则、设置及新历史记录中；留空则恢复默认应用名称。";
+"browsers.alternateName.reset" = "恢复默认";
+"browsers.alternateName.save" = "保存";
+"settings.hideDockIcon.title" = "隐藏程序坞图标";
+"settings.hideDockIcon.detail" = "关闭所有窗口后隐藏程序坞图标。";

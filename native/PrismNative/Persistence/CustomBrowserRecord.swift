@@ -65,7 +65,12 @@ final class BrowserOrderRecord {
     }
 
     func replace(with ids: [BrowserID]) throws {
-        orderedIDsPayload = try Self.encode(ids: ids, hiddenIDs: try hiddenBrowserIDs(), recentIDs: try recentBrowserIDs())
+        orderedIDsPayload = try Self.encode(
+            ids: ids,
+            hiddenIDs: try hiddenBrowserIDs(),
+            recentIDs: try recentBrowserIDs(),
+            alternateNames: try alternateNames()
+        )
     }
 
     func hiddenBrowserIDs() throws -> [BrowserID] {
@@ -74,7 +79,12 @@ final class BrowserOrderRecord {
     }
 
     func replaceHiddenBrowserIDs(with ids: [BrowserID]) throws {
-        orderedIDsPayload = try Self.encode(ids: try browserIDs(), hiddenIDs: ids, recentIDs: try recentBrowserIDs())
+        orderedIDsPayload = try Self.encode(
+            ids: try browserIDs(),
+            hiddenIDs: ids,
+            recentIDs: try recentBrowserIDs(),
+            alternateNames: try alternateNames()
+        )
     }
 
     func recentBrowserIDs() throws -> [BrowserID] {
@@ -83,7 +93,32 @@ final class BrowserOrderRecord {
     }
 
     func replaceRecentBrowserIDs(with ids: [BrowserID]) throws {
-        orderedIDsPayload = try Self.encode(ids: try browserIDs(), hiddenIDs: try hiddenBrowserIDs(), recentIDs: ids)
+        orderedIDsPayload = try Self.encode(
+            ids: try browserIDs(),
+            hiddenIDs: try hiddenBrowserIDs(),
+            recentIDs: ids,
+            alternateNames: try alternateNames()
+        )
+    }
+
+    func alternateNames() throws -> [BrowserID: String] {
+        let payload = try decodedPayload()
+        var names: [BrowserID: String] = [:]
+        for (rawID, rawName) in payload.alternateNames ?? [:] {
+            if let normalized = BrowserDescriptor.normalizedAlternateName(rawName) {
+                names[BrowserID(rawValue: rawID)] = normalized
+            }
+        }
+        return names
+    }
+
+    func replaceAlternateNames(with names: [BrowserID: String]) throws {
+        orderedIDsPayload = try Self.encode(
+            ids: try browserIDs(),
+            hiddenIDs: try hiddenBrowserIDs(),
+            recentIDs: try recentBrowserIDs(),
+            alternateNames: names
+        )
     }
 
     private func decodedPayload() throws -> VersionedBrowserOrder {
@@ -92,12 +127,24 @@ final class BrowserOrderRecord {
         return payload
     }
 
-    private static func encode(ids: [BrowserID], hiddenIDs: [BrowserID], recentIDs: [BrowserID]) throws -> Data {
-        try JSONEncoder().encode(VersionedBrowserOrder(
+    private static func encode(
+        ids: [BrowserID],
+        hiddenIDs: [BrowserID],
+        recentIDs: [BrowserID],
+        alternateNames: [BrowserID: String]
+    ) throws -> Data {
+        var encodedNames: [String: String] = [:]
+        for (id, rawName) in alternateNames {
+            if let normalized = BrowserDescriptor.normalizedAlternateName(rawName) {
+                encodedNames[id.rawValue] = normalized
+            }
+        }
+        return try JSONEncoder().encode(VersionedBrowserOrder(
             version: 1,
             ids: ids.map(\.rawValue),
             hiddenIDs: hiddenIDs.map(\.rawValue),
-            recentIDs: recentIDs.map(\.rawValue)
+            recentIDs: recentIDs.map(\.rawValue),
+            alternateNames: encodedNames.isEmpty ? nil : encodedNames
         ))
     }
 }
@@ -107,4 +154,5 @@ private struct VersionedBrowserOrder: Codable {
     let ids: [String]
     var hiddenIDs: [String]? = nil
     var recentIDs: [String]? = nil
+    var alternateNames: [String: String]? = nil
 }

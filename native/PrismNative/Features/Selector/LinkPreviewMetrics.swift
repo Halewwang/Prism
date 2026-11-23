@@ -11,17 +11,20 @@ enum LinkPreviewMetrics {
     static let browserGap: CGFloat = 4
     static let compactBreakpoint: CGFloat = 560
     static let compactBrowserWidth: CGFloat = 70
-    static let candidateRowHeight: CGFloat = browserHeight
-    static let candidateRowSpacing: CGFloat = 10
+    static let candidateWidth: CGFloat = 196
+    static let candidateRowHeight: CGFloat = 36
+    static let candidateRowSpacing: CGFloat = 4
     static let candidateInset: CGFloat = browserInset
 
     static func candidateFrame(windowSize: CGSize, count: Int) -> CGRect {
         guard count > 0 else { return .zero }
-        let width = browserWidth + 2 * candidateInset
+        let width = min(candidateWidth, max(0, windowSize.width - 14))
         let rows = min(max(0, count), 6)
         let height = CGFloat(rows) * candidateRowHeight + CGFloat(max(0, rows - 1)) * candidateRowSpacing + 2 * candidateInset
+        let trailingAnchor = windowSize.width - 7 - 64 - 6
+        let x = max(7, min(trailingAnchor - width, windowSize.width - 7 - width))
         return CGRect(
-            x: max(7, windowSize.width - 7 - 64 - 6 - compactBrowserWidth), y: 61,
+            x: x, y: 61,
             width: width, height: min(height, max(0, windowSize.height - 68))
         )
     }

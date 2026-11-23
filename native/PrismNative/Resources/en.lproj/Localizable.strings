@@ -650,3 +650,24 @@
 "settings.rulesBackup.exportFailed" = "Prism could not export your rules.";
 "settings.rulesBackup.importFailed" = "Prism could not import rules from that file.";
 "settings.rulesBackup.invalidFile" = "The selected file is not a valid Prism rules backup.";
+
+/* Browser alternate names, visibility checklist & Dock icon */
+"browsers.selectorVisibilityHeader" = "Checked browsers appear in the selector";
+"browsers.visibleCountFormat" = "%lld of %lld shown";
+"browsers.hiddenInSelector" = "Hidden";
+"browsers.allHiddenNotice" = "No browsers are checked. Routing rules still work, but the selector will have no choices.";
+"browsers.visibility.hideHelp" = "Shown in selector. Click to hide.";
+"browsers.visibility.showHelp" = "Hidden from selector. Click to show.";
+"browsers.visibility.accessibility" = "Show %@ in selector";
+"browsers.setAlternateName" = "Set alternate name";
+"browsers.setAlternateNameFor" = "Set alternate name for %@";
+"browsers.setAlternateNameMenu" = "Set Alternate Name…";
+"browsers.resetAlternateName" = "Reset Alternate Name";
+"browsers.alternateName.title" = "Set Alternate Name";
+"browsers.alternateName.fieldLabel" = "Alternate name";
+"browsers.alternateName.placeholder" = "e.g. Work, Personal, Account A";
+"browsers.alternateName.hint" = "Used in the browser selector, rules, settings, and new history items. Leave blank to restore the default app name.";
+"browsers.alternateName.reset" = "Reset to Default";
+"browsers.alternateName.save" = "Save";
+"settings.hideDockIcon.title" = "Hide Dock Icon";
+"settings.hideDockIcon.detail" = "Hide the Dock icon when all windows are closed.";

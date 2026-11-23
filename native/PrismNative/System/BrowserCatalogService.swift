@@ -50,6 +50,7 @@ final class BrowserCatalogService: BrowserCataloging {
     func scan() async throws -> [BrowserDescriptor] {
         let customBrowsers = try browserPreferences?.customBrowsers() ?? configuredCustomBrowsers
         let savedSelectorOrder = try browserPreferences?.orderedBrowserIDs() ?? configuredSelectorOrder
+        let alternateNames = try browserPreferences?.browserAlternateNames() ?? [:]
         var byBundleIdentifier: [String: BrowserDescriptor] = [:]
         var identifiersInDiscoveryOrder: [String] = []
 
@@ -82,7 +83,7 @@ final class BrowserCatalogService: BrowserCataloging {
                     BrowserDescriptor(
                         id: profile.browserID(bundleIdentifier: browser.bundleIdentifier),
                         bundleIdentifier: browser.bundleIdentifier,
-                        displayName: "\(browser.displayName) · \(profile.displayName)",
+                        displayName: "\(browser.originalDisplayName) · \(profile.displayName)",
                         applicationURL: browser.applicationURL,
                         securityScopedBookmark: browser.securityScopedBookmark,
                         origin: browser.origin,
@@ -91,6 +92,8 @@ final class BrowserCatalogService: BrowserCataloging {
                         profile: profile
                     )
                 }
+            }.map { browser in
+                browser.withAlternateName(alternateNames[browser.id])
             },
             savedSelectorOrder: savedSelectorOrder
         )
@@ -240,18 +243,7 @@ final class BrowserCatalogService: BrowserCataloging {
             byID[browser.id] = browser
         }
         return orderedIDs.enumerated().compactMap { index, id in
-            guard let browser = byID[id] else { return nil }
-            return BrowserDescriptor(
-                id: browser.id,
-                bundleIdentifier: browser.bundleIdentifier,
-                displayName: browser.displayName,
-                applicationURL: browser.applicationURL,
-                securityScopedBookmark: browser.securityScopedBookmark,
-                origin: browser.origin,
-                availability: browser.availability,
-                selectorOrder: index,
-                profile: browser.profile
-            )
+            byID[id]?.withSelectorOrder(index)
         }
     }
 
@@ -273,18 +265,7 @@ final class BrowserCatalogService: BrowserCataloging {
             return lhs.offset < rhs.offset
         }
         return sorted.enumerated().map { index, element in
-            let browser = element.element
-            return BrowserDescriptor(
-                id: browser.id,
-                bundleIdentifier: browser.bundleIdentifier,
-                displayName: browser.displayName,
-                applicationURL: browser.applicationURL,
-                securityScopedBookmark: browser.securityScopedBookmark,
-                origin: browser.origin,
-                availability: browser.availability,
-                selectorOrder: index,
-                profile: browser.profile
-            )
+            element.element.withSelectorOrder(index)
         }
     }
 }

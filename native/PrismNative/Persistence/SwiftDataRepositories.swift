@@ -50,6 +50,8 @@ protocol BrowserPreferenceRepository {
     func saveHiddenBrowserIDs(_ ids: [BrowserID]) throws
     func recentBrowserIDs() throws -> [BrowserID]
     func saveRecentBrowserIDs(_ ids: [BrowserID]) throws
+    func browserAlternateNames() throws -> [BrowserID: String]
+    func saveBrowserAlternateNames(_ names: [BrowserID: String]) throws
     func customBrowsers() throws -> [BrowserDescriptor]
     func upsertCustomBrowser(_ browser: BrowserDescriptor) throws
     func deleteCustomBrowser(id: BrowserID) throws
@@ -365,6 +367,14 @@ final class SwiftDataBrowserPreferenceRepository: BrowserPreferenceRepository {
         try updatePrimaryOrderRecord { try $0.replaceRecentBrowserIDs(with: ids) }
     }
 
+    func browserAlternateNames() throws -> [BrowserID: String] {
+        try context.fetch(FetchDescriptor<BrowserOrderRecord>()).first(where: { $0.key == "primary" })?.alternateNames() ?? [:]
+    }
+
+    func saveBrowserAlternateNames(_ names: [BrowserID: String]) throws {
+        try updatePrimaryOrderRecord { try $0.replaceAlternateNames(with: names) }
+    }
+
     private func updatePrimaryOrderRecord(_ update: (BrowserOrderRecord) throws -> Void) throws {
         do {
             let record: BrowserOrderRecord
@@ -556,6 +566,7 @@ final class InMemoryBrowserPreferenceRepository: BrowserPreferenceRepository {
     private var orderedIDs: [BrowserID] = []
     private var hiddenIDs: [BrowserID] = []
     private var recentIDs: [BrowserID] = []
+    private var alternateNames: [BrowserID: String] = [:]
     private var browsers: [BrowserID: BrowserDescriptor] = [:]
 
     func orderedBrowserIDs() throws -> [BrowserID] {
@@ -573,6 +584,18 @@ final class InMemoryBrowserPreferenceRepository: BrowserPreferenceRepository {
     func recentBrowserIDs() throws -> [BrowserID] { recentIDs }
 
     func saveRecentBrowserIDs(_ ids: [BrowserID]) throws { recentIDs = ids }
+
+    func browserAlternateNames() throws -> [BrowserID: String] { alternateNames }
+
+    func saveBrowserAlternateNames(_ names: [BrowserID: String]) throws {
+        var normalized: [BrowserID: String] = [:]
+        for (id, rawName) in names {
+            if let value = BrowserDescriptor.normalizedAlternateName(rawName) {
+                normalized[id] = value
+            }
+        }
+        alternateNames = normalized
+    }
 
     func customBrowsers() throws -> [BrowserDescriptor] {
         browsers.values.sorted { $0.selectorOrder < $1.selectorOrder }

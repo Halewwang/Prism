@@ -487,6 +487,9 @@
 "selector.presentation.detail" = "Choose a browser directly or preview the page. Preview size is remembered; website sign-ins are separate from your browsers.";
 "selector.presentation.compact" = "Browser selector";
 "selector.presentation.preview" = "Link preview";
+"linkPreview.position.title" = "Preview window position";
+"linkPreview.position.followMouse" = "Follow the mouse";
+"linkPreview.position.lastClosedPosition" = "Remember last closed position";
 
 "linkPreview.panel.title" = "Link preview";
 "preview.back" = "Back";

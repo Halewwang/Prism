@@ -17,10 +17,16 @@ public enum SelectorPresentationMode: String, Codable, Equatable, Sendable {
     case preview
 }
 
+public enum LinkPreviewPositionMode: String, Codable, Equatable, Sendable {
+    case followMouse
+    case lastClosedPosition
+}
+
 public struct AppSettings: Codable, Equatable, Sendable {
     public var language: AppLanguage
     public var unmatchedBehavior: UnmatchedBehavior
     public var selectorPresentationMode: SelectorPresentationMode
+    public var linkPreviewPositionMode: LinkPreviewPositionMode
     public var preferredBrowserID: BrowserID?
     public var lastUsedBrowserID: BrowserID?
     public var historyEnabled: Bool
@@ -45,11 +51,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
         onboardingCompleted: Bool,
         schemaVersion: Int,
         selectorPresentationMode: SelectorPresentationMode = .compact,
+        linkPreviewPositionMode: LinkPreviewPositionMode = .followMouse,
         hideDockIcon: Bool = false
     ) {
         self.language = language
         self.unmatchedBehavior = unmatchedBehavior
         self.selectorPresentationMode = selectorPresentationMode
+        self.linkPreviewPositionMode = linkPreviewPositionMode
         self.preferredBrowserID = preferredBrowserID
         self.lastUsedBrowserID = lastUsedBrowserID
         self.historyEnabled = historyEnabled
@@ -63,7 +71,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case language, unmatchedBehavior, selectorPresentationMode
+        case language, unmatchedBehavior, selectorPresentationMode, linkPreviewPositionMode
         case preferredBrowserID, lastUsedBrowserID
         case historyEnabled, historyLimit, historyRetentionDays
         case automaticRulesEnabled, showMenuBarItem, hideDockIcon, onboardingCompleted, schemaVersion
@@ -72,6 +80,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let mode = try values.decodeIfPresent(String.self, forKey: .selectorPresentationMode)
+        let previewPosition = try values.decodeIfPresent(String.self, forKey: .linkPreviewPositionMode)
         self.init(
             language: try values.decode(AppLanguage.self, forKey: .language),
             unmatchedBehavior: try values.decode(UnmatchedBehavior.self, forKey: .unmatchedBehavior),
@@ -85,6 +94,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
             onboardingCompleted: try values.decode(Bool.self, forKey: .onboardingCompleted),
             schemaVersion: try values.decode(Int.self, forKey: .schemaVersion),
             selectorPresentationMode: mode.flatMap(SelectorPresentationMode.init(rawValue:)) ?? .compact,
+            linkPreviewPositionMode: previewPosition.flatMap(LinkPreviewPositionMode.init(rawValue:)) ?? .followMouse,
             hideDockIcon: try values.decodeIfPresent(Bool.self, forKey: .hideDockIcon) ?? false
         )
     }

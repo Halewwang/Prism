@@ -100,6 +100,13 @@ struct SettingsManagementView: View {
                     detail: "selector.presentation.detail",
                     symbol: "macwindow", tint: SettingsPalette.primary
                 ) { selectorPresentationModePicker }
+                if environment.settings.selectorPresentationMode == .preview {
+                    settingsSeparator
+                    settingsRow(
+                        title: "linkPreview.position.title", detail: "",
+                        symbol: "rectangle.dashed", tint: SettingsPalette.primary
+                    ) { linkPreviewPositionPicker }
+                }
                 settingsSeparator
                 settingsRow(
                     title: "Manage Browsers",
@@ -307,6 +314,22 @@ struct SettingsManagementView: View {
             WorkspacePickerOption(value: SelectorPresentationMode.preview, title: "selector.presentation.preview", accessibilityIdentifier: "settings.selectorPresentationMode.preview")
         ], compact: true)
         .accessibilityIdentifier("settings.selectorPresentationMode")
+    }
+
+    private var linkPreviewPositionPicker: some View {
+        WorkspacePicker(title: "linkPreview.position.title", selection: setting(\.linkPreviewPositionMode), options: [
+            WorkspacePickerOption(
+                value: LinkPreviewPositionMode.followMouse,
+                title: "linkPreview.position.followMouse",
+                accessibilityIdentifier: "settings.linkPreviewPositionMode.followMouse"
+            ),
+            WorkspacePickerOption(
+                value: LinkPreviewPositionMode.lastClosedPosition,
+                title: "linkPreview.position.lastClosedPosition",
+                accessibilityIdentifier: "settings.linkPreviewPositionMode.lastClosedPosition"
+            )
+        ], compact: true)
+        .accessibilityIdentifier("settings.linkPreviewPositionMode")
     }
 
     private var preferredBrowserPicker: some View {

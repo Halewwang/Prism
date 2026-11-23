@@ -12,10 +12,10 @@
   <p>Prism 是原生 macOS 浏览器路由工具。按网址或已确认的来源应用自动分流链接，<br />没有匹配规则时，可以先预览网页，再选择浏览器继续。</p>
   <p>
     <a href="https://prismmac.vercel.app/">官网</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.5/Prism-1.15.5-universal-test.dmg">下载 macOS 版</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.5">发布说明</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.6/Prism-1.15.6-universal-test.dmg">下载 macOS 版</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.6">发布说明</a>
   </p>
-  <p><small>v1.15.5 · 构建 20 · 原生公开测试版 · macOS 15+ · Apple Silicon / Intel</small></p>
+  <p><small>v1.15.6 · 构建 21 · 原生公开测试版 · macOS 15+ · Apple Silicon / Intel</small></p>
 </div>
 
 ## 为不同链接，找到合适的浏览器
@@ -51,14 +51,16 @@
 
 ## 开始使用
 
-1. 下载 [Prism for macOS](https://github.com/Halewwang/Prism/releases/download/v1.15.5/Prism-1.15.5-universal-test.dmg)，打开 DMG，将 Prism 拖入“应用程序”。更新前先退出旧版。
+1. 下载 [Prism for macOS](https://github.com/Halewwang/Prism/releases/download/v1.15.6/Prism-1.15.6-universal-test.dmg)，打开 DMG，将 Prism 拖入“应用程序”。更新前先退出旧版。
 2. 打开 Prism，按引导将其设为默认浏览器。
 3. 选择未匹配链接的打开方式；需要手动选择时，可在设置中选用“链接预览”或“浏览器选择器”。再添加常用网址或来源应用规则。
 4. 从其他应用点击链接，验证分流结果。
 
-当前为 ad hoc 签名的公开测试版，尚未完成 Developer ID 签名与 Apple 公证。首次打开、文件校验及已知限制见 [安装与公测说明](docs/public-test-release-1.15.5.md)。
+当前为 ad hoc 签名的公开测试版，尚未完成 Developer ID 签名与 Apple 公证。首次打开、文件校验及已知限制见 [安装与公测说明](docs/public-test-release-1.15.6.md)。
 
-v1.15.5 新增浏览器备用名称（全局同步至选择器、窄窗链接预览候选列表、规则、设置与新历史记录，并在管理页与悬停提示保留原 App 名称）、将「可用浏览器」管理页改造为直观的勾选式显隐列表（附显示计数与隐藏状态），并在设置页新增「隐藏程序坞图标」选项（关闭所有常规窗口后自动隐藏程序坞图标，不影响链接选择浮窗）。已安装 v1.14.11 及以后原生版的用户可在 App 内检查更新并安装。
+v1.15.6 支持在 Finder 中通过「打开方式 → Prism」打开本地 `.html` 或 `.htm` 文件。已将 Prism 设为这类文件默认打开方式时，可直接双击。选择器只显示文件名，并把原始文件交给所选浏览器。打开失败时可重试或改选浏览器。已安装 v1.14.11 及以后原生版的用户可在 App 内检查更新并安装。
+
+v1.15.5 新增浏览器备用名称（全局同步至选择器、窄窗链接预览候选列表、规则、设置与新历史记录，并在管理页与悬停提示保留原 App 名称）、将「可用浏览器」管理页改造为直观的勾选式显隐列表（附显示计数与隐藏状态），并在设置页新增「隐藏程序坞图标」选项（关闭所有常规窗口后自动隐藏程序坞图标，不影响链接选择浮窗）。
 
 链接预览使用 macOS WebKit，登录会话独立，不继承外部浏览器的登录状态。网站兼容性随系统与网站而异；登录或网页功能不受支持时，可交给完整浏览器继续。来源识别因应用而异；原生版暂不支持正则规则，Chrome / Edge Profile 为实验功能。
 

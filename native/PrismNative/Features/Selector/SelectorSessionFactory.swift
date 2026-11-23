@@ -135,6 +135,27 @@ final class SelectorSessionFactory: SelectorContentProviding {
         )
     }
 
+    func makeLocalFileSession(
+        url: URL,
+        requestID: UUID,
+        browserLauncher: any BrowserLaunching,
+        onFinish: @escaping @MainActor () -> Void
+    ) -> SelectorSession {
+        let model = SelectorViewModel(
+            localFileURL: url,
+            requestID: requestID,
+            browserCatalog: browserCatalog,
+            browserLauncher: browserLauncher,
+            navigationHandler: navigationHandler,
+            onFinish: onFinish
+        )
+        return SelectorSession(
+            requestID: requestID,
+            content: AnyView(SelectorView(model: model, iconProvider: iconProvider)),
+            closeAction: { [weak model] in Task { await model?.cancel() } }
+        )
+    }
+
     func makePreviewSession(request: LinkRequest, context: SelectorPresentationContext) -> SelectorSession {
         let model = SelectorViewModel(
             request: request, context: context, browserCatalog: browserCatalog,

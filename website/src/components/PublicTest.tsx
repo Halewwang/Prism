@@ -46,9 +46,8 @@ export const PublicTest = () => {
               </ol>
               <h3>New in v{release.version}</h3>
               <ul>
-                <li>Added custom alternate names for browsers and Chromium profiles: label each browser by purpose or account ID and see it consistently across the browser selector, narrow Link Preview candidate list, rules, settings, and new history entries, with original app names preserved in management and tooltips.</li>
-                <li>Redesigned browser visibility controls in Manage Browsers with direct per-row checkboxes, a visible counter, and clear hidden states—checked browsers appear in the selector while unchecked browsers remain available to routing rules.</li>
-                <li>Added a “Hide Dock Icon” option in Settings → General to hide Prism from the Dock once all regular windows are closed, without flashing the Dock icon when routing popups appear.</li>
+                <li>Open local <code>.html</code> and <code>.htm</code> files in Finder with <strong>Open With → Prism</strong>. Double-click works when Prism is already the default app for those files.</li>
+                <li>The picker shows only the filename and hands the original file to the browser you choose. If opening fails, retry or choose another browser.</li>
               </ul>
               <h3>Updating this public test</h3>
               <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in the app, then ask you to confirm installation. In this version, start a check in Settings or the menu bar menu. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>

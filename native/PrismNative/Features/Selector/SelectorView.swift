@@ -82,10 +82,14 @@ struct SelectorView: View {
 
     private var header: some View {
         HStack(spacing: SelectorMetrics.headerGap) {
-            sourceField
-                .frame(width: SelectorMetrics.sourceWidth)
-            urlField
-                .frame(maxWidth: .infinity)
+            if let fileName = model.localFileName {
+                localFileField(fileName)
+            } else {
+                sourceField
+                    .frame(width: SelectorMetrics.sourceWidth)
+                urlField
+                    .frame(maxWidth: .infinity)
+            }
             Button {
                 Task { await model.cancel() }
             } label: {
@@ -98,6 +102,33 @@ struct SelectorView: View {
             .selectorHeaderField(contrast: contrast)
             .accessibilityIdentifier("selector.cancel")
         }
+    }
+
+    private func localFileField(_ fileName: String) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: model.isFailurePresentation ? "exclamationmark.triangle.fill" : "doc")
+                .foregroundStyle(model.isFailurePresentation ? SelectorPalette.error : SelectorPalette.secondaryText)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: fileName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(SelectorPalette.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(fileName)
+                if let failureMessage = model.accessibleFailureMessage {
+                    Text(failureMessage)
+                        .font(.caption2)
+                        .foregroundStyle(SelectorPalette.secondaryText)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .selectorHeaderField(contrast: contrast, failure: model.isFailurePresentation)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("selector.localFile")
     }
 
     private var sourceField: some View {

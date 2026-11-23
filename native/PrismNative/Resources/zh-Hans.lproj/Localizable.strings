@@ -2,6 +2,7 @@
 "selector.source" = "来源";
 "selector.url" = "链接";
 "selector.url.invalid" = "请输入有效的 HTTP 或 HTTPS 地址。";
+"selector.localFile.openFailed" = "无法打开文件，请尝试其他浏览器。";
 "selector.failure.help" = "失败详情";
 "selector.rescan" = "重新扫描";
 "selector.openBrowserManagement" = "打开浏览器管理";

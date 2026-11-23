@@ -684,6 +684,59 @@ import Testing
     #expect(await composition.recoveryQueue.snapshot().isEmpty)
 }
 
+@Test @MainActor func finderHTMLWaitsForLaunchAndBypassesTheWebQueue() async throws {
+    let buffer = BootstrapLinkBuffer()
+    let queue = LinkRequestQueue(store: InMemoryPendingRequestStore())
+    let graph = TestLaunchGraph(queue: queue, buffer: buffer, onboardingCompleted: false)
+    let composition = makeComposition(graph: graph, queue: queue, buffer: buffer)
+    let windows = composition.windowCoordinator
+    defer {
+        if let id = windows.activeRequestID { windows.dismiss(requestID: id) }
+    }
+    var mainWindowOpenCount = 0
+    composition.mainWindowOpening.register { _, _ in mainWindowOpenCount += 1 }
+    let delegate = AppDelegate(
+        composition: composition,
+        copyCurrentSenderPID: { nil },
+        makeStatusItemController: { AppDelegateStatusItemFactorySpy().make(composition: $0) }
+    )
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let html = directory.appending(path: "演示 #1.HTML")
+    let htm = directory.appending(path: "second.htm")
+    let text = directory.appending(path: "notes.txt")
+    let folder = directory.appending(path: "folder.html", directoryHint: .isDirectory)
+    for file in [html, htm, text] {
+        try Data("<!doctype html><title>Test</title>".utf8).write(to: file)
+    }
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+
+    delegate.application(NSApplication.shared, open: [text, folder, html])
+    #expect(windows.activeRequestID == nil)
+    delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
+    for _ in 0..<200 where windows.activeRequestID == nil { await Task.yield() }
+    let first = try #require(windows.activeRequestID)
+    #expect(mainWindowOpenCount == 0)
+
+    let web = LinkRequest.fixture(url: "https://waiting.example")
+    windows.present(web, context: .normal)
+    #expect(windows.activeRequestID == first)
+    windows.dismiss(requestID: first)
+    #expect(windows.activeRequestID == web.id)
+    delegate.application(NSApplication.shared, open: [htm])
+    #expect(windows.activeRequestID == web.id)
+    windows.dismiss(requestID: web.id)
+    let second = try #require(windows.activeRequestID)
+    #expect(second != first && second != web.id)
+    windows.dismiss(requestID: second)
+    #expect(windows.activeRequestID == nil)
+    #expect(buffer.snapshot().isEmpty)
+    #expect(await queue.snapshot().isEmpty)
+    #expect(await queue.terminalSnapshot().isEmpty)
+    #expect(try graph.environment.historyRepository.recent(limit: 10, newerThan: .distantPast).isEmpty)
+}
+
 @Test @MainActor func repeatedGetURLEventsEachReachLinkIntake() async throws {
     let buffer = BootstrapLinkBuffer()
     let queue = LinkRequestQueue(store: InMemoryPendingRequestStore())
@@ -853,6 +906,14 @@ func repeatedLinkClicksRouteOrPresentEveryTime(hasRule: Bool) async throws {
         copyCurrentSenderPID: { nil },
         makeStatusItemController: { AppDelegateStatusItemFactorySpy().make(composition: $0) }
     )
+    let recoveryDocument = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).html")
+    try Data("<!doctype html><title>Recovery fixture</title>".utf8).write(to: recoveryDocument)
+    defer {
+        try? FileManager.default.removeItem(at: recoveryDocument)
+        let windows = recoveryComposition.windowCoordinator
+        if let id = windows.activeRequestID { windows.dismiss(requestID: id) }
+    }
+    recoveryDelegate.application(NSApplication.shared, open: [recoveryDocument])
     recoveryDelegate.applicationDidFinishLaunching(
         Notification(name: NSApplication.didFinishLaunchingNotification)
     )
@@ -861,6 +922,7 @@ func repeatedLinkClicksRouteOrPresentEveryTime(hasRule: Bool) async throws {
     }
     #expect(recoveryComposition.environment.startupPhase == .recovery)
     #expect(recoveryOpens == 1)
+    #expect(recoveryComposition.windowCoordinator.activeRequestID != nil)
 }
 
 #if DEBUG

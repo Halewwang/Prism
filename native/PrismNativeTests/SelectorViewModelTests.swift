@@ -166,6 +166,60 @@ struct SelectorInputMappingTests {
 @Suite("Selector model")
 @MainActor
 struct SelectorViewModelTests {
+    @Test func localFileUsesItsOriginalURLAndOffersNoWebRules() async {
+        let url = URL(fileURLWithPath: "/private/演示稿 #1.html")
+        let fixture = LocalFileSelectorFixture(url: url)
+
+        #expect(fixture.model.localFileName == "演示稿 #1.html")
+        #expect(!fixture.model.canCreateDomainRule)
+        #expect(!fixture.model.canCreateSourceRule)
+        fixture.model.addressText = "https://example.com/"
+        fixture.model.openDomainRule(browserID: fixture.browsers[0].id)
+        #expect(fixture.navigation.rulePrefills.isEmpty)
+
+        await fixture.model.activateShortcut(2)
+        await fixture.model.activateSelected()
+
+        #expect(fixture.launcher.openedURLs == [url])
+        #expect(fixture.launcher.browserIDs == [fixture.browsers[1].id])
+        #expect(fixture.finishCount == 1)
+    }
+
+    @Test func failedLocalHandoffKeepsTheFileAvailableForAnotherBrowser() async {
+        let url = URL(fileURLWithPath: "/private/preview.htm")
+        let fixture = LocalFileSelectorFixture(url: url)
+        fixture.launcher.failure = BrowserLaunchError.system(NSError(
+            domain: "LocalFileSelectorTests", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: url.path]
+        ))
+
+        await fixture.model.activateSelected()
+
+        #expect(fixture.finishCount == 0)
+        #expect(fixture.model.failedBrowserID == fixture.browsers[0].id)
+        let errorMessage = fixture.model.accessibleFailureMessage
+        #expect(errorMessage != nil)
+        #expect(errorMessage?.contains(url.path) == false)
+
+        fixture.launcher.failure = nil
+        await fixture.model.activateShortcut(2)
+
+        #expect(fixture.launcher.openedURLs == [url, url])
+        #expect(fixture.launcher.browserIDs == fixture.browsers.map(\.id))
+        #expect(fixture.finishCount == 1)
+    }
+
+    @Test func cancellingALocalFileDoesNotOpenIt() async {
+        let fixture = LocalFileSelectorFixture(url: URL(fileURLWithPath: "/private/preview.html"))
+
+        await fixture.model.cancel()
+        await fixture.model.activateSelected()
+        await fixture.model.cancel()
+
+        #expect(fixture.launcher.openedURLs.isEmpty)
+        #expect(fixture.finishCount == 1)
+    }
+
     @Test func editedAddressIsHandedOffWithoutChangingTheOriginalRequest() async {
         let fixture = SelectorFixture(browserCount: 2)
         fixture.model.addressText = "  edited.example/path?token=keep#section  "
@@ -592,6 +646,44 @@ struct SelectorProductionGraphTests {
             == composition.operatingSystemVersion.minorVersion)
         #expect(composition.selectorSessionFactory.operatingSystemVersion.patchVersion
             == composition.operatingSystemVersion.patchVersion)
+    }
+}
+
+@MainActor
+private final class LocalFileSelectorFixture {
+    let browsers = makeBrowsers(count: 2)
+    let launcher = LocalFileBrowserLauncher()
+    let navigation = RecordingSelectorNavigationHandler()
+    private(set) var finishCount = 0
+    private let url: URL
+    private let requestID = UUID()
+
+    lazy var model = SelectorViewModel(
+        localFileURL: url,
+        requestID: requestID,
+        browserCatalog: MutableBrowserCatalog(results: [.success(browsers)]),
+        browserLauncher: launcher,
+        navigationHandler: navigation,
+        onFinish: { [weak self] in self?.finishCount += 1 },
+        browsers: browsers
+    )
+
+    init(url: URL) {
+        self.url = url
+    }
+}
+
+@MainActor
+private final class LocalFileBrowserLauncher: BrowserLaunching {
+    var failure: (any Error)?
+    private(set) var openedURLs: [URL] = []
+    private(set) var browserIDs: [BrowserID] = []
+
+    func open(_ url: URL, with browser: BrowserDescriptor) async throws -> BrowserLaunchResult {
+        openedURLs.append(url)
+        browserIDs.append(browser.id)
+        if let failure { throw failure }
+        return .handoffSucceeded
     }
 }
 

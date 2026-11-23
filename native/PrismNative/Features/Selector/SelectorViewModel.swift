@@ -36,6 +36,11 @@ final class RecoveryQueuePendingCountProvider: SelectorPendingCountProviding {
 @MainActor
 @Observable
 final class SelectorViewModel {
+    private enum Target {
+        case web(any LinkRoutingCoordinating, any SelectorPendingCountProviding)
+        case localFile(any BrowserLaunching, onFinish: @MainActor () -> Void)
+    }
+
     let requestID: UUID
     let url: URL
     let source: SourceApplication
@@ -61,14 +66,14 @@ final class SelectorViewModel {
     private(set) var isPerformingAction: Bool
 
     let browserCatalog: any BrowserCataloging
-    private let routingCoordinator: any LinkRoutingCoordinating
-    private let pendingCountProvider: any SelectorPendingCountProviding
+    private let target: Target
     private let navigationHandler: any SelectorNavigationHandling
     private let eligibleSourceBundleIDs: Set<String>
     @ObservationIgnored private let browserOrder: @MainActor ([BrowserDescriptor]) -> [BrowserDescriptor]
     @ObservationIgnored private var pendingCountMonitoringTask: Task<Void, Never>?
+    @ObservationIgnored private var didFinishLocalFile = false
 
-    init(
+    convenience init(
         request: LinkRequest,
         context: SelectorPresentationContext,
         browsers: [BrowserDescriptor] = [],
@@ -79,16 +84,56 @@ final class SelectorViewModel {
         eligibleSourceBundleIDs: Set<String>,
         browserOrder: @escaping @MainActor ([BrowserDescriptor]) -> [BrowserDescriptor] = { $0 }
     ) {
-        requestID = request.id
-        url = request.launchURL
-        addressText = request.launchURL.absoluteString
-        source = request.source
+        self.init(
+            requestID: request.id, url: request.launchURL, source: request.source,
+            context: context, browsers: browsers, browserCatalog: browserCatalog,
+            target: .web(routingCoordinator, pendingCountProvider), navigationHandler: navigationHandler,
+            eligibleSourceBundleIDs: eligibleSourceBundleIDs, browserOrder: browserOrder
+        )
+    }
+
+    convenience init(
+        localFileURL: URL,
+        requestID: UUID,
+        browserCatalog: any BrowserCataloging,
+        browserLauncher: any BrowserLaunching,
+        navigationHandler: any SelectorNavigationHandling,
+        onFinish: @escaping @MainActor () -> Void,
+        browsers: [BrowserDescriptor] = []
+    ) {
+        self.init(
+            requestID: requestID, url: localFileURL, source: .unknown,
+            context: .normal, browsers: browsers, browserCatalog: browserCatalog,
+            target: .localFile(browserLauncher, onFinish: onFinish), navigationHandler: navigationHandler,
+            eligibleSourceBundleIDs: [], browserOrder: { $0 }
+        )
+    }
+
+    private init(
+        requestID: UUID,
+        url: URL,
+        source: SourceApplication,
+        context: SelectorPresentationContext,
+        browsers: [BrowserDescriptor],
+        browserCatalog: any BrowserCataloging,
+        target: Target,
+        navigationHandler: any SelectorNavigationHandling,
+        eligibleSourceBundleIDs: Set<String>,
+        browserOrder: @escaping @MainActor ([BrowserDescriptor]) -> [BrowserDescriptor]
+    ) {
+        self.requestID = requestID
+        self.url = url
+        self.source = source
+        self.target = target
+        if case .localFile = target {
+            addressText = url.lastPathComponent
+        } else {
+            addressText = url.absoluteString
+        }
         presentationContext = context
         let orderedBrowsers = browserOrder(Self.availableAndOrdered(browsers))
         self.browsers = orderedBrowsers
         self.browserCatalog = browserCatalog
-        self.routingCoordinator = routingCoordinator
-        self.pendingCountProvider = pendingCountProvider
         self.navigationHandler = navigationHandler
         self.eligibleSourceBundleIDs = eligibleSourceBundleIDs
         self.browserOrder = browserOrder
@@ -103,6 +148,16 @@ final class SelectorViewModel {
         } else {
             selectedIndex = 0
         }
+    }
+
+    var localFileName: String? {
+        guard case .localFile = target else { return nil }
+        return url.lastPathComponent
+    }
+
+    private var routingCoordinator: (any LinkRoutingCoordinating)? {
+        guard case let .web(coordinator, _) = target else { return nil }
+        return coordinator
     }
 
     var selectedBrowser: BrowserDescriptor? {
@@ -282,7 +337,7 @@ final class SelectorViewModel {
     @discardableResult
     func startPendingCountMonitoring() -> Task<Void, Never> {
         stopPendingCountMonitoring()
-        let pendingCountProvider = pendingCountProvider
+        guard case let .web(_, pendingCountProvider) = target else { return Task {} }
         let task = Task { @MainActor [weak self] in
             let updates = await pendingCountProvider.pendingCountUpdates()
             for await count in updates {
@@ -335,6 +390,7 @@ final class SelectorViewModel {
     }
 
     private var parsedAddressURL: URL? {
+        guard case .web = target else { return nil }
         let text = addressText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !text.contains(where: \.isWhitespace),
               let candidate = URL(string: text),
@@ -354,8 +410,12 @@ final class SelectorViewModel {
     }
 
     func activateBrowser(id: BrowserID) async {
-        guard browsers.contains(where: { $0.id == id }), !isPerformingAction,
-              let address = validatedAddressURL() else { return }
+        guard let browser = browsers.first(where: { $0.id == id }), !isPerformingAction else { return }
+        if case let .localFile(launcher, onFinish) = target {
+            await handOffLocalFile(with: browser, launcher: launcher, onFinish: onFinish)
+            return
+        }
+        guard let routingCoordinator, let address = validatedAddressURL() else { return }
         selectBrowser(id: id)
         isPerformingAction = true
         defer { isPerformingAction = false }
@@ -390,9 +450,30 @@ final class SelectorViewModel {
         }
     }
 
+    private func handOffLocalFile(
+        with browser: BrowserDescriptor,
+        launcher: any BrowserLaunching,
+        onFinish: @MainActor () -> Void
+    ) async {
+        guard !didFinishLocalFile else { return }
+        selectBrowser(id: browser.id)
+        isPerformingAction = true
+        defer { isPerformingAction = false }
+        do {
+            _ = try await launcher.open(url, with: browser)
+            didFinishLocalFile = true
+            onFinish()
+        } catch {
+            presentationContext = .launchFailed(
+                browserID: browser.id,
+                message: String(localized: "selector.localFile.openFailed", defaultValue: "Couldn’t open the file. Try another browser.")
+            )
+        }
+    }
+
     func retryRecovery(browserID: BrowserID? = nil) async {
         let candidate = browserID ?? presentationContext.preferredBrowserID
-        guard let candidate, browsers.contains(where: { $0.id == candidate }), !isPerformingAction,
+        guard let routingCoordinator, let candidate, browsers.contains(where: { $0.id == candidate }), !isPerformingAction,
               let address = validatedAddressURL() else { return }
         isPerformingAction = true
         defer { isPerformingAction = false }
@@ -404,7 +485,7 @@ final class SelectorViewModel {
     }
 
     func markCompleted() async {
-        guard canMarkCompleted, !isPerformingAction else { return }
+        guard let routingCoordinator, canMarkCompleted, !isPerformingAction else { return }
         isPerformingAction = true
         defer { isPerformingAction = false }
         await routingCoordinator.markUncertainAttemptCompleted(requestID: requestID)
@@ -412,9 +493,16 @@ final class SelectorViewModel {
 
     func cancel() async {
         guard !isPerformingAction else { return }
-        isPerformingAction = true
-        defer { isPerformingAction = false }
-        await routingCoordinator.cancel(requestID: requestID)
+        switch target {
+        case let .web(coordinator, _):
+            isPerformingAction = true
+            defer { isPerformingAction = false }
+            await coordinator.cancel(requestID: requestID)
+        case let .localFile(_, onFinish):
+            guard !didFinishLocalFile else { return }
+            didFinishLocalFile = true
+            onFinish()
+        }
     }
 
     func openBrowserManagement() {

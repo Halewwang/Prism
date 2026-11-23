@@ -171,6 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls where BootstrapLinkBuffer.accepts(url) {
             composition.linkIntakeService.capture(url: url, senderPID: senderPID)
         }
+        composition.windowCoordinator.enqueueLocalDocuments(urls)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -225,7 +226,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #if DEBUG
         guard !debugUITestMode.isUITesting else { return }
 #endif
-        let requiresAttention = environment.startupPhase == .onboarding
+        let shouldShowOnboarding = environment.startupPhase == .onboarding
+            && !composition.windowCoordinator.hasPendingLocalDocuments
+        let requiresAttention = shouldShowOnboarding
             || environment.startupPhase == .recovery
             || environment.runtimeLinkRecoveryState == .persistenceRetryRequired
         guard requiresAttention else { return }
@@ -316,6 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             && environment.runtimeLinkRecoveryState == .none
             && !environment.hasPendingTerminalHistoryReconciliation
             && composition.selectorPresentationRelay.activeRequest == nil
+            && !composition.windowCoordinator.hasPendingLocalDocuments
             && !environment.persistenceWarnings.contains { warning in
                 switch warning {
                 case .historyNotSaved, .recoveryStoreUnavailable, .settingsNotSaved: true

@@ -90,6 +90,7 @@ final class ProductionAppComposition {
         activationTracker: ApplicationActivationTracker? = nil,
         mainWindowOpening: MainWindowOpening? = nil,
         browserCatalog: (any BrowserCataloging)? = nil,
+        browserLauncher: any BrowserLaunching = BrowserLauncherService(),
         sourceManifest: SourceSupportManifest = .disabled,
         operatingSystemVersion: OperatingSystemVersion = ProcessInfo.processInfo.operatingSystemVersion,
         iconProvider: (any ApplicationIconProviding)? = nil,
@@ -131,7 +132,10 @@ final class ProductionAppComposition {
         let windows = windowCoordinator ?? WindowCoordinator(
             mainWindowOpening: opening,
             previewEnabled: { [weak environment] in environment?.settings.selectorPresentationMode == .preview },
-            contentProvider: sessions
+            contentProvider: sessions,
+            makeLocalFileSession: { url, id, onFinish in
+                sessions.makeLocalFileSession(url: url, requestID: id, browserLauncher: browserLauncher, onFinish: onFinish)
+            }
         )
         let outcomes = routingOutcomeCenter ?? LinkRoutingOutcomeCenter()
         linkRoutingCoordinator.connectOutcomeReporter(outcomes)
@@ -172,6 +176,7 @@ final class ProductionAppComposition {
         let relay = SelectorPresentationRelay()
         let tracker = ApplicationActivationTracker()
         let catalog = BrowserCatalogService(browserPreferences: environment.browserPreferenceRepository)
+        let launcher = BrowserLauncherService()
         let sourceManifest = SourceSupportManifest.disabled
         let operatingSystemVersion = ProcessInfo.processInfo.operatingSystemVersion
         let coordinator = LinkRoutingCoordinator(
@@ -181,7 +186,7 @@ final class ProductionAppComposition {
             historyService: environment.historyService,
             settingsRepository: environment.settingsRepository,
             browserCatalog: catalog,
-            browserLauncher: BrowserLauncherService(),
+            browserLauncher: launcher,
             sourceManifest: sourceManifest,
             operatingSystemVersion: operatingSystemVersion,
             presenter: relay,
@@ -218,6 +223,7 @@ final class ProductionAppComposition {
             selectorPresentationRelay: relay,
             activationTracker: tracker,
             browserCatalog: catalog,
+            browserLauncher: launcher,
             sourceManifest: sourceManifest,
             operatingSystemVersion: operatingSystemVersion
         )
@@ -266,6 +272,7 @@ final class ProductionAppComposition {
         guard !didFinishLaunching else { return }
         didFinishLaunching = true
         finishLaunchCount += 1
+        defer { windowCoordinator.startPresentingLocalDocuments() }
         (iconProvider as? ApplicationIconProvider)?.preloadInstalledApplications()
         guard await restoreOnce() else { return }
         await finishRestoration(
@@ -444,6 +451,7 @@ final class ProductionAppComposition {
             selectorPresentationRelay: relay,
             activationTracker: tracker,
             browserCatalog: catalog,
+            browserLauncher: launcher,
             sourceManifest: sourceManifest,
             operatingSystemVersion: operatingSystemVersion,
             iconProvider: ApplicationIconProvider(workspace: workspace)

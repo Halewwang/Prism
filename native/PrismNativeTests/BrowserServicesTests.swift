@@ -890,7 +890,10 @@ private func browserDescriptor(
     #expect(ChromiumProfileDiscovery(userDataDirectories: ["com.google.Chrome": profiles.root]).profiles(for: "com.google.Chrome").isEmpty)
 }
 
-@Test @MainActor func launcherPassesProfileAndURLAsArgumentsWithoutAnOrdinaryURLHandoff() async throws {
+@Test(arguments: [
+    URL(string: "https://example.com/work?a=1&b=中文")!,
+    URL(fileURLWithPath: "/tmp/演示 #1.html")
+]) @MainActor func launcherPassesProfileAndURLAsArgumentsWithoutAnOrdinaryURLHandoff(url: URL) async throws {
     let apps = try TemporaryApplicationBundles([("Chrome.app", "com.google.Chrome")])
     defer { apps.remove() }
     let profiles = try TemporaryChromiumProfiles(names: ["Profile 1": "工作"])
@@ -899,7 +902,6 @@ private func browserDescriptor(
     let discovery = ChromiumProfileDiscovery(userDataDirectories: ["com.google.Chrome": profiles.root])
     let catalog = BrowserCatalogService(workspace: workspace, profileDiscovery: discovery)
     let browser = try #require(try await catalog.scan().first { $0.profile != nil })
-    let url = URL(string: "https://example.com/work?a=1&b=中文")!
     #expect(try await BrowserLauncherService(workspace: workspace, profileDiscovery: discovery).open(url, with: browser) == .handoffSucceeded)
     #expect(workspace.openedURLs.isEmpty)
     #expect(workspace.profileLaunches.count == 1)

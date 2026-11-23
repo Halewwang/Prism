@@ -25,6 +25,23 @@ final class MainWindowOpening {
 
 @MainActor
 final class WindowCoordinator: LinkSelectionPresenting {
+    typealias MakeLocalFileSession = @MainActor (URL, UUID, @escaping @MainActor () -> Void) -> SelectorSession
+
+    private struct LocalHTMLDocument {
+        let id = UUID()
+        let url: URL
+
+        init?(url: URL) {
+            let host = url.host(percentEncoded: false)?.lowercased() ?? ""
+            guard url.isFileURL, host.isEmpty || host == "localhost",
+                  ["html", "htm"].contains(url.pathExtension.lowercased()),
+                  !url.hasDirectoryPath,
+                  (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true
+            else { return nil }
+            self.url = url
+        }
+    }
+
     private let mainWindowOpening: MainWindowOpening
     private let panelController: any SelectorPanelControlling
     private let previewPanelController: any LinkPreviewPanelControlling
@@ -35,8 +52,14 @@ final class WindowCoordinator: LinkSelectionPresenting {
     private let visibleFrames: @MainActor () -> [CGRect]
     private let usesSystemScreens: Bool
     let contentProvider: any SelectorContentProviding
+    private let makeLocalFileSession: MakeLocalFileSession?
     private var activeSession: SelectorSession?
+    private var canPresentLocalDocuments = false
+    private var localDocuments: [LocalHTMLDocument] = []
+    private var deferredLink: (request: LinkRequest, context: SelectorPresentationContext)?
     private(set) var activeRequestID: UUID?
+
+    var hasPendingLocalDocuments: Bool { !localDocuments.isEmpty }
 
     init(
         mainWindowOpening: MainWindowOpening,
@@ -46,7 +69,8 @@ final class WindowCoordinator: LinkSelectionPresenting {
         positioner: SelectorPositioner = SelectorPositioner(),
         pointerLocation: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
         visibleFrames: (@MainActor () -> [CGRect])? = nil,
-        contentProvider: any SelectorContentProviding
+        contentProvider: any SelectorContentProviding,
+        makeLocalFileSession: MakeLocalFileSession? = nil
     ) {
         self.mainWindowOpening = mainWindowOpening
         self.panelController = panelController
@@ -57,6 +81,7 @@ final class WindowCoordinator: LinkSelectionPresenting {
         self.usesSystemScreens = visibleFrames == nil
         self.visibleFrames = visibleFrames ?? { NSScreen.screens.map(\.visibleFrame) }
         self.contentProvider = contentProvider
+        self.makeLocalFileSession = makeLocalFileSession
     }
 
     private func resolvedVisibleFrames(for pointer: CGPoint) -> [CGRect] {
@@ -68,6 +93,10 @@ final class WindowCoordinator: LinkSelectionPresenting {
     }
 
     func present(_ request: LinkRequest, context: SelectorPresentationContext) {
+        if let activeRequestID, localDocuments.first?.id == activeRequestID {
+            deferredLink = (request, context)
+            return
+        }
         let isPreview = previewEnabled()
         if activeRequestID == request.id, isPreview == activeIsPreview, let activeSession {
             activeSession.update(context: context)
@@ -83,23 +112,63 @@ final class WindowCoordinator: LinkSelectionPresenting {
             : contentProvider.makeSession(request: request, context: context)
         activeSession = session
         activeRequestID = session.requestID
-        let pointer = pointerLocation()
-        let frames = resolvedVisibleFrames(for: pointer)
         if isPreview {
-            previewPanelController.present(content: session.content, pointer: pointer, visibleFrames: frames) { [weak session] in session?.close() }
+            let pointer = pointerLocation()
+            previewPanelController.present(
+                content: session.content, pointer: pointer, visibleFrames: resolvedVisibleFrames(for: pointer)
+            ) { [weak session] in session?.close() }
             return
         }
-        let origin = positioner.origin(
-            panelSize: SelectorPanel.contentSize,
-            pointer: pointer,
-            visibleFrames: frames
-        )
-        panelController.present(content: session.content, at: origin)
+        presentCompact(session)
     }
 
     func dismiss(requestID: UUID) {
+        if deferredLink?.request.id == requestID { deferredLink = nil }
         guard activeRequestID == requestID else { return }
+        if localDocuments.first?.id == requestID { localDocuments.removeFirst() }
         hideSelector()
+        if let deferredLink {
+            self.deferredLink = nil
+            present(deferredLink.request, context: deferredLink.context)
+        } else {
+            presentNextLocalDocument()
+        }
+    }
+
+    func enqueueLocalDocuments(_ urls: [URL]) {
+        guard makeLocalFileSession != nil else { return }
+        // Local paths only belong to the live selector, never the web recovery queue.
+        localDocuments.append(contentsOf: urls.compactMap(LocalHTMLDocument.init(url:)))
+        presentNextLocalDocument()
+    }
+
+    func startPresentingLocalDocuments() {
+        canPresentLocalDocuments = true
+        presentNextLocalDocument()
+    }
+
+    private func presentNextLocalDocument() {
+        guard canPresentLocalDocuments, activeRequestID == nil,
+              let makeLocalFileSession, let document = localDocuments.first
+        else { return }
+        let id = document.id
+        let session = makeLocalFileSession(document.url, id) { [weak self] in
+            self?.dismiss(requestID: id)
+        }
+        activeIsPreview = false
+        activeSession = session
+        activeRequestID = id
+        presentCompact(session)
+    }
+
+    private func presentCompact(_ session: SelectorSession) {
+        let pointer = pointerLocation()
+        let origin = positioner.origin(
+            panelSize: SelectorPanel.contentSize,
+            pointer: pointer,
+            visibleFrames: resolvedVisibleFrames(for: pointer)
+        )
+        panelController.present(content: session.content, at: origin)
     }
 
     func hideSelector() {

@@ -1,6 +1,8 @@
 import AppKit
 import PrismCore
 import SwiftUI
+import UniformTypeIdentifiers
+import WebKit
 
 struct SettingsManagementView: View {
     @Environment(AppEnvironment.self) private var environment
@@ -19,6 +21,9 @@ struct SettingsManagementView: View {
     @State private var publishedInstaller: GitHubPublishedInstaller?
     @State private var showBrowserManagement = false
     @State private var showResetConfirmation = false
+    @State private var isClearingPreviewData = false
+    @State private var previewDataCleared = false
+    @State private var rulesBackupStatus: String?
 
     var body: some View {
         PageColumn(title: "Settings", accessibilityIdentifier: "appShell.page.settings.content") {
@@ -95,6 +100,16 @@ struct SettingsManagementView: View {
                     detail: "selector.presentation.detail",
                     symbol: "macwindow", tint: SettingsPalette.primary
                 ) { selectorPresentationModePicker }
+                settingsSeparator
+                settingsRow(
+                    title: "Manage Browsers",
+                    detail: "settings.manageBrowsers.detail",
+                    symbol: "globe", tint: SettingsPalette.primary
+                ) {
+                    Button("Manage…") { showBrowserManagement = true }
+                        .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 31, horizontalPadding: 10, fontSize: 13))
+                        .accessibilityIdentifier("settings.manageBrowsers")
+                }
             }
 
             settingsSection("General", symbol: "slider.horizontal.3") {
@@ -143,6 +158,37 @@ struct SettingsManagementView: View {
                         title: "How long to keep links", detail: "Links older than this are removed.",
                         symbol: "calendar", tint: SettingsPalette.primary
                     ) { historyRetentionPicker }
+                }
+                settingsSeparator
+                settingsRow(
+                    title: "settings.previewData.title",
+                    detail: "settings.previewData.detail",
+                    symbol: "trash", tint: SettingsPalette.primary
+                ) {
+                    Button {
+                        Task { await clearPreviewWebsiteData() }
+                    } label: {
+                        Text(previewDataCleared ? "settings.previewData.cleared" : "settings.previewData.clear")
+                    }
+                    .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 31, horizontalPadding: 10, fontSize: 13))
+                    .disabled(isClearingPreviewData)
+                    .accessibilityIdentifier("settings.clearPreviewData")
+                }
+                settingsSeparator
+                settingsRow(
+                    title: "settings.rulesBackup.title",
+                    detail: rulesBackupStatus ?? "settings.rulesBackup.detail",
+                    symbol: "square.and.arrow.up.on.square", tint: SettingsPalette.primary
+                ) {
+                    HStack(spacing: 8) {
+                        Button("settings.rulesBackup.export") { exportRules() }
+                            .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 31, horizontalPadding: 10, fontSize: 13))
+                            .accessibilityIdentifier("settings.exportRules")
+                        Button("settings.rulesBackup.import") { importRules() }
+                            .buttonStyle(WorkspaceButtonStyle(kind: .secondary, height: 31, horizontalPadding: 10, fontSize: 13))
+                            .accessibilityIdentifier("settings.importRules")
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
                 }
             }
 
@@ -567,7 +613,101 @@ struct SettingsManagementView: View {
         browsers = (try? await browserCatalog.scan()) ?? []
         await refreshDefaultHandler()
         loginItemState = environment.loginItemService?.status()
-        await loadPublishedInstaller()
+        if environment.updateChecker.automaticallyChecksForUpdates {
+            await loadPublishedInstaller()
+        }
+    }
+
+    private func clearPreviewWebsiteData() async {
+        guard !isClearingPreviewData else { return }
+        isClearingPreviewData = true
+        defer { isClearingPreviewData = false }
+        let store = WKWebsiteDataStore.default()
+        await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
+        previewDataCleared = true
+    }
+
+    private func exportRules() {
+        let rules: [RoutingRule]
+        do {
+            rules = try environment.ruleRepository.all()
+        } catch {
+            actionMessage = "settings.rulesBackup.exportFailed"
+            return
+        }
+        let panel = NSSavePanel()
+        panel.title = String(localized: "settings.rulesBackup.exportPanelTitle", defaultValue: "Export Routing Rules")
+        panel.nameFieldStringValue = "prism-rules.json"
+        panel.allowedContentTypes = [.json]
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(RuleBackupEnvelope(schemaVersion: 1, rules: rules))
+            try data.write(to: url, options: .atomic)
+            rulesBackupStatus = String(
+                format: String(localized: "settings.rulesBackup.exportedCount", defaultValue: "Exported %lld rules."),
+                Int64(rules.count)
+            )
+        } catch {
+            actionMessage = "settings.rulesBackup.exportFailed"
+        }
+    }
+
+    private func importRules() {
+        let panel = NSOpenPanel()
+        panel.title = String(localized: "settings.rulesBackup.importPanelTitle", defaultValue: "Import Routing Rules")
+        panel.allowedContentTypes = [.json]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+            guard fileSize > 0, fileSize <= 4 * 1024 * 1024 else {
+                actionMessage = "settings.rulesBackup.invalidFile"
+                return
+            }
+            let data = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let envelope = try decoder.decode(RuleBackupEnvelope.self, from: data)
+            guard envelope.schemaVersion == 1 else {
+                actionMessage = "settings.rulesBackup.invalidFile"
+                return
+            }
+            let validRules = envelope.rules.filter { Self.isValidImportedRule($0) }
+            guard !validRules.isEmpty || envelope.rules.isEmpty else {
+                actionMessage = "settings.rulesBackup.invalidFile"
+                return
+            }
+            for rule in validRules {
+                try environment.ruleRepository.upsert(rule)
+            }
+            rulesBackupStatus = String(
+                format: String(localized: "settings.rulesBackup.importedCount", defaultValue: "Imported %lld rules."),
+                Int64(validRules.count)
+            )
+        } catch {
+            actionMessage = "settings.rulesBackup.importFailed"
+        }
+    }
+
+    private static func isValidImportedRule(_ rule: RoutingRule) -> Bool {
+        guard !rule.targetBrowserID.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return false
+        }
+        switch rule.matcher {
+        case let .exactHost(host), let .hostAndSubdomains(host):
+            return !host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case let .urlContains(value):
+            return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case let .sourceBundleIdentifier(bundleID):
+            return !bundleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 
     private func loadPublishedInstaller() async {
@@ -649,4 +789,9 @@ struct SettingsManagementView: View {
             UserDefaults.standard.removeObject(forKey: "AppleLanguages")
         }
     }
+}
+
+private struct RuleBackupEnvelope: Codable {
+    let schemaVersion: Int
+    let rules: [RoutingRule]
 }

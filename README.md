@@ -12,10 +12,10 @@
   <p>Prism 是原生 macOS 浏览器路由工具。按网址或已确认的来源应用自动分流链接，<br />没有匹配规则时，可以先预览网页，再选择浏览器继续。</p>
   <p>
     <a href="https://prismmac.vercel.app/">官网</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.3/Prism-1.15.3-universal-test.dmg">下载 macOS 版</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.3">发布说明</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.4/Prism-1.15.4-universal-test.dmg">下载 macOS 版</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.4">发布说明</a>
   </p>
-  <p><small>v1.15.3 · 构建 18 · 原生公开测试版 · macOS 15+ · Apple Silicon / Intel</small></p>
+  <p><small>v1.15.4 · 构建 19 · 原生公开测试版 · macOS 15+ · Apple Silicon / Intel</small></p>
 </div>
 
 ## 为不同链接，找到合适的浏览器
@@ -51,14 +51,14 @@
 
 ## 开始使用
 
-1. 下载 [Prism for macOS](https://github.com/Halewwang/Prism/releases/download/v1.15.3/Prism-1.15.3-universal-test.dmg)，打开 DMG，将 Prism 拖入“应用程序”。更新前先退出旧版。
+1. 下载 [Prism for macOS](https://github.com/Halewwang/Prism/releases/download/v1.15.4/Prism-1.15.4-universal-test.dmg)，打开 DMG，将 Prism 拖入“应用程序”。更新前先退出旧版。
 2. 打开 Prism，按引导将其设为默认浏览器。
 3. 选择未匹配链接的打开方式；需要手动选择时，可在设置中选用“链接预览”或“浏览器选择器”。再添加常用网址或来源应用规则。
 4. 从其他应用点击链接，验证分流结果。
 
-当前为 ad hoc 签名的公开测试版，尚未完成 Developer ID 签名与 Apple 公证。首次打开、文件校验及已知限制见 [安装与公测说明](docs/public-test-release-1.15.3.md)。
+当前为 ad hoc 签名的公开测试版，尚未完成 Developer ID 签名与 Apple 公证。首次打开、文件校验及已知限制见 [安装与公测说明](docs/public-test-release-1.15.4.md)。
 
-v1.15.3 修复钉钉等来源应用的图标识别，并防止 Prism 及其测试副本被误列为浏览器选项。历史记录、浏览器选择器与链接预览会将规范化的来源标识匹配到已安装应用图标。已安装 v1.14.11 及以后原生版的用户可在 App 内检查更新并安装。
+v1.15.4 围绕发布标准全面加固稳定性、兼容性与体验：修复首次启动与恢复态无窗口死锁、历史失败原因覆盖、浏览器启动卡死超时保护、安全重启与正常退出防丢链；补齐设置页「管理浏览器」「清除预览数据」「规则导入/导出」、链接预览右键建规则、IME 输入防 `Esc` 误关、历史页失败筛选与成功链接重开，以及全量中英双语本地化对齐和流式更新下载。已安装 v1.14.11 及以后原生版的用户可在 App 内检查更新并安装。
 
 链接预览使用 macOS WebKit，登录会话独立，不继承外部浏览器的登录状态。网站兼容性随系统与网站而异；登录或网页功能不受支持时，可交给完整浏览器继续。来源识别因应用而异；原生版暂不支持正则规则，Chrome / Edge Profile 为实验功能。
 

@@ -76,13 +76,13 @@ struct RecoveryBanner: View {
                 Text(LocalizedStringKey(model.title))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(SettingsPalette.primary)
-                    .accessibilityLabel(model.title)
+                    .accessibilityLabel(LocalizedStringKey(model.title))
                     .accessibilityIdentifier("\(model.accessibilityIdentifier).title")
                 Text(LocalizedStringKey(model.message))
                     .font(.system(size: 12))
                     .foregroundStyle(SettingsPalette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityLabel(model.message)
+                    .accessibilityLabel(LocalizedStringKey(model.message))
                     .accessibilityIdentifier("\(model.accessibilityIdentifier).message")
             }
 

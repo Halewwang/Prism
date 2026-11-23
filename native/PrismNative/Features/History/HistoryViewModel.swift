@@ -211,7 +211,7 @@ final class HistoryViewModel {
     }
 
     func reopen(_ entry: HistoryEntry) async {
-        guard entry.result == .cancelled,
+        guard entry.result == .cancelled || entry.result == .success,
               beginAction(.reopening, for: entry.requestID)
         else { return }
         actionMessage = nil
@@ -337,7 +337,7 @@ final class HistoryViewModel {
     }
 
     func canReopen(_ entry: HistoryEntry) -> Bool {
-        entry.result == .cancelled && safePersistedURL(for: entry) != nil
+        (entry.result == .cancelled || entry.result == .success) && safePersistedURL(for: entry) != nil
     }
 
     func canDelete(_ entry: HistoryEntry) -> Bool {

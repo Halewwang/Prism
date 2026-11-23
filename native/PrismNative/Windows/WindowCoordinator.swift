@@ -33,6 +33,7 @@ final class WindowCoordinator: LinkSelectionPresenting {
     private let positioner: SelectorPositioner
     private let pointerLocation: @MainActor () -> CGPoint
     private let visibleFrames: @MainActor () -> [CGRect]
+    private let usesSystemScreens: Bool
     let contentProvider: any SelectorContentProviding
     private var activeSession: SelectorSession?
     private(set) var activeRequestID: UUID?
@@ -44,7 +45,7 @@ final class WindowCoordinator: LinkSelectionPresenting {
         previewEnabled: @escaping @MainActor () -> Bool = { false },
         positioner: SelectorPositioner = SelectorPositioner(),
         pointerLocation: @escaping @MainActor () -> CGPoint = { NSEvent.mouseLocation },
-        visibleFrames: @escaping @MainActor () -> [CGRect] = { NSScreen.screens.map(\.visibleFrame) },
+        visibleFrames: (@MainActor () -> [CGRect])? = nil,
         contentProvider: any SelectorContentProviding
     ) {
         self.mainWindowOpening = mainWindowOpening
@@ -53,8 +54,17 @@ final class WindowCoordinator: LinkSelectionPresenting {
         self.previewEnabled = previewEnabled
         self.positioner = positioner
         self.pointerLocation = pointerLocation
-        self.visibleFrames = visibleFrames
+        self.usesSystemScreens = visibleFrames == nil
+        self.visibleFrames = visibleFrames ?? { NSScreen.screens.map(\.visibleFrame) }
         self.contentProvider = contentProvider
+    }
+
+    private func resolvedVisibleFrames(for pointer: CGPoint) -> [CGRect] {
+        if usesSystemScreens,
+           let matchedScreen = NSScreen.screens.first(where: { $0.frame.contains(pointer) }) {
+            return [matchedScreen.visibleFrame]
+        }
+        return visibleFrames()
     }
 
     func present(_ request: LinkRequest, context: SelectorPresentationContext) {
@@ -73,14 +83,16 @@ final class WindowCoordinator: LinkSelectionPresenting {
             : contentProvider.makeSession(request: request, context: context)
         activeSession = session
         activeRequestID = session.requestID
+        let pointer = pointerLocation()
+        let frames = resolvedVisibleFrames(for: pointer)
         if isPreview {
-            previewPanelController.present(content: session.content, pointer: pointerLocation(), visibleFrames: visibleFrames()) { [weak session] in session?.close() }
+            previewPanelController.present(content: session.content, pointer: pointer, visibleFrames: frames) { [weak session] in session?.close() }
             return
         }
         let origin = positioner.origin(
             panelSize: SelectorPanel.contentSize,
-            pointer: pointerLocation(),
-            visibleFrames: visibleFrames()
+            pointer: pointer,
+            visibleFrames: frames
         )
         panelController.present(content: session.content, at: origin)
     }

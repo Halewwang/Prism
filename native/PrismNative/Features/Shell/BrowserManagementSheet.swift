@@ -181,15 +181,13 @@ struct BrowserManagementSheet: View {
             Text(browser.availability == .available ? "browsers.available" : "Path unavailable")
                 .font(.system(size: 11))
                 .foregroundStyle(browser.availability == .available ? SettingsPalette.tertiary : SettingsPalette.danger)
-            if browser.origin == .custom && browser.profile == nil {
-                Menu { browserActions(browser) } label: {
-                    Image(systemName: "ellipsis").frame(width: 24, height: 24)
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .accessibilityLabel("More actions for \(browser.displayName)")
+            Menu { browserActions(browser) } label: {
+                Image(systemName: "ellipsis").frame(width: 24, height: 24)
             }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("More actions for \(browser.displayName)")
         }
         .padding(.horizontal, 14)
         .frame(height: 76)

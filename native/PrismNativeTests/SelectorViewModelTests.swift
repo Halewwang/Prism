@@ -356,7 +356,10 @@ struct SelectorViewModelTests {
         pending.send(4)
         await waitUntilPendingCount(4, in: fixture.model)
         #expect(fixture.model.pendingBadgeText == "4")
-        #expect(fixture.model.pendingAccessibilityValue == "4 links waiting")
+        #expect(fixture.model.pendingAccessibilityValue == String(
+            localized: "selector.pending.accessibility",
+            defaultValue: "\(4) links waiting"
+        ))
         fixture.model.stopPendingCountMonitoring()
     }
 

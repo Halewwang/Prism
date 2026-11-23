@@ -16,7 +16,7 @@ final class SelectorPanel: NSPanel {
         )
         hasShadow = true
         level = .floating
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .canJoinAllApplications]
         contentMinSize = Self.contentSize
         contentMaxSize = Self.contentSize
         isOpaque = false

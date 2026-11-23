@@ -21,6 +21,10 @@ struct GitHubUpdateCheckerTests {
         #expect(installer.version == "1.12.0")
         #expect(installer.notes == "Native test")
         #expect(installer.isPrerelease)
+
+        let stableOnly = try GitHubPublishedInstallerLookup.decode(payload, includePrereleases: false)
+        #expect(stableOnly.version == "1.11.0")
+        #expect(!stableOnly.isPrerelease)
     }
 
     @Test func discoversSignedAssetsOnlyFromTheSameExactRelease() throws {

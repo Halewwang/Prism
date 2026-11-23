@@ -179,13 +179,6 @@ final class GitHubUpdateChecker: UpdateChecking {
         if case .available = result, let installer { showUpdate(installer); return }
         let alert = NSAlert()
         switch result {
-        case .available:
-            guard let installer else { return }
-            let title = installer.isPrerelease ? "Prism %@ public test is available" : "Prism %@ is available"
-            alert.messageText = String(format: NSLocalizedString(title, comment: "Update alert title"), installer.version)
-            alert.informativeText = NSLocalizedString("Download the installer from GitHub, then replace Prism in Applications to update.", comment: "Update alert")
-            alert.addButton(withTitle: NSLocalizedString("Download installer", comment: "Update action"))
-            alert.addButton(withTitle: NSLocalizedString("Later", comment: "Update action"))
         case .current:
             alert.messageText = NSLocalizedString("Prism is up to date", comment: "Update alert title")
             alert.informativeText = NSLocalizedString("You have the latest published native version of Prism.", comment: "Update alert")

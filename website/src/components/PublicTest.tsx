@@ -46,8 +46,9 @@ export const PublicTest = () => {
               </ol>
               <h3>New in v{release.version}</h3>
               <ul>
-                <li>Source-app icons now resolve saved normalized identifiers, including DingTalk, in History, the browser picker, and link preview.</li>
-                <li>Prism and its test copies are excluded from browser choices and cannot be added as custom browsers.</li>
+                <li>Fixed startup window presentation for onboarding and recovery states, preserved distinct history failure/cancellation reasons, and added launch timeout protection, safe restart, and graceful quit flushing.</li>
+                <li>Improved Link Preview and picker usability: Escape respects IME composition and text editing, right-click rule creation works in Link Preview, History supports filtering failed items and reopening opened links, and Settings adds Manage Browsers, Clear Preview Data, and JSON rule import/export.</li>
+                <li>Synced full English and Simplified Chinese localizations across update/recovery flows, improved multi-display positioning, switched update downloads to chunked streaming, and allowed contained framework symlinks during in-app updates.</li>
               </ul>
               <h3>Updating this public test</h3>
               <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in the app, then ask you to confirm installation. In this version, start a check in Settings or the menu bar menu. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>

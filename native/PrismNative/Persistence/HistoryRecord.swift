@@ -78,8 +78,21 @@ final class HistoryRecord {
         completedAt = entry.completedAt
     }
 
+    private static let allowedFailureReasonCodes: Set<String> = [
+        "launch_failed",
+        "outcome_unknown",
+        "no_matching_rule",
+        "rules_paused",
+        "target_unavailable",
+        "preferred_browser_unavailable",
+        "source_not_confirmed",
+    ]
+
     private static func persistedFailureReason(from failureReason: String?) -> String? {
         guard let failureReason, !failureReason.isEmpty else { return nil }
+        if Self.allowedFailureReasonCodes.contains(failureReason) {
+            return failureReason
+        }
         return "launch_failed"
     }
 

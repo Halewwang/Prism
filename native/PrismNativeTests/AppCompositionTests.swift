@@ -817,6 +817,52 @@ func repeatedLinkClicksRouteOrPresentEveryTime(hasRule: Bool) async throws {
     #expect(composition.finishLaunchCount == 1)
 }
 
+@Test @MainActor func appDelegateAutoOpensMainWindowWhenStartupRequiresOnboardingOrRecovery() async throws {
+    let onboardingBuffer = BootstrapLinkBuffer()
+    let onboardingDir = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let onboardingComposition = ProductionAppComposition.makeForTesting(
+        bootstrapBuffer: onboardingBuffer,
+        modelContainerFactory: { try ModelContainerFactory.make(inMemory: true) },
+        recoveryStoreFactory: { AtomicPendingRequestStore(directory: onboardingDir) }
+    )
+    var onboardingOpens = 0
+    onboardingComposition.mainWindowOpening.register { _, _ in onboardingOpens += 1 }
+    let onboardingDelegate = AppDelegate(
+        composition: onboardingComposition,
+        copyCurrentSenderPID: { nil },
+        makeStatusItemController: { AppDelegateStatusItemFactorySpy().make(composition: $0) }
+    )
+    onboardingDelegate.applicationDidFinishLaunching(
+        Notification(name: NSApplication.didFinishLaunchingNotification)
+    )
+    for _ in 0..<200 where onboardingOpens == 0 {
+        await Task.yield()
+    }
+    #expect(onboardingComposition.environment.startupPhase == .onboarding)
+    #expect(onboardingOpens == 1)
+
+    let recoveryComposition = ProductionAppComposition.makeForTesting(
+        bootstrapBuffer: BootstrapLinkBuffer(),
+        modelContainerFactory: { try ModelContainerFactory.make(inMemory: true) },
+        recoveryStoreFactory: { throw TestCompositionFailure.unavailable }
+    )
+    var recoveryOpens = 0
+    recoveryComposition.mainWindowOpening.register { _, _ in recoveryOpens += 1 }
+    let recoveryDelegate = AppDelegate(
+        composition: recoveryComposition,
+        copyCurrentSenderPID: { nil },
+        makeStatusItemController: { AppDelegateStatusItemFactorySpy().make(composition: $0) }
+    )
+    recoveryDelegate.applicationDidFinishLaunching(
+        Notification(name: NSApplication.didFinishLaunchingNotification)
+    )
+    for _ in 0..<200 where recoveryOpens == 0 {
+        await Task.yield()
+    }
+    #expect(recoveryComposition.environment.startupPhase == .recovery)
+    #expect(recoveryOpens == 1)
+}
+
 #if DEBUG
 @Suite("Main window presentation", .serialized)
 @MainActor

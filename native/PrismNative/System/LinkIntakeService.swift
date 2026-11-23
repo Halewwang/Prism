@@ -8,6 +8,25 @@ struct BufferedLinkCapture: Equatable, Sendable {
     let senderPID: Int32?
     let receivedAt: Date
     let reopenedFromHistoryEntryID: UUID?
+    let preResolvedSource: SourceApplication?
+
+    init(
+        id: UUID,
+        sequence: UInt64,
+        url: URL,
+        senderPID: Int32?,
+        receivedAt: Date,
+        reopenedFromHistoryEntryID: UUID?,
+        preResolvedSource: SourceApplication? = nil
+    ) {
+        self.id = id
+        self.sequence = sequence
+        self.url = url
+        self.senderPID = senderPID
+        self.receivedAt = receivedAt
+        self.reopenedFromHistoryEntryID = reopenedFromHistoryEntryID
+        self.preResolvedSource = preResolvedSource
+    }
 }
 
 struct LinkCaptureDiagnostic: Equatable, Sendable {
@@ -43,7 +62,7 @@ final class BootstrapLinkBuffer {
     }
 
     @discardableResult
-    func captureRequest(_ url: URL, senderPID: Int32?) -> UUID? {
+    func captureRequest(_ url: URL, senderPID: Int32?, preResolvedSource: SourceApplication? = nil) -> UUID? {
         guard Self.accepts(url) else { return nil }
         let increment = nextSequence.addingReportingOverflow(1)
         guard !increment.overflow else { return nil }
@@ -55,7 +74,8 @@ final class BootstrapLinkBuffer {
             url: url,
             senderPID: senderPID,
             receivedAt: now(),
-            reopenedFromHistoryEntryID: nil
+            reopenedFromHistoryEntryID: nil,
+            preResolvedSource: preResolvedSource
         ))
         nextSequence = increment.partialValue
         return id
@@ -127,10 +147,14 @@ final class LinkIntakeService: LinkRoutingContinuationRequesting {
 
         var errorDescription: String? {
             switch self {
-            case .startupNotReady: "Prism 还在启动或恢复数据，请稍后再安装更新。"
-            case .persistenceUnavailable: "链接或历史记录尚未安全保存，请先处理存储提示。"
-            case .routingInProgress: "正在处理链接，请完成后再安装更新。"
-            case .pendingRequests: "还有待处理的链接，请先打开或取消这些链接。"
+            case .startupNotReady:
+                String(localized: "update.termination.startupNotReady", defaultValue: "Prism is still starting or restoring data. Please try installing the update again shortly.")
+            case .persistenceUnavailable:
+                String(localized: "update.termination.persistenceUnavailable", defaultValue: "Links or history have not been safely saved yet. Please resolve the storage notice first.")
+            case .routingInProgress:
+                String(localized: "update.termination.routingInProgress", defaultValue: "Prism is currently handling a link. Please finish it before installing the update.")
+            case .pendingRequests:
+                String(localized: "update.termination.pendingRequests", defaultValue: "There are still pending links. Please open or cancel them before updating.")
             }
         }
     }
@@ -170,6 +194,10 @@ final class LinkIntakeService: LinkRoutingContinuationRequesting {
     private var explicitCaptureOperationsInFlight = 0
 
     var isPreparingUpdateTermination: Bool { updateTerminationOriginalRoutingEnabled != nil }
+
+    var hasPendingBootstrapPersistence: Bool {
+        bootstrap.first() != nil || drainTask != nil
+    }
 
     /// Read synchronously by applicationShouldTerminate, after the asynchronous
     /// queue check. A new event invalidates the checkpoint even after its save finishes.
@@ -281,7 +309,10 @@ final class LinkIntakeService: LinkRoutingContinuationRequesting {
 
     @discardableResult
     func captureRequest(url: URL, senderPID: Int32?) -> UUID? {
-        let requestID = bootstrap.captureRequest(url, senderPID: senderPID)
+        let resolvedSource = BootstrapLinkBuffer.accepts(url)
+            ? sourceAttributor.resolve(senderPID: senderPID, lastActivated: lastActivatedSource())
+            : nil
+        let requestID = bootstrap.captureRequest(url, senderPID: senderPID, preResolvedSource: resolvedSource)
         if requestID != nil, updateTerminationOriginalRoutingEnabled != nil {
             updateTerminationCaptureArrived = true
         }
@@ -537,10 +568,10 @@ final class LinkIntakeService: LinkRoutingContinuationRequesting {
     private func drainBufferedLinks() async throws {
         while let capture = bootstrap.first() {
             let source = capture.reopenedFromHistoryEntryID == nil
-                ? sourceAttributor.resolve(
+                ? (capture.preResolvedSource ?? sourceAttributor.resolve(
                     senderPID: capture.senderPID,
                     lastActivated: lastActivatedSource()
-                )
+                ))
                 : .unknown
             let request = LinkRequest(
                 id: capture.id,

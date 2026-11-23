@@ -75,7 +75,11 @@ zsh "$verify_release" "$app" "$version" "$build" "$dmg"
 
 mkdir "$appcast_input"
 cp "$dmg" "$appcast_input/"
-print -rn -- "$SPARKLE_ED_PRIVATE_KEY" | "$generate_appcast" --ed-key-file - "$appcast_input" > "$appcast"
+print -rn -- "$SPARKLE_ED_PRIVATE_KEY" | "$generate_appcast" \
+  --ed-key-file - \
+  --download-url-prefix "https://github.com/Halewwang/Prism/releases/download/v$version/" \
+  -o "$appcast" \
+  "$appcast_input"
 [[ -s "$appcast" ]] || {
   print -u2 "Sparkle did not generate an appcast"
   exit 65

@@ -38,11 +38,40 @@ public struct URLSanitizer: Sendable {
     }
 
     private func isSensitiveQueryName(_ name: String) -> Bool {
-        let name = name.lowercased()
-        return Self.sensitiveNames.contains(name)
-            || name.hasPrefix("utm_")
-            || name.split(whereSeparator: { $0 == "_" || $0 == "-" })
-                .contains { Self.sensitiveNameSegments.contains(String($0)) }
+        let lowercased = name.lowercased()
+        if Self.sensitiveNames.contains(lowercased) || lowercased.hasPrefix("utm_") {
+            return true
+        }
+        return Self.splitIdentifierSegments(name).contains { Self.sensitiveNameSegments.contains($0) }
+    }
+
+    private static func splitIdentifierSegments(_ name: String) -> [String] {
+        var segments: [String] = []
+        var current = ""
+        let characters = Array(name)
+        for index in characters.indices {
+            let character = characters[index]
+            if character == "_" || character == "-" {
+                if !current.isEmpty {
+                    segments.append(current.lowercased())
+                    current.removeAll(keepingCapacity: true)
+                }
+                continue
+            }
+            if !current.isEmpty, character.isUppercase {
+                let previous = characters[index - 1]
+                let nextIsLowercase = index + 1 < characters.count && characters[index + 1].isLowercase
+                if previous.isLowercase || (previous.isUppercase && nextIsLowercase) {
+                    segments.append(current.lowercased())
+                    current.removeAll(keepingCapacity: true)
+                }
+            }
+            current.append(character)
+        }
+        if !current.isEmpty {
+            segments.append(current.lowercased())
+        }
+        return segments
     }
 
     private static let sensitiveNames: Set<String> = [

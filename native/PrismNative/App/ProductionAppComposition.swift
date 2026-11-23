@@ -63,6 +63,7 @@ final class ProductionAppComposition {
     let onboardingTestLinkRouter: OnboardingTestLinkRouter
 
     private let warningSource: (any PersistenceWarningSource)?
+    private let iconProvider: any ApplicationIconProviding
     private var restorationState = RestorationState.notStarted
     private var didFinishRestoration = false
     private var didFinishLaunching = false
@@ -108,12 +109,13 @@ final class ProductionAppComposition {
             environment: environment,
             mainWindowOpening: opening
         )
+        let resolvedIconProvider = iconProvider ?? ApplicationIconProvider()
         let sessions = selectorSessionFactory ?? SelectorSessionFactory(
             browserCatalog: catalog,
             routingCoordinator: linkRoutingCoordinator,
             pendingCountProvider: pendingCountProvider,
             navigationHandler: navigationHandler,
-            iconProvider: iconProvider ?? ApplicationIconProvider(),
+            iconProvider: resolvedIconProvider,
             sourceManifest: sourceManifest,
             operatingSystemVersion: operatingSystemVersion,
             previewBrowserOrder: { [weak environment] browsers in
@@ -137,6 +139,7 @@ final class ProductionAppComposition {
         self.environment = environment
         self.recoveryQueue = recoveryQueue
         self.warningSource = warningSource
+        self.iconProvider = resolvedIconProvider
         self.bootstrapBuffer = bootstrapBuffer
         self.linkRoutingCoordinator = linkRoutingCoordinator
         self.linkIntakeService = linkIntakeService
@@ -263,6 +266,7 @@ final class ProductionAppComposition {
         guard !didFinishLaunching else { return }
         didFinishLaunching = true
         finishLaunchCount += 1
+        (iconProvider as? ApplicationIconProvider)?.preloadInstalledApplications()
         guard await restoreOnce() else { return }
         await finishRestoration(
             allowAutomaticRouting: environment.settings.onboardingCompleted

@@ -44,15 +44,30 @@ enum GitHubPublishedInstallerLookup {
         return try decode(data)
     }
 
-    static func decode(_ data: Data) throws -> GitHubPublishedInstaller {
+    static var defaultIncludePrereleases: Bool {
+#if PRISM_PUBLIC_TEST || DEBUG
+        true
+#else
+        false
+#endif
+    }
+
+    static func decode(
+        _ data: Data,
+        includePrereleases: Bool = defaultIncludePrereleases
+    ) throws -> GitHubPublishedInstaller {
         let releases = try JSONDecoder().decode([Release].self, from: data)
         let installers = releases.compactMap { release -> GitHubPublishedInstaller? in
             let version = release.tag_name.hasPrefix("v") ? String(release.tag_name.dropFirst()) : release.tag_name
+            let isPrerelease = release.prerelease ?? false
             // 1.11.0 is the first native release. Never offer an Electron installer.
             guard !release.draft,
+                  includePrereleases || !isPrerelease,
                   GitHubPublishedInstaller.isNewer("1.11.0", than: version) == false
             else { return nil }
-            let names = ["Prism-\(version).dmg", "Prism-\(version)-universal-test.dmg"]
+            let names = includePrereleases
+                ? ["Prism-\(version).dmg", "Prism-\(version)-universal-test.dmg"]
+                : ["Prism-\(version).dmg"]
             let dmgAssets = release.assets.filter { names.contains($0.name) }
             guard dmgAssets.count == 1, let asset = dmgAssets.first,
                   let url = URL(string: asset.browser_download_url),
@@ -63,7 +78,7 @@ enum GitHubPublishedInstallerLookup {
             else { return nil }
             return GitHubPublishedInstaller(
                 version: version, notes: release.body ?? "", downloadURL: url, fileName: asset.name,
-                isPrerelease: release.prerelease ?? false,
+                isPrerelease: isPrerelease,
                 manifestURL: trustedAssetURL("update-manifest.json", release: release),
                 signatureURL: trustedAssetURL("update-manifest.sig", release: release),
                 fileByteCount: asset.size

@@ -382,6 +382,10 @@ private struct WorkspacePickerKeyboardMonitor: NSViewRepresentable {
             self.monitor = nil
         }
 
+        isolated deinit {
+            stop()
+        }
+
         private func handle(_ event: NSEvent) -> Bool {
             guard presentation?.wrappedValue == true,
                   ownerView?.window != nil,

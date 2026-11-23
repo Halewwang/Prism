@@ -50,9 +50,9 @@ struct AppRootSystemActions {
         AppRootSystemActions(
             chooseCustomBrowserApplication: {
                 let panel = NSOpenPanel()
-                panel.title = "Add Custom Browser"
-                panel.message = "Choose a browser application."
-                panel.prompt = "Add Browser"
+                panel.title = String(localized: "Add Custom Browser")
+                panel.message = String(localized: "Choose a browser application.")
+                panel.prompt = String(localized: "Add Browser")
                 panel.canChooseFiles = true
                 panel.canChooseDirectories = false
                 panel.allowsMultipleSelection = false
@@ -72,9 +72,25 @@ struct AppRootSystemActions {
                 NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications", isDirectory: true))
             },
             restart: {
-                guard let executableURL = Bundle.main.executableURL else { return false }
+                let bundlePath = Bundle.main.bundleURL.path
+                guard !bundlePath.isEmpty else { return false }
+                UserDefaults.standard.synchronize()
+                let pid = ProcessInfo.processInfo.processIdentifier
+                let script = """
+                i=0
+                while /bin/kill -0 "$1" 2>/dev/null && [ "$i" -lt 100 ]; do
+                  /bin/sleep 0.1
+                  i=$((i + 1))
+                done
+                if ! /bin/kill -0 "$1" 2>/dev/null; then
+                  /usr/bin/open -n "$2"
+                fi
+                """
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/sh")
+                process.arguments = ["-c", script, "prism-restart", "\(pid)", bundlePath]
                 do {
-                    try Process.run(executableURL, arguments: [])
+                    try process.run()
                     NSApp.terminate(nil)
                     return true
                 } catch {

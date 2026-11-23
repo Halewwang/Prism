@@ -8,6 +8,7 @@ enum BrowserLaunchResult: Equatable, Sendable {
 enum BrowserLaunchError: Error {
     case applicationUnavailable
     case rejected
+    case timedOut
     case system(Error)
 }
 
@@ -57,6 +58,8 @@ final class BrowserLauncherService: BrowserLaunching {
             throw BrowserLaunchError.applicationUnavailable
         } catch WorkspaceClientError.rejected {
             throw BrowserLaunchError.rejected
+        } catch WorkspaceClientError.timedOut {
+            throw BrowserLaunchError.timedOut
         } catch WorkspaceClientError.system(let error) {
             throw BrowserLaunchError.system(error)
         } catch {

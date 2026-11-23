@@ -21,16 +21,26 @@ enum UpdatePreparationError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .unsignedRelease: "该版本未提供可信更新签名，请从发布页手动安装。"
-        case .invalidSignature: "更新签名验证失败，请稍后重试或从发布页下载。"
-        case .invalidManifest: "更新信息与选中的版本不一致。"
-        case .integrityMismatch: "安装包校验失败，请重新下载。"
-        case .untrustedDownload: "更新下载地址不受信任。"
-        case .downloadFailed: "更新下载失败，请检查网络后重试。"
-        case .packageTooLarge: "更新安装包超出允许的大小。"
-        case .unsupportedSystem: "此更新需要更新版本的 macOS。"
-        case .invalidApplication: "安装包中的应用验证失败。"
-        case .commandFailed: "无法准备安装包，请重试或手动安装。"
+        case .unsignedRelease:
+            String(localized: "update.error.unsignedRelease", defaultValue: "This release does not include a trusted update signature. Please install it manually from the release page.")
+        case .invalidSignature:
+            String(localized: "update.error.invalidSignature", defaultValue: "Update signature verification failed. Please try again later or download from the release page.")
+        case .invalidManifest:
+            String(localized: "update.error.invalidManifest", defaultValue: "Update metadata does not match the selected version.")
+        case .integrityMismatch:
+            String(localized: "update.error.integrityMismatch", defaultValue: "Installer integrity check failed. Please download again.")
+        case .untrustedDownload:
+            String(localized: "update.error.untrustedDownload", defaultValue: "The update download URL is not trusted.")
+        case .downloadFailed:
+            String(localized: "update.error.downloadFailed", defaultValue: "Update download failed. Please check your connection and try again.")
+        case .packageTooLarge:
+            String(localized: "update.error.packageTooLarge", defaultValue: "The update package exceeds the maximum allowed size.")
+        case .unsupportedSystem:
+            String(localized: "update.error.unsupportedSystem", defaultValue: "This update requires a newer version of macOS.")
+        case .invalidApplication:
+            String(localized: "update.error.invalidApplication", defaultValue: "Application validation inside the installer failed.")
+        case .commandFailed:
+            String(localized: "update.error.commandFailed", defaultValue: "Could not prepare the installer package. Please try again or install manually.")
         }
     }
 }
@@ -102,35 +112,184 @@ final class UpdateAssetTransport: NSObject, URLSessionTaskDelegate, Sendable {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 60
         configuration.timeoutIntervalForResource = 15 * 60
-        let session = URLSession(configuration: configuration, delegate: UpdateAssetTransport(), delegateQueue: nil)
+        let delegate = StreamingDownloadDelegate(
+            file: file,
+            maximumBytes: maximumBytes,
+            expectedBytes: expectedBytes,
+            progress: progress
+        )
+        let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
         defer { session.invalidateAndCancel() }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         request.setValue("Prism", forHTTPHeaderField: "User-Agent")
-        let (bytes, response) = try await session.bytes(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode), let finalURL = http.url, permits(finalURL) else { throw UpdatePreparationError.downloadFailed }
-        guard http.expectedContentLength <= maximumBytes else { throw UpdatePreparationError.packageTooLarge }
-        if let expectedBytes, http.expectedContentLength >= 0, http.expectedContentLength != expectedBytes { throw UpdatePreparationError.integrityMismatch }
-        guard FileManager.default.createFile(atPath: file.path, contents: nil, attributes: [.posixPermissions: 0o600]) else { throw UpdatePreparationError.downloadFailed }
-        let handle = try FileHandle(forWritingTo: file)
-        defer { try? handle.close() }
-        var count: Int64 = 0
-        var chunk = Data()
-        chunk.reserveCapacity(64 * 1024)
-        progress(expectedBytes == nil ? nil : 0)
-        for try await byte in bytes {
+        let task = session.dataTask(with: request)
+        try await withTaskCancellationHandler {
             try Task.checkCancellation()
-            count += 1
-            guard count <= maximumBytes, expectedBytes == nil || count <= expectedBytes! else { throw UpdatePreparationError.packageTooLarge }
-            chunk.append(byte)
-            if chunk.count >= 64 * 1024 {
-                try handle.write(contentsOf: chunk)
-                chunk.removeAll(keepingCapacity: true)
-                progress(expectedBytes.map { Double(count) / Double($0) })
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                delegate.start(task: task, continuation: continuation)
+            }
+        } onCancel: {
+            delegate.cancel(task: task)
+        }
+    }
+}
+
+private final class StreamingDownloadDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private let file: URL
+    private let maximumBytes: Int64
+    private let expectedBytes: Int64?
+    private let progress: @Sendable (Double?) -> Void
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var handle: FileHandle?
+    private var receivedBytes: Int64 = 0
+    private var terminalError: Error?
+
+    init(
+        file: URL,
+        maximumBytes: Int64,
+        expectedBytes: Int64?,
+        progress: @escaping @Sendable (Double?) -> Void
+    ) {
+        self.file = file
+        self.maximumBytes = maximumBytes
+        self.expectedBytes = expectedBytes
+        self.progress = progress
+    }
+
+    func start(task: URLSessionDataTask, continuation: CheckedContinuation<Void, Error>) {
+        lock.withLock {
+            self.continuation = continuation
+        }
+        task.resume()
+    }
+
+    func cancel(task: URLSessionDataTask) {
+        finish(with: .failure(CancellationError()), cancelling: task)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        completionHandler(request.url.map(UpdateAssetTransport.permits) == true ? request : nil)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void
+    ) {
+        guard let http = response as? HTTPURLResponse,
+              (200..<300).contains(http.statusCode),
+              let finalURL = http.url,
+              UpdateAssetTransport.permits(finalURL)
+        else {
+            failEarly(UpdatePreparationError.downloadFailed, task: dataTask, completionHandler: completionHandler)
+            return
+        }
+        guard http.expectedContentLength <= maximumBytes else {
+            failEarly(UpdatePreparationError.packageTooLarge, task: dataTask, completionHandler: completionHandler)
+            return
+        }
+        if let expectedBytes, http.expectedContentLength >= 0, http.expectedContentLength != expectedBytes {
+            failEarly(UpdatePreparationError.integrityMismatch, task: dataTask, completionHandler: completionHandler)
+            return
+        }
+        guard FileManager.default.createFile(atPath: file.path, contents: nil, attributes: [.posixPermissions: 0o600]),
+              let createdHandle = try? FileHandle(forWritingTo: file)
+        else {
+            failEarly(UpdatePreparationError.downloadFailed, task: dataTask, completionHandler: completionHandler)
+            return
+        }
+        lock.withLock {
+            self.handle = createdHandle
+        }
+        progress(expectedBytes == nil ? nil : 0)
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        let writeFailure: Error? = lock.withLock {
+            if terminalError != nil { return terminalError }
+            let nextCount = receivedBytes + Int64(data.count)
+            guard nextCount <= maximumBytes,
+                  expectedBytes.map({ nextCount <= $0 }) ?? true
+            else {
+                terminalError = UpdatePreparationError.packageTooLarge
+                return terminalError
+            }
+            guard let handle else {
+                terminalError = UpdatePreparationError.downloadFailed
+                return terminalError
+            }
+            do {
+                try handle.write(contentsOf: data)
+                receivedBytes = nextCount
+                return nil
+            } catch {
+                terminalError = error
+                return error
             }
         }
-        try handle.write(contentsOf: chunk)
-        if let expectedBytes, count != expectedBytes { throw UpdatePreparationError.integrityMismatch }
-        progress(expectedBytes.map { Double(count) / Double($0) })
+        if let writeFailure {
+            finish(with: .failure(writeFailure), cancelling: dataTask)
+            return
+        }
+        let current = lock.withLock { receivedBytes }
+        progress(expectedBytes.map { Double(current) / Double($0) })
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+        let outcome: Result<Void, Error> = lock.withLock {
+            try? handle?.close()
+            handle = nil
+            if let terminalError {
+                return .failure(terminalError)
+            }
+            if let error {
+                return .failure(error)
+            }
+            if let expectedBytes, receivedBytes != expectedBytes {
+                return .failure(UpdatePreparationError.integrityMismatch)
+            }
+            return .success(())
+        }
+        if case .success = outcome {
+            let finalCount = lock.withLock { receivedBytes }
+            progress(expectedBytes.map { Double(finalCount) / Double($0) })
+        }
+        finish(with: outcome, cancelling: nil)
+    }
+
+    private func failEarly(
+        _ error: Error,
+        task: URLSessionDataTask,
+        completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void
+    ) {
+        lock.withLock {
+            if terminalError == nil { terminalError = error }
+        }
+        completionHandler(.cancel)
+        finish(with: .failure(error), cancelling: task)
+    }
+
+    private func finish(with result: Result<Void, Error>, cancelling task: URLSessionTask?) {
+        let pending: CheckedContinuation<Void, Error>? = lock.withLock {
+            try? handle?.close()
+            handle = nil
+            if case let .failure(error) = result, terminalError == nil {
+                terminalError = error
+            }
+            defer { continuation = nil }
+            return continuation
+        }
+        task?.cancel()
+        pending?.resume(with: result)
     }
 }
 
@@ -141,9 +300,12 @@ final class UpdateAssetTransport: NSObject, URLSessionTaskDelegate, Sendable {
     func prepare(_ installer: GitHubPublishedInstaller, progress: @escaping @Sendable (Double?) -> Void) async throws -> PreparedUpdate {
         guard let manifestURL = installer.manifestURL, let signatureURL = installer.signatureURL else { throw UpdatePreparationError.unsignedRelease }
         let base = installer.downloadURL.deletingLastPathComponent()
-        let expectedDMG = "/Halewwang/Prism/releases/download/v\(installer.version)/\(installer.fileName)"
+        let allowedDMGPaths: Set<String> = [
+            "/Halewwang/Prism/releases/download/v\(installer.version)/\(installer.fileName)",
+            "/Halewwang/Prism/releases/download/\(installer.version)/\(installer.fileName)",
+        ]
         guard installer.downloadURL.host == "github.com", UpdateAssetTransport.permits(installer.downloadURL), installer.downloadURL.query == nil, installer.downloadURL.fragment == nil,
-              installer.downloadURL.path == expectedDMG,
+              allowedDMGPaths.contains(installer.downloadURL.path),
               manifestURL == base.appendingPathComponent("update-manifest.json"), signatureURL == base.appendingPathComponent("update-manifest.sig") else { throw UpdatePreparationError.untrustedDownload }
         let workspace = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().appendingPathComponent("PrismUpdate-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])

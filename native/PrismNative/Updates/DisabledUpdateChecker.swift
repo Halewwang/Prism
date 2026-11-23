@@ -9,9 +9,9 @@ final class DisabledUpdateChecker: UpdateChecking {
     var automaticallyChecksForUpdates = false
 
     init() {
-        var streamContinuation: AsyncStream<UpdateEvent>.Continuation?
-        events = AsyncStream { streamContinuation = $0 }
-        continuation = streamContinuation!
+        let (stream, continuation) = AsyncStream<UpdateEvent>.makeStream()
+        events = stream
+        self.continuation = continuation
     }
 
     func checkForUpdates() {

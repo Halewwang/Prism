@@ -18,6 +18,21 @@ struct LinkPreviewKeyboardTests {
         #expect(closes == 1)
     }
 
+    @Test func escapeDoesNotCloseWhileEditingTextOrComposingIME() throws {
+        let panel = makePanel()
+        defer { panel.orderOut(nil) }
+        var closes = 0
+        panel.closeAction = { closes += 1 }
+
+        let input = NSTextView(frame: CGRect(x: 0, y: 0, width: 120, height: 40))
+        input.isEditable = true
+        panel.contentView = input
+        #expect(panel.makeFirstResponder(input))
+
+        #expect(!panel.handleKeyboardEvent(try key("\u{1b}", code: 53, in: panel)))
+        #expect(closes == 0)
+    }
+
     @Test func nativeNumbersAreConsumedOnlyWhenTheCurrentHandlerAcceptsThem() throws {
         let panel = makePanel()
         defer { panel.orderOut(nil) }

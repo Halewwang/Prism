@@ -10,10 +10,13 @@ public enum LinkRequestQueueError: Error, Equatable, Sendable {
 }
 
 public actor LinkRequestQueue {
+    private static let maximumRetainedCompactedIDs = 10_000
+
     private let store: any PendingRequestStore
     private var pendingRequests: [LinkRequest] = []
     private var terminalRecords: [TerminalRequestRecord] = []
     private var requestIDs: Set<UUID> = []
+    private var compactedRequestIDOrder: [UUID] = []
     private var pendingCountContinuations: [UUID: AsyncStream<Int>.Continuation] = [:]
     private var mutationPermitHeld = false
     private var mutationWaiters: [CheckedContinuation<Void, Never>] = []
@@ -214,6 +217,18 @@ public actor LinkRequestQueue {
         candidateTerminal.remove(at: index)
         try await save(pending: pendingRequests, terminal: candidateTerminal)
         terminalRecords = candidateTerminal
+        compactedRequestIDOrder.append(id)
+        if compactedRequestIDOrder.count > Self.maximumRetainedCompactedIDs {
+            let overflow = compactedRequestIDOrder.count - Self.maximumRetainedCompactedIDs
+            let activeIDs = Self.requestIDs(in: PendingRequestSnapshot(
+                pendingRequests: pendingRequests,
+                terminalRecords: terminalRecords
+            ))
+            for evicted in compactedRequestIDOrder.prefix(overflow) where !activeIDs.contains(evicted) {
+                requestIDs.remove(evicted)
+            }
+            compactedRequestIDOrder.removeFirst(overflow)
+        }
     }
 
     public func discardTerminalHistory(_ id: UUID) async throws {
@@ -375,9 +390,12 @@ public actor LinkRequestQueue {
 
     private static func validateSnapshot(in snapshot: PendingRequestSnapshot) throws {
         let ids = snapshot.pendingRequests.map(\.id) + snapshot.terminalRecords.map(\.requestID)
-        guard Set(ids).count == ids.count else {
-            let duplicate = ids.first { id in ids.filter { $0 == id }.count > 1 }!
-            throw LinkRequestQueueError.duplicateRequestID(duplicate)
+        var seen: Set<UUID> = []
+        seen.reserveCapacity(ids.count)
+        for id in ids {
+            if !seen.insert(id).inserted {
+                throw LinkRequestQueueError.duplicateRequestID(id)
+            }
         }
         for request in snapshot.pendingRequests {
             if let handoffURL = request.handoffURL {

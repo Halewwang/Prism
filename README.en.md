@@ -17,6 +17,31 @@
   </p>
 </div>
 
+## See Prism in action
+
+Click a link in Mail, pick a browser in Prism, and open the same page. The animation below shows the simulated flow from the Prism website.
+
+[![Website animation showing a Mail link opening in Safari after choosing it in Prism](docs/media/prism-browser-routing.gif)](https://prismmac.vercel.app/#try-prism)
+
+Use Link Preview to look through a page before opening it in Safari, Chrome, or another browser.
+
+![Prism Link Preview demo showing the source app, page address, and browser choices](docs/media/prism-link-preview.png)
+
+Try both modes on the website by switching between **Link preview** and **Browser picker**. [Open the Prism website](https://prismmac.vercel.app/)
+
+<details>
+<summary>View screenshots of Rules, History, and Settings</summary>
+
+![Prism rules view with URL and source-app rules, destination browsers, and enabled states](website/public/screenshots/1.14.9/prism-rules-en.png)
+
+| History | Settings |
+| --- | --- |
+| <img src="website/public/screenshots/1.14.9/prism-history-en.png" alt="Search and filter link history in Prism" width="400" /> | <img src="website/public/screenshots/1.14.9/prism-settings-en.png" alt="Configure routing, fallback behavior, and local history in Prism" width="400" /> |
+
+Screenshots show v1.14.9 with sample data.
+
+</details>
+
 ## A browser for every link
 
 Set Prism as your default browser. When you open an HTTP or HTTPS link from another app, Prism checks your rules and sends it to the right browser. If nothing matches, your chosen fallback takes over.
@@ -25,31 +50,17 @@ Set Prism as your default browser. When you open an HTTP or HTTPS link from anot
 - **Route by source app.** Give links from a confirmed source application their own browser. URL rules take priority; source detection varies by app.
 - **Preview before opening.** Browse and interact with a page in a floating preview, then hand it off to your chosen browser. Switch back to the classic browser picker in Settings at any time.
 - **Choose in a moment.** Click a browser or use number keys, arrows, and Return. Narrow preview windows use an icon-and-number menu with up/down selection; Escape closes the preview.
-- **Make room for the page.** Move and resize the preview, with its size remembered for next time. Zoom with pinch gestures or ⌘+ / ⌘− / ⌘0.
+- **Make room for the page.** Move and resize the preview, and choose whether it reopens where you last closed it. Zoom with pinch gestures or ⌘+ / ⌘− / ⌘0.
 - **Keep a useful fallback.** Show the picker, use your preferred browser, or reuse the last browser that successfully opened a link. The picker puts recently used browsers first.
 - **Find links again.** Search and filter local history, review how a link was handled, and jump to rules to correct future routing. Preview a rule without opening a browser.
 - **Keep routing local.** Rules, settings, and link history stay on your Mac. Update checks contact GitHub and can be turned off.
 
-## See Prism in action
+## Recent public test updates
 
-### Rules
-
-Manage URL and source-app rules together, choose their destination browsers, and adjust priority or pause individual rules.
-
-![Prism rules view with URL and source-app rules, destination browsers, and enabled states](website/public/screenshots/1.14.9/prism-rules-en.png)
-
-| History | Settings |
-| --- | --- |
-| <img src="website/public/screenshots/1.14.9/prism-history-en.png" alt="Search and filter link history in Prism" width="360" /> | <img src="website/public/screenshots/1.14.9/prism-settings-en.png" alt="Configure routing, fallback behavior, and local history in Prism" width="360" /> |
-| Find previous links and review their routing results. | Adjust browser choices, automatic routing, and history retention. |
-
-### Browser picker
-
-Choose directly when a link needs a different browser.
-
-<img src="website/public/screenshots/1.14.9/prism-selector-en.png" alt="Prism browser picker with browser icons and keyboard shortcuts" width="480" />
-
-<small>Screenshots show v1.14.9 with sample data. They do not show link previews or subsequent changes to icon proportions, window motion, history filters, menu styling, or the installer, onboarding, and update interfaces.</small>
+- **v1.15.7** — With Link Preview enabled, go to **Settings → Link Handling → Preview window position**. Choose whether the preview follows the mouse (the default) or remembers where you last closed it, even after a restart. [Release notes](https://github.com/Halewwang/Prism/releases/tag/v1.15.7)
+- **v1.15.6** — Choose **Open With → Prism** in Finder to pick a browser for a local `.html` or `.htm` file. [Release notes](https://github.com/Halewwang/Prism/releases/tag/v1.15.6)
+- **v1.15.5** — Give browsers and Chromium profiles custom display names, use checkboxes to choose which browsers appear in the picker, and hide the Dock icon when all regular windows are closed. [Release notes](https://github.com/Halewwang/Prism/releases/tag/v1.15.5)
+- **v1.15.4** — Import and export rules as JSON, clear Link Preview website data, and filter History for links that failed to open. [Release notes](https://github.com/Halewwang/Prism/releases/tag/v1.15.4)
 
 ## Get started
 
@@ -60,11 +71,7 @@ Choose directly when a link needs a different browser.
 
 This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS. The download is a Universal build for Apple Silicon and Intel Macs. [Installation instructions and public-test limitations](docs/public-test-release-1.15.7.md)
 
-v1.15.7 adds **Settings → Link Handling → Preview window position** when Link preview is enabled. Choose **Follow the mouse** (default) or **Remember last closed position**. Prism restores the position after a restart and follows the mouse if the previous display is unavailable. [#31](https://github.com/Halewwang/Prism/issues/31)
-
-v1.15.6 opens local `.html` and `.htm` files from Finder’s **Open With → Prism** menu. Double-click also works when Prism is already the default app for these files. The picker shows only the filename and hands the original file to the browser you choose. If opening fails, you can retry or choose a different browser. Users on native v1.14.11 or later can check for updates and install in the app.
-
-v1.15.5 adds custom alternate names for browsers and Chromium profiles (applied globally across the browser selector, narrow Link Preview candidate list, rules, settings, and new history items while retaining original app names in management and tooltips), upgrades Manage Browsers to a clear checkbox visibility list, and adds a Hide Dock Icon setting to hide Prism from the Dock when all regular windows are closed.
+Native v1.14.11 and later can check for updates in Settings or the menu bar menu. If you’re on v1.14.10 or earlier, install manually once to switch to the new update feed. Your local rules, settings, and history stay in place.
 
 Link preview uses macOS WebKit and its own sign-in session; it does not inherit logins from external browsers. Website compatibility depends on the site and macOS version; open the page in your browser if its sign-in or features are unsupported. Source detection varies by app. Regex rules are not supported; Chrome / Edge profile routing is experimental.
 
@@ -77,10 +84,12 @@ Link preview uses macOS WebKit and its own sign-in session; it does not inherit 
 | Open local development links in a testing browser | URL contains `localhost:3000` → your development browser |
 | Separate links from a work app | Source app → your work browser, when macOS confirms the sender |
 
-Upgrading from v1.14.10 or earlier? Download and install this version manually once after the repository rename. Future updates use the new repository. Your local rules, settings, and history stay in place.
-
 ## Feedback and development
 
 Report bugs or suggest improvements in [Issues](https://github.com/Halewwang/Prism/issues). Include your Prism and macOS versions plus steps to reproduce; remove private links from shared screenshots or logs.
 
 For native builds, see the [build and release guide](native/docs/signing-and-release.md). The [website source](website/) is included in this repository.
+
+## Open-source license
+
+Prism’s source code is publicly available. The project does not currently have a published open-source license. Third-party dependencies are covered by their own licenses.

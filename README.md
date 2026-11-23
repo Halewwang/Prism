@@ -12,10 +12,10 @@
   <p>Prism 是原生 macOS 浏览器路由工具。按网址或已确认的来源应用自动分流链接，<br />没有匹配规则时，可以先预览网页，再选择浏览器继续。</p>
   <p>
     <a href="https://prismmac.vercel.app/">官网</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.6/Prism-1.15.6-universal-test.dmg">下载 macOS 版</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.6">发布说明</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.7/Prism-1.15.7-universal-test.dmg">下载 macOS 版</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.7">发布说明</a>
   </p>
-  <p><small>v1.15.6 · 构建 21 · 原生公开测试版 · macOS 15+ · Apple Silicon / Intel</small></p>
+  <p><small>v1.15.7 · 构建 22 · 原生公开测试版 · macOS 15+ · Apple Silicon / Intel</small></p>
 </div>
 
 ## 为不同链接，找到合适的浏览器
@@ -51,12 +51,14 @@
 
 ## 开始使用
 
-1. 下载 [Prism for macOS](https://github.com/Halewwang/Prism/releases/download/v1.15.6/Prism-1.15.6-universal-test.dmg)，打开 DMG，将 Prism 拖入“应用程序”。更新前先退出旧版。
+1. 下载 [Prism for macOS](https://github.com/Halewwang/Prism/releases/download/v1.15.7/Prism-1.15.7-universal-test.dmg)，打开 DMG，将 Prism 拖入“应用程序”。更新前先退出旧版。
 2. 打开 Prism，按引导将其设为默认浏览器。
 3. 选择未匹配链接的打开方式；需要手动选择时，可在设置中选用“链接预览”或“浏览器选择器”。再添加常用网址或来源应用规则。
 4. 从其他应用点击链接，验证分流结果。
 
-当前为 ad hoc 签名的公开测试版，尚未完成 Developer ID 签名与 Apple 公证。首次打开、文件校验及已知限制见 [安装与公测说明](docs/public-test-release-1.15.6.md)。
+当前为 ad hoc 签名的公开测试版，尚未完成 Developer ID 签名与 Apple 公证。首次打开、文件校验及已知限制见 [安装与公测说明](docs/public-test-release-1.15.7.md)。
+
+v1.15.7 可在「设置 → 链接处理 → 预览窗位置」选择「跟随鼠标」（默认）或「记住上次关闭的位置」。开启链接预览后即可看到此设置。记住的位置在重启后仍有效，原显示器不可用时，预览窗会在鼠标附近弹出。 [#31](https://github.com/Halewwang/Prism/issues/31)
 
 v1.15.6 支持在 Finder 中通过「打开方式 → Prism」打开本地 `.html` 或 `.htm` 文件。已将 Prism 设为这类文件默认打开方式时，可直接双击。选择器只显示文件名，并把原始文件交给所选浏览器。打开失败时可重试或改选浏览器。已安装 v1.14.11 及以后原生版的用户可在 App 内检查更新并安装。
 

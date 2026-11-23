@@ -42,6 +42,34 @@ import Testing
     #expect(settings.historyLimit == 333)
 }
 
+@Test(arguments: [nil, "future-mode"] as [String?])
+func missingOrUnknownPreviewPositionDefaultsToFollowMouse(storedMode: String?) throws {
+    var original = AppSettings.defaults
+    original.historyLimit = 333
+    var payload = try settingsPayload(original)
+    payload["linkPreviewPositionMode"] = storedMode
+
+    let settings = try JSONDecoder().decode(AppSettings.self, from: JSONSerialization.data(withJSONObject: payload))
+
+    #expect(try settingsPayload(settings)["linkPreviewPositionMode"] as? String == "followMouse")
+    #expect(settings == original)
+}
+
+@Test func lastClosedPreviewPositionPreferenceRoundTrips() throws {
+    var original = AppSettings.defaults
+    original.selectorPresentationMode = .preview
+    original.historyLimit = 333
+    var payload = try settingsPayload(original)
+    payload["linkPreviewPositionMode"] = "lastClosedPosition"
+
+    let settings = try JSONDecoder().decode(AppSettings.self, from: JSONSerialization.data(withJSONObject: payload))
+
+    #expect(try settingsPayload(settings)["linkPreviewPositionMode"] as? String == "lastClosedPosition")
+    #expect(settings.selectorPresentationMode == .preview)
+    #expect(settings.historyLimit == original.historyLimit)
+    #expect(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(settings)) == settings)
+}
+
 private func settingsPayload(_ settings: AppSettings) throws -> [String: Any] {
     try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any])
 }

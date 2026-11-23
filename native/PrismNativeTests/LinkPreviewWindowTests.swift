@@ -1,4 +1,5 @@
 import AppKit
+import PrismCore
 import SwiftUI
 import Testing
 @testable import PrismNative
@@ -56,6 +57,61 @@ struct LinkPreviewWindowGeometryTests {
 @Suite("Link preview panel")
 @MainActor
 struct LinkPreviewWindowTests {
+    @Test func savedPositionReopensOnTheOriginalDisplayAfterRestart() throws {
+        let suite = "LinkPreviewWindowTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let primary = CGRect(x: 0, y: 24, width: 1440, height: 1100)
+        let secondary = CGRect(x: -1440, y: 24, width: 1440, height: 1100)
+        let displays = [
+            LinkPreviewDisplay(id: "primary", frame: primary, visibleFrame: primary),
+            LinkPreviewDisplay(id: "secondary", frame: secondary, visibleFrame: secondary),
+        ]
+        let pointer = CGPoint(x: 400, y: 1020)
+        let controller = LinkPreviewPanelController(defaults: defaults, positionMode: { .lastClosedPosition },
+                                                    displays: { displays }, orderFront: { _ in })
+        controller.present(content: AnyView(Color.clear), pointer: pointer, visibleFrames: [primary], onClose: {})
+        #expect(controller.panel.frame.origin == CGPoint(x: 412, y: 208))
+        let movedOrigin = CGPoint(x: secondary.minX + 50, y: secondary.minY + 75)
+        controller.panel.setFrameOrigin(movedOrigin)
+        controller.hide()
+
+        let reopenedDefaults = try #require(UserDefaults(suiteName: suite))
+        let reopened = LinkPreviewPanelController(defaults: reopenedDefaults, positionMode: { .lastClosedPosition },
+                                                  displays: { displays }, orderFront: { _ in })
+        reopened.present(content: AnyView(Color.clear), pointer: pointer, visibleFrames: [primary], onClose: {})
+        #expect(reopened.panel.frame.origin == movedOrigin)
+        reopened.hide()
+
+        let followMouse = LinkPreviewPanelController(defaults: reopenedDefaults, orderFront: { _ in })
+        followMouse.present(content: AnyView(Color.clear), pointer: pointer, visibleFrames: [primary], onClose: {})
+        #expect(followMouse.panel.frame.origin == CGPoint(x: 412, y: 208))
+        followMouse.hide()
+    }
+
+    @Test func disconnectedDisplayFallsBackToMouseEvenWhenAnotherDisplayOccupiesItsOldFrame() throws {
+        let suite = "LinkPreviewWindowTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let primary = CGRect(x: 0, y: 24, width: 1440, height: 1000)
+        let secondary = CGRect(x: 1440, y: 24, width: 1440, height: 1000)
+        let mainDisplay = LinkPreviewDisplay(id: "primary", frame: primary, visibleFrame: primary)
+        var displays = [mainDisplay, LinkPreviewDisplay(id: "secondary", frame: secondary, visibleFrame: secondary)]
+        let controller = LinkPreviewPanelController(defaults: defaults, positionMode: { .lastClosedPosition },
+                                                    displays: { displays }, orderFront: { _ in })
+        let externalPointer = CGPoint(x: 1700, y: 990)
+        controller.present(content: AnyView(Color.clear), pointer: externalPointer, visibleFrames: [secondary], onClose: {})
+        #expect(secondary.contains(controller.panel.frame))
+        controller.hide()
+
+        displays[1] = LinkPreviewDisplay(id: "replacement", frame: secondary, visibleFrame: secondary)
+        let pointer = CGPoint(x: 100, y: 990)
+        controller.present(content: AnyView(Color.clear), pointer: pointer, visibleFrames: [primary], onClose: {})
+        #expect(controller.panel.frame.origin == CGPoint(x: 112, y: 178))
+        #expect(primary.contains(controller.panel.frame))
+        controller.hide()
+    }
+
     @Test func userSizeSurvivesNewControllerButScreenFittingDoesNotOverwriteIt() throws {
         let suite = "LinkPreviewWindowTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

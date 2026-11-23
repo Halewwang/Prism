@@ -8,7 +8,7 @@ enum LinkPreviewWindowGeometry {
         size.width.isFinite && size.height.isFinite && size.width > 0 && size.height > 0
     }
 
-    static func frame(preferredSize: CGSize?, pointer: CGPoint, visibleFrames: [CGRect]) -> CGRect {
+    static func frame(preferredSize: CGSize?, pointer: CGPoint, visibleFrames: [CGRect], restoredOrigin: CGPoint? = nil) -> CGRect {
         let preferred = preferredSize.flatMap { isValid($0) ? $0 : nil } ?? defaultSize
         var size = CGSize(
             width: max(minimumSize.width, preferred.width),
@@ -22,9 +22,10 @@ enum LinkPreviewWindowGeometry {
                 scaled.height = min(display.height, max(minimumSize.height, scaled.height))
             }
             size = scaled
+            let origin = restoredOrigin ?? CGPoint(x: pointer.x + 12, y: pointer.y - size.height - 12)
             return CGRect(
-                x: min(max(pointer.x + 12, display.minX), display.maxX - size.width),
-                y: min(max(pointer.y - size.height - 12, display.minY), display.maxY - size.height),
+                x: min(max(origin.x, display.minX), display.maxX - size.width),
+                y: min(max(origin.y, display.minY), display.maxY - size.height),
                 width: size.width,
                 height: size.height
             )

@@ -131,6 +131,9 @@ final class ProductionAppComposition {
         )
         let windows = windowCoordinator ?? WindowCoordinator(
             mainWindowOpening: opening,
+            previewPanelController: LinkPreviewPanelController(positionMode: { [weak environment] in
+                environment?.settings.linkPreviewPositionMode ?? .followMouse
+            }),
             previewEnabled: { [weak environment] in environment?.settings.selectorPresentationMode == .preview },
             contentProvider: sessions,
             makeLocalFileSession: { url, id, onFinish in

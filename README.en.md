@@ -9,11 +9,11 @@
   </picture>
   <h2>Your links. In the right browser.</h2>
   <p>A native browser router for macOS.<br />Open work links in your work browser, keep personal browsing separate, or preview a page before choosing its browser.</p>
-  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.6 / Build 21 public test</strong></p>
+  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.7 / Build 22 public test</strong></p>
   <p>
     <a href="https://prismmac.vercel.app/">Website</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.6/Prism-1.15.6-universal-test.dmg">Download for macOS</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.6">Release notes</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.7/Prism-1.15.7-universal-test.dmg">Download for macOS</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.7">Release notes</a>
   </p>
 </div>
 
@@ -53,12 +53,14 @@ Choose directly when a link needs a different browser.
 
 ## Get started
 
-1. Download [Prism-1.15.6-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.6/Prism-1.15.6-universal-test.dmg), open it, and drag Prism into Applications.
+1. Download [Prism-1.15.7-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.7/Prism-1.15.7-universal-test.dmg), open it, and drag Prism into Applications.
 2. Open Prism and follow setup to make it your default browser. You can also select it in **System Settings → Desktop & Dock → Default web browser**.
 3. Choose your fallback behavior. For manual browser choices, select Link Preview or Browser Picker in Settings, then add URL or source-app rules.
 4. Open a link from an app you use and check where it goes.
 
-This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS. The download is a Universal build for Apple Silicon and Intel Macs. [Installation instructions and public-test limitations](docs/public-test-release-1.15.6.md)
+This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS. The download is a Universal build for Apple Silicon and Intel Macs. [Installation instructions and public-test limitations](docs/public-test-release-1.15.7.md)
+
+v1.15.7 adds **Settings → Link Handling → Preview window position** when Link preview is enabled. Choose **Follow the mouse** (default) or **Remember last closed position**. Prism restores the position after a restart and follows the mouse if the previous display is unavailable. [#31](https://github.com/Halewwang/Prism/issues/31)
 
 v1.15.6 opens local `.html` and `.htm` files from Finder’s **Open With → Prism** menu. Double-click also works when Prism is already the default app for these files. The picker shows only the filename and hands the original file to the browser you choose. If opening fails, you can retry or choose a different browser. Users on native v1.14.11 or later can check for updates and install in the app.
 

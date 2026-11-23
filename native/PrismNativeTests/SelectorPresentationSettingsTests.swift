@@ -20,33 +20,51 @@ struct SelectorPresentationSettingsTests {
     @Test func settingsRecordPreservesPreviewMode() throws {
         var settings = AppSettings.defaults
         settings.selectorPresentationMode = .preview
+        settings.linkPreviewPositionMode = .lastClosedPosition
 
         let record = SettingsRecord(settings: settings)
 
         #expect(try record.appSettings() == settings)
     }
 
+    @Test func legacyOrUnknownStoredPreviewPositionUsesFollowMouse() throws {
+        var settings = AppSettings.defaults
+        settings.selectorPresentationMode = .preview
+        settings.historyLimit = 333
+        let record = SettingsRecord(settings: settings)
+
+        for storedPosition in [nil, "future-mode"] {
+            record.linkPreviewPositionMode = storedPosition
+
+            #expect(try record.appSettings() == settings)
+        }
+    }
+
     @Test func replacingSettingsRecordPersistsPresentationMode() throws {
         let record = SettingsRecord(settings: .defaults)
         var settings = AppSettings.defaults
         settings.selectorPresentationMode = .preview
+        settings.linkPreviewPositionMode = .lastClosedPosition
 
         record.replace(with: settings)
 
-        #expect(try record.appSettings().selectorPresentationMode == .preview)
+        #expect(try record.appSettings() == settings)
     }
 
-    @Test func previewModeSurvivesReopeningThePersistentStore() throws {
+    @Test func previewPreferencesSurviveReopeningThePersistentStore() throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let storeURL = directory.appending(path: "settings.store")
         var settings = AppSettings.defaults
         settings.selectorPresentationMode = .preview
+        settings.linkPreviewPositionMode = .lastClosedPosition
         settings.historyLimit = 333
         do {
             let result = try ModelContainerFactory.makeForTesting(inMemory: false, storeURL: storeURL)
-            try SwiftDataSettingsRepository(container: result.container).save(settings)
+            let repository = SwiftDataSettingsRepository(container: result.container)
+            try repository.save(.defaults)
+            try repository.save(settings)
         }
 
         let reopened = try ModelContainerFactory.makeForTesting(inMemory: false, storeURL: storeURL)

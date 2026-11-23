@@ -8,6 +8,7 @@ final class SettingsRecord {
     var language: String
     var unmatchedBehavior: String
     var selectorPresentationMode: String? = nil
+    var linkPreviewPositionMode: String? = nil
     var preferredBrowserID: String?
     var lastUsedBrowserID: String?
     var historyEnabled: Bool
@@ -24,6 +25,7 @@ final class SettingsRecord {
         language = settings.language.rawValue
         unmatchedBehavior = settings.unmatchedBehavior.rawValue
         selectorPresentationMode = settings.selectorPresentationMode.rawValue
+        linkPreviewPositionMode = settings.linkPreviewPositionMode.rawValue
         preferredBrowserID = settings.preferredBrowserID?.rawValue
         lastUsedBrowserID = settings.lastUsedBrowserID?.rawValue
         historyEnabled = settings.historyEnabled
@@ -56,6 +58,7 @@ final class SettingsRecord {
             onboardingCompleted: onboardingCompleted,
             schemaVersion: 1,
             selectorPresentationMode: selectorPresentationMode.flatMap(SelectorPresentationMode.init(rawValue:)) ?? .compact,
+            linkPreviewPositionMode: linkPreviewPositionMode.flatMap(LinkPreviewPositionMode.init(rawValue:)) ?? .followMouse,
             hideDockIcon: hideDockIcon ?? false
         )
     }
@@ -64,6 +67,7 @@ final class SettingsRecord {
         language = settings.language.rawValue
         unmatchedBehavior = settings.unmatchedBehavior.rawValue
         selectorPresentationMode = settings.selectorPresentationMode.rawValue
+        linkPreviewPositionMode = settings.linkPreviewPositionMode.rawValue
         preferredBrowserID = settings.preferredBrowserID?.rawValue
         lastUsedBrowserID = settings.lastUsedBrowserID?.rawValue
         historyEnabled = settings.historyEnabled

@@ -16,6 +16,7 @@ enum InstalledApplicationCatalog {
         let directories = [
             URL(fileURLWithPath: "/Applications", isDirectory: true),
             URL(fileURLWithPath: "/System/Applications", isDirectory: true),
+            URL(fileURLWithPath: "/System/Cryptexes/App/System/Applications", isDirectory: true),
             homeApplications,
         ]
         var seen: Set<String> = []

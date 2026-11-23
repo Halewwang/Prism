@@ -34,6 +34,14 @@ import Testing
     #expect(sanitized?.absoluteString == "https://example.com/doc?safe=one&mytoken=kept&safe=two")
 }
 
+@Test func sanitizerRemovesCamelCaseSensitiveNamesWithoutRemovingSafeWords() {
+    let input = URL(string: "https://example.com/doc?safe=one&accessToken=redacted&refreshToken=redacted&idToken=redacted&sessionId=redacted&apiKey=redacted&clientSecret=redacted&monkey=kept&compass=kept&safe=two")!
+
+    let sanitized = URLSanitizer.default.sanitize(input)
+
+    #expect(sanitized?.absoluteString == "https://example.com/doc?safe=one&monkey=kept&compass=kept&safe=two")
+}
+
 @Test func sanitizerRemovesQueryDelimiterWhenEveryItemIsSensitive() {
     let input = URL(string: "custom://user:pass@example.com:8080/doc?code=one&STATE=two&fbclid=three#section")!
 

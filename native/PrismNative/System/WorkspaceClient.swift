@@ -13,6 +13,7 @@ protocol WorkspaceClient {
 enum WorkspaceClientError: Error {
     case applicationUnavailable
     case rejected
+    case timedOut
     case system(Error)
 }
 
@@ -121,9 +122,14 @@ struct WorkspaceOpenCompletionAdapter: WorkspaceOpenCompletionAdapting {
 @MainActor
 final class SystemWorkspaceClient: WorkspaceClient {
     private let completionAdapter: any WorkspaceOpenCompletionAdapting
+    private let launchTimeout: Duration
 
-    init(completionAdapter: any WorkspaceOpenCompletionAdapting = WorkspaceOpenCompletionAdapter()) {
+    init(
+        completionAdapter: any WorkspaceOpenCompletionAdapting = WorkspaceOpenCompletionAdapter(),
+        launchTimeout: Duration = .seconds(25)
+    ) {
         self.completionAdapter = completionAdapter
+        self.launchTimeout = launchTimeout
     }
 
     func applicationURLs(toOpen url: URL) -> [URL] {
@@ -136,7 +142,7 @@ final class SystemWorkspaceClient: WorkspaceClient {
         }
 
         let completionAdapter = completionAdapter
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        try await awaitWithTimeout { complete in
             NSWorkspace.shared.open(
                 [url],
                 withApplicationAt: applicationURL,
@@ -147,9 +153,9 @@ final class SystemWorkspaceClient: WorkspaceClient {
                     error: error as NSError?
                 ) {
                 case .accepted:
-                    continuation.resume()
+                    complete(.success(()))
                 case let .failure(error):
-                    continuation.resume(throwing: error)
+                    complete(.failure(error))
                 }
             }
         }
@@ -167,13 +173,47 @@ final class SystemWorkspaceClient: WorkspaceClient {
         configuration.arguments = arguments
         configuration.createsNewApplicationInstance = true
         let completionAdapter = completionAdapter
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        try await awaitWithTimeout { complete in
             NSWorkspace.shared.openApplication(at: applicationURL, configuration: configuration) { application, error in
                 switch completionAdapter.resolve(didLaunchApplication: application != nil, error: error as NSError?) {
-                case .accepted: continuation.resume()
-                case let .failure(error): continuation.resume(throwing: error)
+                case .accepted: complete(.success(()))
+                case let .failure(error): complete(.failure(error))
                 }
             }
         }
+    }
+
+    private func awaitWithTimeout(
+        _ start: @MainActor (@escaping @Sendable (Result<Void, Error>) -> Void) -> Void
+    ) async throws {
+        let timeout = launchTimeout
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let gate = OnceContinuationGate(continuation)
+            let timeoutTask = Task {
+                try? await Task.sleep(for: timeout)
+                gate.resume(with: .failure(WorkspaceClientError.timedOut))
+            }
+            start { result in
+                timeoutTask.cancel()
+                gate.resume(with: result)
+            }
+        }
+    }
+}
+
+private final class OnceContinuationGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+
+    init(_ continuation: CheckedContinuation<Void, Error>) {
+        self.continuation = continuation
+    }
+
+    func resume(with result: Result<Void, Error>) {
+        let pending: CheckedContinuation<Void, Error>? = lock.withLock {
+            defer { continuation = nil }
+            return continuation
+        }
+        pending?.resume(with: result)
     }
 }

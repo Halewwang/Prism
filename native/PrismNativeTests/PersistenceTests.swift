@@ -125,6 +125,28 @@ import Testing
     #expect(!(roundTripped.failureReason?.contains("https://example.com/private") ?? false))
 }
 
+@Test @MainActor func historyFailureReasonsPreserveAllowlistedSafeMachineCodes() throws {
+    let codes = [
+        "launch_failed",
+        "outcome_unknown",
+        "no_matching_rule",
+        "rules_paused",
+        "target_unavailable",
+        "preferred_browser_unavailable",
+        "source_not_confirmed",
+    ]
+    for code in codes {
+        var entry = historyEntry(url: "https://example.com/safe")
+        entry.failureReason = code
+
+        let record = HistoryRecord(entry: entry)
+        let roundTripped = try record.historyEntry()
+
+        #expect(record.failureReason == code)
+        #expect(roundTripped.failureReason == code)
+    }
+}
+
 @Test @MainActor func historyRepositoryEnforcesCutoffAndLimit() throws {
     let result = try ModelContainerFactory.make(inMemory: true)
     let repository = SwiftDataHistoryRepository(container: result.container)

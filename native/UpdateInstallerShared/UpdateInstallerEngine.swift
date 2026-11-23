@@ -55,14 +55,21 @@ enum UpdateInstallationError: Error, LocalizedError {
     case unsafePath, invalidApplication, invalidVersion, parentMismatch, notWritable, helperUnavailable, helperFailed(String), handshakeTimedOut
     var errorDescription: String? {
         switch self {
-        case .unsafePath: "应用位置不支持自动更新，请将 Prism 放入可写的正常应用目录。"
-        case .invalidApplication: "更新包的应用身份、系统要求或代码签名无效。"
-        case .invalidVersion: "更新包的版本不高于当前版本。"
-        case .parentMismatch: "运行中的应用与安装目标不一致，更新已取消。"
-        case .notWritable: "没有应用目录的写入权限，请手动安装更新。"
-        case .helperUnavailable: "安装助手缺失或无效，请手动安装更新。"
+        case .unsafePath:
+            String(localized: "update.install.error.unsafePath", defaultValue: "This application location does not support automatic updates. Move Prism into a writable Applications folder.")
+        case .invalidApplication:
+            String(localized: "update.install.error.invalidApplication", defaultValue: "The update package's identity, system requirements, or code signature is invalid.")
+        case .invalidVersion:
+            String(localized: "update.install.error.invalidVersion", defaultValue: "The update package version is not newer than the current version.")
+        case .parentMismatch:
+            String(localized: "update.install.error.parentMismatch", defaultValue: "The running application does not match the installation target. Update cancelled.")
+        case .notWritable:
+            String(localized: "update.install.error.notWritable", defaultValue: "Prism does not have write permission for the application folder. Please install manually.")
+        case .helperUnavailable:
+            String(localized: "update.install.error.helperUnavailable", defaultValue: "The update helper is missing or invalid. Please install manually.")
         case .helperFailed(let message): message
-        case .handshakeTimedOut: "准备安装超时，当前应用保持运行，请重试或手动安装。"
+        case .handshakeTimedOut:
+            String(localized: "update.install.error.handshakeTimedOut", defaultValue: "Timed out preparing the installation. Prism remains running; please retry or install manually.")
         }
     }
 }
@@ -133,7 +140,11 @@ struct UpdateInstallerEngine: Sendable {
             // A successful LaunchServices request is not a functional health check.
             try? files.removeItem(at: plan.backupURL)
             backupMade = false
-            receipt = result(.installed, "新版已启动。", plan)
+            receipt = result(
+                .installed,
+                String(localized: "update.install.receipt.installed", defaultValue: "The new version has launched."),
+                plan
+            )
         } catch {
             if backupMade {
                 do {
@@ -141,14 +152,33 @@ struct UpdateInstallerEngine: Sendable {
                     try operations.moveItem(from: plan.backupURL, to: plan.targetURL)
                     backupMade = false
                     try? await operations.launch(plan.targetURL)
-                    receipt = result(.rolledBack, "更新失败，已恢复原应用：\(error.localizedDescription)", plan)
+                    receipt = result(
+                        .rolledBack,
+                        String(
+                            format: String(localized: "update.install.receipt.rolledBack", defaultValue: "Update failed and the previous version was restored: %@"),
+                            error.localizedDescription
+                        ),
+                        plan
+                    )
                 } catch {
                     // Preserve the backup if recovery itself fails. Never delete
                     // the user's last valid copy during error cleanup.
-                    receipt = result(.recoveryRequired, "更新失败，原应用保留在 \(plan.backupURL.path)，需要手动恢复：\(error.localizedDescription)", plan)
+                    receipt = result(
+                        .recoveryRequired,
+                        String(
+                            format: String(localized: "update.install.receipt.recoveryRequired", defaultValue: "Update failed. The previous app is preserved at %@ for manual recovery: %@"),
+                            plan.backupURL.path,
+                            error.localizedDescription
+                        ),
+                        plan
+                    )
                 }
             } else if error is InstallerCancellation || error is CancellationError {
-                receipt = result(.cancelled, "更新已取消，原应用保持不变。", plan)
+                receipt = result(
+                    .cancelled,
+                    String(localized: "update.install.receipt.cancelled", defaultValue: "Update cancelled. The current application remains unchanged."),
+                    plan
+                )
             } else {
                 receipt = result(.failed, error.localizedDescription, plan)
             }
@@ -181,9 +211,9 @@ struct UpdateInstallerEngine: Sendable {
         let values = try parent.resourceValues(forKeys: [.volumeIsReadOnlyKey, .isDirectoryKey])
         guard values.isDirectory == true, values.volumeIsReadOnly != true,
               files.isWritableFile(atPath: parent.path), files.isWritableFile(atPath: plan.targetURL.path) else { throw UpdateInstallationError.notWritable }
-        try rejectSymlinks(in: plan.applicationURL)
-        try rejectSymlinks(in: plan.targetURL)
-        if files.fileExists(atPath: plan.stageURL.path) { try rejectSymlinks(in: plan.stageURL) }
+        try validateContainedLinks(in: plan.applicationURL)
+        try validateContainedLinks(in: plan.targetURL)
+        if files.fileExists(atPath: plan.stageURL.path) { try validateContainedLinks(in: plan.stageURL) }
     }
 
     private func directoryIdentity(_ url: URL) throws -> String {
@@ -191,10 +221,19 @@ struct UpdateInstallerEngine: Sendable {
         return "\(attributes[.systemNumber] ?? ""):\(attributes[.systemFileNumber] ?? "")"
     }
 
-    private func rejectSymlinks(in root: URL) throws {
-        guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isSymbolicLinkKey], options: []) else { throw UpdateInstallationError.unsafePath }
+    private func validateContainedLinks(in root: URL) throws {
+        let standardizedRoot = root.standardizedFileURL
+        let rootValues = try standardizedRoot.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard rootValues.isDirectory == true, rootValues.isSymbolicLink != true,
+              let enumerator = FileManager.default.enumerator(at: standardizedRoot, includingPropertiesForKeys: [.isSymbolicLinkKey], options: [])
+        else { throw UpdateInstallationError.unsafePath }
+        let canonicalRoot = standardizedRoot.resolvingSymlinksInPath().path + "/"
         for case let entry as URL in enumerator {
-            guard try entry.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else { throw UpdateInstallationError.unsafePath }
+            if try entry.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true {
+                guard entry.resolvingSymlinksInPath().path.hasPrefix(canonicalRoot) else {
+                    throw UpdateInstallationError.unsafePath
+                }
+            }
         }
     }
 }

@@ -199,6 +199,30 @@ struct HistoryViewModelTests {
         #expect(fixture.model.acceptedReopenedRequest == newRequest)
     }
 
+    @Test func succeededHistoryEntryCanBeReopenedUsingItsPersistedSafeURL() async {
+        let original = historyVMEntry(
+            result: .success,
+            url: "https://example.com/opened?safe=value",
+            targetBrowserID: "com.apple.Safari"
+        )
+        let newRequest = LinkRequest(
+            id: historyVMFixedUUID(21),
+            url: original.sanitizedURL!,
+            receivedAt: Date(timeIntervalSince1970: 21),
+            source: .unknown,
+            reopenedFromHistoryEntryID: original.id
+        )
+        let intake = HistoryVMIntake(result: newRequest)
+        let fixture = makeHistoryVM(entries: [original], intake: intake)
+        await fixture.model.load()
+
+        #expect(fixture.model.canReopen(original))
+        await fixture.model.reopen(original)
+
+        #expect(intake.calls == [.init(url: original.sanitizedURL!, historyEntryID: original.id)])
+        #expect(fixture.model.acceptedReopenedRequest == newRequest)
+    }
+
     @Test func nilOrUnsafeURLCannotReopenOrCopyAndCopyNeverLeaksCredentials() async {
         let nilURL = historyVMEntry(id: historyVMFixedUUID(101), result: .cancelled, url: nil)
         let unsafe = historyVMEntry(

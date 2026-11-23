@@ -95,7 +95,7 @@ enum AppleEventSenderPIDDecoder {
            let data,
            data.count == MemoryLayout<UInt32>.size {
             let value = data.withUnsafeBytes { raw in
-                raw.load(as: UInt32.self)
+                raw.loadUnaligned(as: UInt32.self)
             }
             guard value > 0, value <= UInt32(Int32.max) else { return .wrongType }
             return .signedInteger(Int64(value))
@@ -104,7 +104,7 @@ enum AppleEventSenderPIDDecoder {
            let data,
            data.count == MemoryLayout<UInt32>.size {
             let value = data.withUnsafeBytes { raw in
-                UInt32(bigEndian: raw.load(as: UInt32.self))
+                UInt32(bigEndian: raw.loadUnaligned(as: UInt32.self))
             }
             guard value > 0, value <= UInt32(Int32.max) else { return .wrongType }
             return .signedInteger(Int64(value))

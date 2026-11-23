@@ -16,7 +16,12 @@ enum LinkPreviewWindowGeometry {
         )
         if let display = selectedFrame(for: pointer, from: visibleFrames) {
             let scale = min(1, display.width / size.width, display.height / size.height)
-            size = CGSize(width: size.width * scale, height: size.height * scale)
+            var scaled = CGSize(width: size.width * scale, height: size.height * scale)
+            if display.width >= minimumSize.width, display.height >= minimumSize.height {
+                scaled.width = min(display.width, max(minimumSize.width, scaled.width))
+                scaled.height = min(display.height, max(minimumSize.height, scaled.height))
+            }
+            size = scaled
             return CGRect(
                 x: min(max(pointer.x + 12, display.minX), display.maxX - size.width),
                 y: min(max(pointer.y - size.height - 12, display.minY), display.maxY - size.height),

@@ -27,7 +27,7 @@ final class LinkPreviewPanel: NSPanel {
         )
         hasShadow = true
         level = .floating
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .canJoinAllApplications]
         minSize = LinkPreviewWindowGeometry.minimumSize
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
@@ -71,6 +71,12 @@ final class LinkPreviewPanel: NSPanel {
               event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty
         else { return false }
         if event.keyCode == 53 {
+            if let textInput = firstResponder as? NSTextInputClient, textInput.hasMarkedText() {
+                return false
+            }
+            if let input = firstResponder as? NSTextView, input.isEditable {
+                return false
+            }
             closeAction?()
             return true
         }

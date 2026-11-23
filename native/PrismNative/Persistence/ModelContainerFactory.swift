@@ -57,7 +57,7 @@ enum ModelContainerFactory {
                 warning: nil
             )
         } catch {
-            guard !inMemory, let resolvedStoreURL else {
+            guard !inMemory, let resolvedStoreURL, shouldRecoverByBackingUpStore(after: error) else {
                 throw error
             }
 
@@ -112,10 +112,48 @@ enum ModelContainerFactory {
         return prismDirectory.appending(path: "PrismNative.store")
     }
 
+    private static let maxRetainedBackups = 5
+
+    private static func shouldRecoverByBackingUpStore(after error: Error) -> Bool {
+        if let factoryError = error as? ModelContainerFactoryError {
+            return factoryError == .simulatedOpenFailure
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain {
+            let nonCorruptionCodes: Set<Int> = [
+                NSFileReadNoPermissionError,
+                NSFileWriteNoPermissionError,
+                NSFileWriteOutOfSpaceError,
+                NSFileWriteVolumeReadOnlyError,
+            ]
+            if nonCorruptionCodes.contains(nsError.code) {
+                return false
+            }
+        }
+        if nsError.domain == NSPOSIXErrorDomain {
+            let nonCorruptionPOSIX: Set<Int> = [
+                Int(EACCES),
+                Int(EPERM),
+                Int(ENOSPC),
+                Int(EROFS),
+                Int(EMFILE),
+                Int(ENFILE),
+            ]
+            if nonCorruptionPOSIX.contains(nsError.code) {
+                return false
+            }
+        }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error,
+           !shouldRecoverByBackingUpStore(after: underlying) {
+            return false
+        }
+        return true
+    }
+
     private static func backupStoreArtifacts(at storeURL: URL) throws -> URL {
-        let backupDirectory = storeURL.deletingLastPathComponent()
+        let backupRoot = storeURL.deletingLastPathComponent()
             .appending(path: "CorruptDataBackup")
-            .appending(path: timestamp())
+        let backupDirectory = backupRoot.appending(path: uniqueBackupFolderName())
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
 
@@ -127,15 +165,31 @@ enum ModelContainerFactory {
         for artifact in artifacts where fileManager.fileExists(atPath: artifact.path) {
             try fileManager.moveItem(at: artifact, to: backupDirectory.appending(path: artifact.lastPathComponent))
         }
+        pruneOldBackups(in: backupRoot, keepingMostRecent: maxRetainedBackups)
         return backupDirectory
     }
 
-    private static func timestamp() -> String {
+    private static func pruneOldBackups(in backupRoot: URL, keepingMostRecent limit: Int) {
+        guard limit > 0,
+              let entries = try? FileManager.default.contentsOfDirectory(
+                  at: backupRoot,
+                  includingPropertiesForKeys: nil,
+                  options: [.skipsHiddenFiles]
+              )
+        else { return }
+        let sorted = entries.sorted { $0.lastPathComponent > $1.lastPathComponent }
+        for stale in sorted.dropFirst(limit) {
+            try? FileManager.default.removeItem(at: stale)
+        }
+    }
+
+    private static func uniqueBackupFolderName() -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return formatter.string(from: Date())
+        let suffix = String(UUID().uuidString.prefix(8))
+        return "\(formatter.string(from: Date()))-\(suffix)"
     }
 }
 

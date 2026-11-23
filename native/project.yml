@@ -30,13 +30,14 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: 15.0
         SWIFT_VERSION: 6.0
         ENABLE_HARDENED_RUNTIME: YES
-        MARKETING_VERSION: 1.15.3
-        CURRENT_PROJECT_VERSION: 18
+        MARKETING_VERSION: 1.15.4
+        CURRENT_PROJECT_VERSION: 19
         SPARKLE_PUBLIC_ED_KEY: ""
     info:
       path: PrismNative/Resources/Info.plist
       properties:
         CFBundleName: Prism
+        CFBundleDisplayName: Prism
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleURLTypes:
@@ -44,7 +45,9 @@ targets:
             CFBundleURLSchemes: [http]
           - CFBundleURLName: com.prism.app.https
             CFBundleURLSchemes: [https]
+        LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: "15.0"
+        NSHumanReadableCopyright: "Copyright © 2026 Prism. All rights reserved."
         NSPrincipalClass: NSApplication
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInWebContent: true
@@ -59,7 +62,11 @@ targets:
           mkdir -p "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
           cp "$BUILT_PRODUCTS_DIR/PrismUpdateInstaller" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/PrismUpdateInstaller"
           if [ "$CODE_SIGNING_ALLOWED" = "YES" ] && [ -n "$EXPANDED_CODE_SIGN_IDENTITY" ]; then
-            /usr/bin/codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/PrismUpdateInstaller"
+            if [ "$EXPANDED_CODE_SIGN_IDENTITY" = "-" ]; then
+              /usr/bin/codesign --force --sign - --options runtime --timestamp=none "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/PrismUpdateInstaller"
+            else
+              /usr/bin/codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime --timestamp "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/PrismUpdateInstaller"
+            fi
           fi
         inputFiles: ["$(BUILT_PRODUCTS_DIR)/PrismUpdateInstaller"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/PrismUpdateInstaller"]
@@ -84,13 +91,14 @@ targets:
         SWIFT_VERSION: 6.0
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) PRISM_PUBLIC_TEST
         ENABLE_HARDENED_RUNTIME: YES
-        MARKETING_VERSION: 1.15.3
-        CURRENT_PROJECT_VERSION: 18
+        MARKETING_VERSION: 1.15.4
+        CURRENT_PROJECT_VERSION: 19
         SPARKLE_PUBLIC_ED_KEY: ""
     info:
       path: PrismNative/Resources/Info.plist
       properties:
         CFBundleName: Prism
+        CFBundleDisplayName: Prism
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleURLTypes:
@@ -98,7 +106,9 @@ targets:
             CFBundleURLSchemes: [http]
           - CFBundleURLName: com.prism.app.https
             CFBundleURLSchemes: [https]
+        LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: "15.0"
+        NSHumanReadableCopyright: "Copyright © 2026 Prism. All rights reserved."
         NSPrincipalClass: NSApplication
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInWebContent: true
@@ -113,7 +123,11 @@ targets:
           mkdir -p "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
           cp "$BUILT_PRODUCTS_DIR/PrismUpdateInstaller" "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/PrismUpdateInstaller"
           if [ "$CODE_SIGNING_ALLOWED" = "YES" ] && [ -n "$EXPANDED_CODE_SIGN_IDENTITY" ]; then
-            /usr/bin/codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/PrismUpdateInstaller"
+            if [ "$EXPANDED_CODE_SIGN_IDENTITY" = "-" ]; then
+              /usr/bin/codesign --force --sign - --options runtime --timestamp=none "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/PrismUpdateInstaller"
+            else
+              /usr/bin/codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --options runtime --timestamp "$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/PrismUpdateInstaller"
+            fi
           fi
         inputFiles: ["$(BUILT_PRODUCTS_DIR)/PrismUpdateInstaller"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/PrismUpdateInstaller"]

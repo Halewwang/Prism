@@ -18,8 +18,9 @@ extension ApplicationIconProviding {
 final class ApplicationIconProvider: ApplicationIconProviding {
     private let workspace: any WorkspaceClient
     private let applicationURL: (String) -> URL?
-    private let loadInstalledApplications: () -> [InstalledApplication]
+    private let loadInstalledApplications: @Sendable () -> [InstalledApplication]
     private var installedApplications: [InstalledApplication]?
+    private var preloadTask: Task<Void, Never>?
     // shortcut: Icons refresh when this provider is recreated; add workspace invalidation for live installation changes.
     private var icons: [URL: NSImage] = [:]
     private var applicationURLs: [String: URL] = [:]
@@ -28,11 +29,26 @@ final class ApplicationIconProvider: ApplicationIconProviding {
     init(
         workspace: any WorkspaceClient = SystemWorkspaceClient(),
         applicationURL: @escaping (String) -> URL? = { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) },
-        installedApplications: @escaping () -> [InstalledApplication] = InstalledApplicationCatalog.load
+        installedApplications: @escaping @Sendable () -> [InstalledApplication] = InstalledApplicationCatalog.load
     ) {
         self.workspace = workspace
         self.applicationURL = applicationURL
         loadInstalledApplications = installedApplications
+    }
+
+    func preloadInstalledApplications() {
+        guard installedApplications == nil, preloadTask == nil else { return }
+        let loader = loadInstalledApplications
+        preloadTask = Task { @MainActor [weak self] in
+            let loaded = await Task.detached(priority: .utility) {
+                loader()
+            }.value
+            guard let self else { return }
+            if self.installedApplications == nil {
+                self.installedApplications = loaded
+            }
+            self.preloadTask = nil
+        }
     }
 
     func icon(for applicationURL: URL) -> NSImage {

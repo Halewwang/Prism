@@ -8,6 +8,7 @@ import Sparkle
 final class SparkleUpdateChecker: NSObject, UpdateChecking {
     let events: AsyncStream<UpdateEvent>
     private let continuation: AsyncStream<UpdateEvent>.Continuation
+    private let delegateBridge: SparkleUpdaterDelegateBridge
     private let controller: SPUStandardUpdaterController
 
     var canCheckForUpdates: Bool {
@@ -19,15 +20,31 @@ final class SparkleUpdateChecker: NSObject, UpdateChecking {
         set { controller.updater.automaticallyChecksForUpdates = newValue }
     }
 
-    init(controller: SPUStandardUpdaterController = SPUStandardUpdaterController(
-        startingUpdater: true,
-        updaterDelegate: nil,
-        userDriverDelegate: nil
-    )) {
+    override init() {
+        let (stream, continuation) = AsyncStream<UpdateEvent>.makeStream()
+        events = stream
+        self.continuation = continuation
+        let bridge = SparkleUpdaterDelegateBridge(continuation: continuation)
+        delegateBridge = bridge
+        controller = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: bridge,
+            userDriverDelegate: nil
+        )
+        super.init()
+    }
+
+    init(controller: SPUStandardUpdaterController) {
+        let (stream, continuation) = AsyncStream<UpdateEvent>.makeStream()
+        events = stream
+        self.continuation = continuation
+        delegateBridge = SparkleUpdaterDelegateBridge(continuation: continuation)
         self.controller = controller
-        var streamContinuation: AsyncStream<UpdateEvent>.Continuation?
-        events = AsyncStream { streamContinuation = $0 }
-        continuation = streamContinuation!
+        super.init()
+    }
+
+    func setRelaunchGate(_ canRelaunch: @escaping @MainActor () -> Bool) {
+        delegateBridge.canRelaunch = canRelaunch
     }
 
     func checkForUpdates() {
@@ -37,6 +54,35 @@ final class SparkleUpdateChecker: NSObject, UpdateChecking {
         }
         continuation.yield(.checking)
         controller.checkForUpdates(nil)
+    }
+}
+
+private final class SparkleUpdaterDelegateBridge: NSObject, SPUUpdaterDelegate {
+    private let continuation: AsyncStream<UpdateEvent>.Continuation
+    @MainActor var canRelaunch: (@MainActor () -> Bool)?
+
+    init(continuation: AsyncStream<UpdateEvent>.Continuation) {
+        self.continuation = continuation
+    }
+
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        continuation.yield(.available(version: item.displayVersionString))
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        continuation.yield(.current)
+    }
+
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
+        if let error {
+            continuation.yield(.failed(.system(error.localizedDescription)))
+        }
+    }
+
+    func updaterShouldRelaunchApplication(_ updater: SPUUpdater) -> Bool {
+        MainActor.assumeIsolated {
+            canRelaunch?() ?? true
+        }
     }
 }
 #endif

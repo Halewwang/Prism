@@ -768,6 +768,9 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
 
         do {
             _ = try await browserLauncher.open(request.launchURL, with: browser)
+        } catch BrowserLaunchError.timedOut {
+            await handleTimedOutHandoff(context)
+            return false
         } catch {
             await handleFailedHandoff(context)
             return false
@@ -805,6 +808,16 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         )
         await report(.handoffAccepted, requestID: request.id)
         return true
+    }
+
+    private func handleTimedOutHandoff(_ context: AttemptContext) async {
+        do {
+            try await queue.markOutcomeUnknown(context.request.id)
+        } catch {
+            warningPresenter.present(.recoveryStoreUnavailable)
+        }
+        presenter.present(context.request, context: .outcomeUnknown(browserID: context.browser.id))
+        await report(.outcomeUnknown, requestID: context.request.id)
     }
 
     private func handleFailedHandoff(_ context: AttemptContext) async {
@@ -965,9 +978,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         if let existing = historyByRequestID[request.id] {
             return existing
         }
-        if let persisted = try? historyRepository
-            .recent(limit: 10_000, newerThan: .distantPast)
-            .first(where: { $0.requestID == request.id }) {
+        if let persisted = try? historyRepository.entry(forRequestID: request.id) {
             historyByRequestID[request.id] = persisted
             return persisted
         }
@@ -1122,6 +1133,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
         history: HistoryEntry?,
         settings: AppSettings
     ) async {
+        selectorReasons.removeValue(forKey: requestID)
         if settings.historyEnabled, let history {
             do {
                 try await historyService.upsert(history, settings: settings)
@@ -1133,6 +1145,7 @@ final class LinkRoutingCoordinator: LinkRoutingCoordinating {
 
         do {
             try await queue.compactTerminal(requestID)
+            historyByRequestID.removeValue(forKey: requestID)
         } catch {
             warningPresenter.present(.recoveryStoreUnavailable)
         }

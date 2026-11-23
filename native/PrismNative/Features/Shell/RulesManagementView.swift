@@ -371,11 +371,15 @@ struct RulesManagementView: View {
                 .foregroundStyle(SettingsPalette.muted)
                 .accessibilityHidden(true)
             HStack(spacing: 7) {
-                Image(systemName: "safari")
-                    .font(.system(size: 16))
-                    .foregroundStyle(rule.isEnabled ? SettingsPalette.primary : SettingsPalette.muted)
-                    .accessibilityHidden(true)
-                Text(browserName(for: rule.targetBrowserID))
+                let targetBrowser = browsers.first(where: { $0.id == rule.targetBrowserID })
+                ApplicationIconView(
+                    bundleIdentifier: targetBrowser?.bundleIdentifier,
+                    applicationURL: targetBrowser?.availability == .available ? targetBrowser?.applicationURL : nil,
+                    fallbackSymbol: "globe",
+                    side: 16
+                )
+                .opacity(rule.isEnabled ? 1 : 0.45)
+                Text(targetBrowser?.displayName ?? String(localized: "Unavailable browser"))
                     .font(.system(size: 13))
                     .foregroundStyle(SettingsPalette.tertiary)
                     .lineLimit(1)

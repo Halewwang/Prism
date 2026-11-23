@@ -179,10 +179,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let composition = composition
-        launchTask = Task { @MainActor in
+        launchTask = Task { @MainActor [weak self] in
             await composition.finishLaunchingOnce()
+            self?.presentMainWindowIfStartupRequiresAttention()
         }
         installGetURLHandler()
+    }
+
+    private func presentMainWindowIfStartupRequiresAttention() {
+#if DEBUG
+        guard !debugUITestMode.isUITesting else { return }
+#endif
+        let requiresAttention = environment.startupPhase == .onboarding
+            || environment.startupPhase == .recovery
+            || environment.runtimeLinkRecoveryState == .persistenceRetryRequired
+        guard requiresAttention else { return }
+        composition.mainWindowOpening.open(route: environment.route)
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -194,21 +206,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let checker = environment.updateChecker as? GitHubUpdateChecker,
-              checker.hasPreparedInstallation
-        else { return .terminateNow }
-        // This synchronous check closes the await-to-terminate gap. GetURL events
-        // received during preparation stay captured and make this exit fail closed.
-        guard hasSafeUpdatePersistenceState, composition.linkIntakeService.canTerminateForUpdate else {
-            checker.cancelPreparedInstallation(message: "更新前收到新链接或仍有未完成的保存，请处理后重试。")
-            return .terminateCancel
+        if let checker = environment.updateChecker as? GitHubUpdateChecker,
+           checker.hasPreparedInstallation {
+            // This synchronous check closes the await-to-terminate gap. GetURL events
+            // received during preparation stay captured and make this exit fail closed.
+            guard hasSafeUpdatePersistenceState, composition.linkIntakeService.canTerminateForUpdate else {
+                checker.cancelPreparedInstallation(
+                    message: String(
+                        localized: "update.termination.blocked",
+                        defaultValue: "A new link arrived or saving is still in progress before updating. Please handle it and try again."
+                    )
+                )
+                return .terminateCancel
+            }
+            do { try checker.commitPreparedInstallation() }
+            catch {
+                checker.cancelPreparedInstallation(message: error.localizedDescription)
+                return .terminateCancel
+            }
+            return .terminateNow
         }
-        do { try checker.commitPreparedInstallation() }
-        catch {
-            checker.cancelPreparedInstallation(message: error.localizedDescription)
-            return .terminateCancel
+
+        guard composition.linkIntakeService.hasPendingBootstrapPersistence else {
+            return .terminateNow
         }
-        return .terminateNow
+        let intake = composition.linkIntakeService
+        var didReply = false
+        let replyOnce: @MainActor () -> Void = {
+            guard !didReply else { return }
+            didReply = true
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        let timeoutTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            replyOnce()
+        }
+        Task { @MainActor in
+            await intake.waitForPersistence()
+            timeoutTask.cancel()
+            replyOnce()
+        }
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -248,6 +286,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureUpdateInstallation() {
+#if !PRISM_PUBLIC_TEST
+        if let sparkle = environment.updateChecker as? SparkleUpdateChecker {
+            sparkle.setRelaunchGate { [weak self] in
+                guard let self else { return false }
+                return self.hasSafeUpdatePersistenceState
+                    && !self.composition.linkIntakeService.hasPendingBootstrapPersistence
+                    && self.composition.linkRoutingCoordinator.hasInFlightOperations == false
+            }
+            return
+        }
+#endif
         guard let checker = environment.updateChecker as? GitHubUpdateChecker else { return }
         checker.setInstallationPreparation(
             prepare: { [weak self] in
@@ -269,7 +318,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static func requestApplicationActivation() {
-        _ = NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        NSApplication.shared.activate()
     }
 
     func showMainWindow() {
@@ -303,7 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hostingView = MainWindowHostingView(rootView: mainWindowRoot())
         hostingView.sizingOptions = []
         window.contentView = hostingView
-        window.center()
+        PrismAboutWindowController.centerOnActiveScreen(window)
         mainWindow = window
         activateApplication()
         WindowPresentationAnimation.show(window) {

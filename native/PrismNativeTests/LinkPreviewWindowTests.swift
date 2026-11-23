@@ -39,6 +39,18 @@ struct LinkPreviewWindowGeometryTests {
             #expect(display.contains(frame))
         }
     }
+
+    @Test func wideSavedSizeRespectsMinimumHeightOnNormalDisplay() {
+        let display = CGRect(x: 0, y: 0, width: 1280, height: 720)
+        let frame = LinkPreviewWindowGeometry.frame(
+            preferredSize: CGSize(width: 1600, height: 500),
+            pointer: CGPoint(x: 200, y: 500),
+            visibleFrames: [display]
+        )
+        #expect(frame.width == 1280)
+        #expect(frame.height == LinkPreviewWindowGeometry.minimumSize.height)
+        #expect(display.contains(frame))
+    }
 }
 
 @Suite("Link preview panel")

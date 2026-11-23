@@ -41,7 +41,9 @@ final class AppKitStatusItemHost: NSObject, StatusItemHosting {
         }
         visibilityObservation = statusItem.observe(\.isVisible, options: [.new]) { [weak self] _, change in
             guard change.newValue == false else { return }
-            MainActor.assumeIsolated { self?.menuPanel?.dismiss() }
+            Task { @MainActor [weak self] in
+                self?.menuPanel?.dismiss()
+            }
         }
     }
 
@@ -102,8 +104,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let environment: AppEnvironment
     private let terminate: @MainActor () -> Void
     private let menu = NSMenu(title: "Prism")
+    private var openPrismItem: NSMenuItem!
     private var automaticRulesItem: NSMenuItem!
     private var checkForUpdatesItem: NSMenuItem!
+    private var quitPrismItem: NSMenuItem!
 
     init(
         host: any StatusItemHosting = AppKitStatusItemHost(),
@@ -127,7 +131,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         menu.autoenablesItems = false
         menu.delegate = self
-        menu.addItem(makeItem(title: localized("status.openPrism", "Open Prism"), action: #selector(openPrism), symbol: "rectangle.on.rectangle"))
+        openPrismItem = makeItem(title: localized("status.openPrism", "Open Prism"), action: #selector(openPrism), symbol: "rectangle.on.rectangle")
+        menu.addItem(openPrismItem)
 
         automaticRulesItem = makeItem(title: "", action: #selector(toggleAutomaticRules), symbol: "pause.circle")
         menu.addItem(automaticRulesItem)
@@ -135,7 +140,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         checkForUpdatesItem = makeItem(title: localized("status.checkForUpdates", "Check for Updates"), action: #selector(checkForUpdates), symbol: "arrow.triangle.2.circlepath")
         menu.addItem(checkForUpdatesItem)
-        menu.addItem(makeItem(title: localized("status.quit", "Quit Prism"), action: #selector(quitPrism), symbol: "power"))
+        quitPrismItem = makeItem(title: localized("status.quit", "Quit Prism"), action: #selector(quitPrism), symbol: "power")
+        menu.addItem(quitPrismItem)
     }
 
     private func makeItem(title: String, action: Selector, symbol: String) -> NSMenuItem {
@@ -147,14 +153,17 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func synchronizeWithEnvironment() {
+        openPrismItem.title = localized("status.openPrism", "Open Prism")
         automaticRulesItem.title = environment.settings.automaticRulesEnabled
             ? localized("status.pauseRules", "Pause Automatic Rules")
             : localized("status.resumeRules", "Resume Automatic Rules")
         automaticRulesItem.image = StatusItemVisuals.menuSymbol(
             environment.settings.automaticRulesEnabled ? "pause.circle" : "play.circle"
         )
+        checkForUpdatesItem.title = localized("status.checkForUpdates", "Check for Updates")
         checkForUpdatesItem.isEnabled = environment.updateChecker.canCheckForUpdates
-        host.setVisible(environment.settings.showMenuBarItem)
+        quitPrismItem.title = localized("status.quit", "Quit Prism")
+        host.setVisible(environment.settings.showMenuBarItem || environment.startupPhase == .recovery)
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -165,6 +174,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         withObservationTracking {
             _ = environment.settings.automaticRulesEnabled
             _ = environment.settings.showMenuBarItem
+            _ = environment.settings.language
+            _ = environment.startupPhase
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }

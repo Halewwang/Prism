@@ -23,11 +23,12 @@ enum ScrollInputMapper {
 enum SelectorScrollOverlayHitPolicy {
     static func captures(
         eventType: NSEvent.EventType,
+        modifierFlags: NSEvent.ModifierFlags = [],
         hasPreciseScrollingDeltas: () -> Bool
     ) -> Bool {
         switch eventType {
         case .leftMouseDown, .leftMouseDragged, .leftMouseUp:
-            true
+            !modifierFlags.contains(.control)
         case .scrollWheel:
             !hasPreciseScrollingDeltas()
         case .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp:
@@ -121,6 +122,8 @@ final class SelectorScrollEventView: NSView {
 
     override var acceptsFirstResponder: Bool { false }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func scrollWheel(with event: NSEvent) {
         switch ScrollInputMapper.map(
             deltaX: event.scrollingDeltaX,
@@ -136,7 +139,7 @@ final class SelectorScrollEventView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if event.type == .rightMouseDown {
+        if event.type == .rightMouseDown || event.modifierFlags.contains(.control) {
             super.mouseDown(with: event)
             return
         }
@@ -154,6 +157,7 @@ final class SelectorScrollEventView: NSView {
         guard let event = NSApp.currentEvent else { return super.hitTest(point) }
         guard SelectorScrollOverlayHitPolicy.captures(
             eventType: event.type,
+            modifierFlags: event.modifierFlags,
             hasPreciseScrollingDeltas: { event.hasPreciseScrollingDeltas }
         ) else { return nil }
         return super.hitTest(point)
@@ -168,10 +172,14 @@ final class SelectorScrollEventView: NSView {
     override func mouseUp(with event: NSEvent) {
         defer { resetGesture() }
         guard dragTracker.end() == .activateClick,
-              let point = mouseDownPoint
+              let downPoint = mouseDownPoint
         else { return }
-        let contentPoint = CGPoint(x: point.x + currentOffset, y: point.y)
-        guard let target = browserHitTargets.first(where: { $0.frame.contains(contentPoint) }) else { return }
+        let upPoint = convert(event.locationInWindow, from: nil)
+        let downContentPoint = CGPoint(x: downPoint.x + currentOffset, y: downPoint.y)
+        let upContentPoint = CGPoint(x: upPoint.x + currentOffset, y: upPoint.y)
+        guard let target = browserHitTargets.first(where: { $0.frame.contains(downContentPoint) }),
+              target.frame.contains(upContentPoint)
+        else { return }
         onActivateBrowser?(target.id)
     }
 

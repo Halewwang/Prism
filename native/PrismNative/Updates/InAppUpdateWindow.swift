@@ -21,7 +21,7 @@ final class InAppUpdateWindowController: NSWindowController, NSWindowDelegate {
         window.setFrame(NSRect(origin: window.frame.origin, size: InAppUpdateView.windowSize), display: false)
         super.init(window: window)
         window.delegate = self
-        window.center()
+        PrismAboutWindowController.centerOnActiveScreen(window)
     }
     required init?(coder: NSCoder) { nil }
     func present() { showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate() }
@@ -103,6 +103,7 @@ struct InAppUpdateView: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(height: 54)
             }
+            #if PRISM_PUBLIC_TEST || DEBUG
             if session.stage == .ready {
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle("Allow this unnotarized public-test update", isOn: Binding(
@@ -117,6 +118,7 @@ struct InAppUpdateView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            #endif
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

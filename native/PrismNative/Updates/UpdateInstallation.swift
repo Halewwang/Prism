@@ -19,7 +19,11 @@ final class PreparedInstallation {
     private let process: Process
     init(plan: UpdateInstallationPlan, process: Process) { self.plan = plan; self.process = process }
     func commit() throws {
-        guard process.isRunning, !FileManager.default.fileExists(atPath: plan.cancelURL.path) else { throw UpdateInstallationError.helperFailed("安装准备已取消，请重试。") }
+        guard process.isRunning, !FileManager.default.fileExists(atPath: plan.cancelURL.path) else {
+            throw UpdateInstallationError.helperFailed(
+                String(localized: "update.helper.cancelled", defaultValue: "Update preparation was cancelled. Please try again.")
+            )
+        }
         try Data(plan.id.uuidString.utf8).write(to: plan.commitURL, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: plan.commitURL.path)
     }
@@ -48,7 +52,10 @@ final class NativeUpdateInstallationCoordinator: UpdateInstallationCoordinating 
         // kernel guest and its complete signed code match that writable target.
         let installedURL = try InstallerLaunchValidation.currentInstallationURL(bundleURL: currentBundleURL, pid: parentPID)
         guard targetURL.standardizedFileURL == installedURL.standardizedFileURL else { throw UpdateInstallationError.parentMismatch }
-        _ = try InstallerSystem.run("/usr/bin/codesign", ["--verify", "--strict", helperURL.path])
+        let helperPath = helperURL.path
+        _ = try await Task.detached(priority: .userInitiated) {
+            try InstallerSystem.run("/usr/bin/codesign", ["--verify", "--strict", helperPath])
+        }.value
         let parent = try InstallerSystem.parentIdentity(pid: parentPID)
         try InstallerLaunchValidation.validateRunningApplication(pid: parentPID, targetURL: targetURL, expectedVersion: InstallerSystem.version(targetURL))
         try InstallerSystem.requireUpgrade(prepared.version, from: InstallerSystem.version(targetURL))
@@ -73,12 +80,20 @@ final class NativeUpdateInstallationCoordinator: UpdateInstallationCoordinating 
                 if FileManager.default.fileExists(atPath: plan.receiptURL.path), let receipt = try? JSONDecoder().decode(UpdateInstallationReceipt.self, from: Data(contentsOf: plan.receiptURL)) {
                     throw UpdateInstallationError.helperFailed(receipt.message)
                 }
-                guard process.isRunning else { throw UpdateInstallationError.helperFailed("安装助手无法准备更新，当前应用保持运行，请手动安装。") }
+                guard process.isRunning else {
+                    throw UpdateInstallationError.helperFailed(
+                        String(localized: "update.helper.prepareFailed", defaultValue: "The update helper could not prepare the update. Prism remains running; please install manually.")
+                    )
+                }
                 guard Date() < deadline else { throw UpdateInstallationError.handshakeTimedOut }
                 try await Task.sleep(for: .milliseconds(100))
             }
             try Task.checkCancellation()
-            guard process.isRunning else { throw UpdateInstallationError.helperFailed("安装准备已取消，请重试。") }
+            guard process.isRunning else {
+                throw UpdateInstallationError.helperFailed(
+                    String(localized: "update.helper.cancelled", defaultValue: "Update preparation was cancelled. Please try again.")
+                )
+            }
             return handle
         } catch { handle.cancel(); throw error }
     }

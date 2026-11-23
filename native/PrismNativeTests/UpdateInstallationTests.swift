@@ -130,6 +130,21 @@ struct UpdateInstallationTests {
         #expect(try fixture.marker() == "old")
     }
 
+    @Test func candidateContainedInternalFrameworkSymlinkIsAllowed() async throws {
+        let fixture = try InstallerFixture()
+        defer { fixture.remove() }
+        let versionsDir = fixture.plan.applicationURL.appendingPathComponent("Contents/Frameworks/Sparkle.framework/Versions", isDirectory: true)
+        let versionB = versionsDir.appendingPathComponent("B", isDirectory: true)
+        try FileManager.default.createDirectory(at: versionB, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            atPath: versionsDir.appendingPathComponent("Current").path,
+            withDestinationPath: "B"
+        )
+        let result = await UpdateInstallerEngine(operations: fixture.operations).run(fixture.plan)
+        #expect(result.status == .installed)
+        #expect(try fixture.marker() == "new")
+    }
+
     @Test func kernelProcessIdentityIsStableAndHasMicrosecondPrecision() throws {
         let first = try InstallerSystem.parentIdentity(pid: ProcessInfo.processInfo.processIdentifier)
         let second = try InstallerSystem.parentIdentity(pid: ProcessInfo.processInfo.processIdentifier)

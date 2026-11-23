@@ -326,7 +326,24 @@ struct LinkPreviewView: View {
         .help(index == 0
             ? String(format: String(localized: "preview.recommended", defaultValue: "%@ · Recommended"), browser.displayName)
             : browser.displayName)
+        .contextMenu { browserRuleContextMenu(for: browser) }
         .accessibilityIdentifier("linkPreview.browser.\(index + 1)")
+    }
+
+    @ViewBuilder
+    private func browserRuleContextMenu(for browser: BrowserDescriptor) -> some View {
+        if model.canCreateDomainRule {
+            Button(String(format: String(localized: "selector.rule.domainFormat", defaultValue: "Always open this website in %@"), browser.displayName)) {
+                model.previewURL = web.handoffURL
+                model.openDomainRule(browserID: browser.id)
+            }
+        }
+        if model.canCreateSourceRule {
+            Button(String(format: String(localized: "selector.rule.sourceFormat", defaultValue: "Always open links from %@ in %@"), model.sourceDisplayName, browser.displayName)) {
+                model.previewURL = web.handoffURL
+                model.openSourceRule(browserID: browser.id)
+            }
+        }
     }
 
     private var webContent: some View {
@@ -365,6 +382,7 @@ struct LinkPreviewView: View {
                         .help(browser.displayName)
                         .accessibilityAddTraits(model.selectedIndex == index ? .isSelected : [])
                         .disabled(model.isPerformingAction)
+                        .contextMenu { browserRuleContextMenu(for: browser) }
                         .id(browser.id)
                         .accessibilityIdentifier("linkPreview.candidate.\(index + 1)")
                     }

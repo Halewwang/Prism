@@ -29,9 +29,17 @@ protocol HistoryRepository {
     func upsert(_ entry: HistoryEntry) throws
     func upsertAndEnforceRetention(_ entry: HistoryEntry, limit: Int, cutoff: Date) throws
     func recent(limit: Int, newerThan: Date) throws -> [HistoryEntry]
+    func entry(forRequestID requestID: UUID) throws -> HistoryEntry?
     func delete(id: UUID) throws
     func clear() throws
     func enforceRetention(limit: Int, cutoff: Date) throws
+}
+
+extension HistoryRepository {
+    func entry(forRequestID requestID: UUID) throws -> HistoryEntry? {
+        try recent(limit: 10_000, newerThan: .distantPast)
+            .first(where: { $0.requestID == requestID })
+    }
 }
 
 @MainActor
@@ -144,7 +152,11 @@ final class SwiftDataHistoryRepository: HistoryRepository {
 
     func recent(limit: Int, newerThan: Date) throws -> [HistoryEntry] {
         guard limit > 0 else { return [] }
-        let records = try context.fetch(FetchDescriptor<HistoryRecord>())
+        let descriptor = FetchDescriptor<HistoryRecord>(
+            predicate: #Predicate { $0.createdAt >= newerThan },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        let records = try context.fetch(descriptor)
         var migratedLegacyURL = false
         do {
             let entries = try records.map { record -> HistoryEntry in
@@ -159,25 +171,37 @@ final class SwiftDataHistoryRepository: HistoryRepository {
             if migratedLegacyURL {
                 try context.save()
             }
-            return entries
-                .filter { $0.createdAt >= newerThan }
-                .sorted { lhs, rhs in
-                    if lhs.createdAt != rhs.createdAt {
-                        return lhs.createdAt > rhs.createdAt
-                    }
-                    return lhs.id.uuidString > rhs.id.uuidString
+            return entries.sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
                 }
-                .prefix(limit)
-                .map { $0 }
+                return lhs.id.uuidString > rhs.id.uuidString
+            }
+            .prefix(limit)
+            .map { $0 }
         } catch {
             context.rollback()
             throw error
         }
     }
 
+    func entry(forRequestID requestID: UUID) throws -> HistoryEntry? {
+        let descriptor = FetchDescriptor<HistoryRecord>(
+            predicate: #Predicate { $0.requestID == requestID }
+        )
+        let records = try context.fetch(descriptor)
+        guard let record = records.sorted(by: Self.stableCanonicalRecordFirst).first else {
+            return nil
+        }
+        return try record.historyEntry()
+    }
+
     func delete(id: UUID) throws {
         do {
-            if let record = try context.fetch(FetchDescriptor<HistoryRecord>()).first(where: { $0.id == id }) {
+            let descriptor = FetchDescriptor<HistoryRecord>(
+                predicate: #Predicate { $0.id == id }
+            )
+            if let record = try context.fetch(descriptor).first {
                 context.delete(record)
                 try context.save()
             }
@@ -220,12 +244,17 @@ final class SwiftDataHistoryRepository: HistoryRepository {
     }
 
     private func upsertInContext(_ entry: HistoryEntry) throws {
-        let records = try context.fetch(FetchDescriptor<HistoryRecord>())
-        let requestRecords = records
-            .filter { $0.requestID == entry.requestID }
+        let entryRequestID = entry.requestID
+        let entryID = entry.id
+        let descriptor = FetchDescriptor<HistoryRecord>(
+            predicate: #Predicate { $0.requestID == entryRequestID || $0.id == entryID }
+        )
+        let matchingRecords = try context.fetch(descriptor)
+        let requestRecords = matchingRecords
+            .filter { $0.requestID == entryRequestID }
             .sorted(by: Self.stableCanonicalRecordFirst)
         if let record = requestRecords.first
-            ?? records.first(where: { $0.id == entry.id }) {
+            ?? matchingRecords.first(where: { $0.id == entryID }) {
             record.replace(with: entry)
             for duplicate in requestRecords where duplicate !== record {
                 context.delete(duplicate)
@@ -237,35 +266,36 @@ final class SwiftDataHistoryRepository: HistoryRepository {
 
     private func enforceRetentionInContext(limit: Int, cutoff: Date) throws {
         let records = try context.fetch(FetchDescriptor<HistoryRecord>())
-        let retainedByAge = records.filter { record in
+        var retainedByAge: [HistoryRecord] = []
+        retainedByAge.reserveCapacity(records.count)
+        for record in records {
             if record.createdAt < cutoff {
                 context.delete(record)
-                return false
-            }
-            return true
-        }
-
-        var canonicalByRequestID: [UUID: HistoryRecord] = [:]
-        for record in retainedByAge.sorted(by: Self.stableCanonicalRecordFirst) {
-            if canonicalByRequestID[record.requestID] == nil {
-                canonicalByRequestID[record.requestID] = record
+            } else {
+                retainedByAge.append(record)
             }
         }
 
-        for (requestID, canonical) in canonicalByRequestID {
-            let duplicates = retainedByAge.filter {
-                $0.requestID == requestID && $0 !== canonical
+        let groupedByRequestID = Dictionary(grouping: retainedByAge, by: \.requestID)
+        var canonicalRecords: [HistoryRecord] = []
+        canonicalRecords.reserveCapacity(groupedByRequestID.count)
+
+        for group in groupedByRequestID.values {
+            let sortedCanonical = group.sorted(by: Self.stableCanonicalRecordFirst)
+            guard let canonical = sortedCanonical.first else { continue }
+            if group.count > 1 {
+                if let latest = group.sorted(by: Self.latestPayloadRecordFirst).first,
+                   latest !== canonical {
+                    canonical.replace(with: try latest.historyEntry())
+                }
+                for duplicate in sortedCanonical.dropFirst() {
+                    context.delete(duplicate)
+                }
             }
-            if let latest = ([canonical] + duplicates).sorted(by: Self.latestPayloadRecordFirst).first,
-               latest !== canonical {
-                canonical.replace(with: try latest.historyEntry())
-            }
-            for duplicate in duplicates {
-                context.delete(duplicate)
-            }
+            canonicalRecords.append(canonical)
         }
 
-        let remaining = Array(canonicalByRequestID.values).sorted(by: Self.newestRecordFirst)
+        let remaining = canonicalRecords.sorted(by: Self.newestRecordFirst)
         for record in remaining.dropFirst(max(limit, 0)) {
             context.delete(record)
         }
@@ -364,18 +394,28 @@ final class SwiftDataBrowserPreferenceRepository: BrowserPreferenceRepository {
     }
 
     func upsertCustomBrowser(_ browser: BrowserDescriptor) throws {
-        if let record = try context.fetch(FetchDescriptor<CustomBrowserRecord>()).first(where: { $0.id == browser.id.rawValue }) {
-            record.replace(with: browser)
-        } else {
-            context.insert(CustomBrowserRecord(browser: browser))
+        do {
+            if let record = try context.fetch(FetchDescriptor<CustomBrowserRecord>()).first(where: { $0.id == browser.id.rawValue }) {
+                record.replace(with: browser)
+            } else {
+                context.insert(CustomBrowserRecord(browser: browser))
+            }
+            try context.save()
+        } catch {
+            context.rollback()
+            throw error
         }
-        try context.save()
     }
 
     func deleteCustomBrowser(id: BrowserID) throws {
-        if let record = try context.fetch(FetchDescriptor<CustomBrowserRecord>()).first(where: { $0.id == id.rawValue }) {
-            context.delete(record)
-            try context.save()
+        do {
+            if let record = try context.fetch(FetchDescriptor<CustomBrowserRecord>()).first(where: { $0.id == id.rawValue }) {
+                context.delete(record)
+                try context.save()
+            }
+        } catch {
+            context.rollback()
+            throw error
         }
     }
 }
@@ -396,12 +436,17 @@ final class SwiftDataSettingsRepository: SettingsRepository {
     }
 
     func save(_ settings: AppSettings) throws {
-        if let record = try context.fetch(FetchDescriptor<SettingsRecord>()).first(where: { $0.key == "current" }) {
-            record.replace(with: settings)
-        } else {
-            context.insert(SettingsRecord(settings: settings))
+        do {
+            if let record = try context.fetch(FetchDescriptor<SettingsRecord>()).first(where: { $0.key == "current" }) {
+                record.replace(with: settings)
+            } else {
+                context.insert(SettingsRecord(settings: settings))
+            }
+            try context.save()
+        } catch {
+            context.rollback()
+            throw error
         }
-        try context.save()
     }
 }
 
@@ -463,6 +508,10 @@ final class InMemoryHistoryRepository: HistoryRepository {
             .sorted { $0.createdAt > $1.createdAt }
             .prefix(limit)
             .map { $0 }
+    }
+
+    func entry(forRequestID requestID: UUID) throws -> HistoryEntry? {
+        entriesByRequestID[requestID]
     }
 
     func delete(id: UUID) throws {

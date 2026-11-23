@@ -36,6 +36,9 @@ actor AtomicPendingRequestStore: PendingRequestStore, PersistenceWarningSource {
             }
             return envelope.snapshot
         } catch {
+            guard Self.shouldRecoverByBackingUpFile(after: error) else {
+                throw error
+            }
             let backupLocation = try preserveCorruptRecoveryFile(at: fileURL)
             let empty = PendingRequestSnapshot(pendingRequests: [], terminalRecords: [])
             try write(empty)
@@ -84,14 +87,68 @@ actor AtomicPendingRequestStore: PendingRequestStore, PersistenceWarningSource {
         }
     }
 
+    private static let maxRetainedBackups = 5
+
+    private static func shouldRecoverByBackingUpFile(after error: Error) -> Bool {
+        if error is DecodingError {
+            return true
+        }
+        if let storeError = error as? RecoveryStoreError {
+            return storeError == .unsupportedSchema
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain {
+            let nonCorruptionCodes: Set<Int> = [
+                NSFileReadNoPermissionError,
+                NSFileWriteNoPermissionError,
+                NSFileWriteOutOfSpaceError,
+                NSFileWriteVolumeReadOnlyError,
+            ]
+            if nonCorruptionCodes.contains(nsError.code) {
+                return false
+            }
+        }
+        if nsError.domain == NSPOSIXErrorDomain {
+            let nonCorruptionPOSIX: Set<Int> = [
+                Int(EACCES),
+                Int(EPERM),
+                Int(ENOSPC),
+                Int(EROFS),
+                Int(EMFILE),
+                Int(ENFILE),
+            ]
+            if nonCorruptionPOSIX.contains(nsError.code) {
+                return false
+            }
+        }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error,
+           !shouldRecoverByBackingUpFile(after: underlying) {
+            return false
+        }
+        return true
+    }
+
     private func preserveCorruptRecoveryFile(at fileURL: URL) throws -> URL {
-        let timestamp = Self.timestamp()
-        let backupDirectory = directory
-            .appending(path: "CorruptRecoveryBackup")
-            .appending(path: timestamp)
+        let backupRoot = directory.appending(path: "CorruptRecoveryBackup")
+        let backupDirectory = backupRoot.appending(path: Self.uniqueBackupFolderName())
         try FileManager.default.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
         try FileManager.default.moveItem(at: fileURL, to: backupDirectory.appending(path: Self.filename))
+        Self.pruneOldBackups(in: backupRoot, keepingMostRecent: Self.maxRetainedBackups)
         return backupDirectory
+    }
+
+    private static func pruneOldBackups(in backupRoot: URL, keepingMostRecent limit: Int) {
+        guard limit > 0,
+              let entries = try? FileManager.default.contentsOfDirectory(
+                  at: backupRoot,
+                  includingPropertiesForKeys: nil,
+                  options: [.skipsHiddenFiles]
+              )
+        else { return }
+        let sorted = entries.sorted { $0.lastPathComponent > $1.lastPathComponent }
+        for stale in sorted.dropFirst(limit) {
+            try? FileManager.default.removeItem(at: stale)
+        }
     }
 
     private static func defaultDirectory() throws -> URL {
@@ -107,12 +164,13 @@ actor AtomicPendingRequestStore: PendingRequestStore, PersistenceWarningSource {
             .appending(path: "Recovery")
     }
 
-    private static func timestamp() -> String {
+    private static func uniqueBackupFolderName() -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return formatter.string(from: Date())
+        let suffix = String(UUID().uuidString.prefix(8))
+        return "\(formatter.string(from: Date()))-\(suffix)"
     }
 }
 

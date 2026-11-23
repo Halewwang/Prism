@@ -752,6 +752,7 @@ private enum WorkspaceCompletionCategory: Equatable {
     case accepted
     case rejected
     case applicationUnavailable
+    case timedOut
     case system
 }
 
@@ -763,6 +764,8 @@ private func workspaceCompletionCategory(_ result: WorkspaceOpenCompletion) -> W
         .rejected
     case .failure(.applicationUnavailable):
         .applicationUnavailable
+    case .failure(.timedOut):
+        .timedOut
     case .failure(.system):
         .system
     }

@@ -48,6 +48,11 @@ import Darwin
             let receipt = await UpdateInstallerEngine(operations: operations).run(plan)
             // Explicit detach before exit; exit() does not run Swift defer blocks.
             if (try? InstallerSystem.run("/usr/bin/hdiutil", ["detach", mount.path])) != nil { attemptedMount = false }
+            if receipt.status == .installed {
+                // Free bulky downloaded archive and extracted app while preserving controlURL/receipt.json.
+                try? FileManager.default.removeItem(at: archive)
+                try? FileManager.default.removeItem(at: originalPlan.applicationURL)
+            }
             return receipt.status == .installed
         } catch {
             if !FileManager.default.fileExists(atPath: originalPlan.receiptURL.path) {
@@ -91,7 +96,12 @@ struct SystemInstallerOperations: UpdateInstallerOperations {
         let deadline = Date().addingTimeInterval(30)
         while !application.isFinishedLaunching {
             guard !application.isTerminated, Date() < deadline else {
-                throw UpdateInstallationError.helperFailed("新版未能完成启动，正在恢复原应用。")
+                if !application.isTerminated {
+                    application.terminate()
+                }
+                throw UpdateInstallationError.helperFailed(
+                    String(localized: "update.helper.launchTimedOut", defaultValue: "The new version did not finish launching. Restoring the previous application.")
+                )
             }
             try await Task.sleep(for: .milliseconds(100))
         }
@@ -99,9 +109,18 @@ struct SystemInstallerOperations: UpdateInstallerOperations {
         // crash/exit. Keep the backup until startup finishes and remains alive.
         try await Task.sleep(for: .seconds(2))
         guard !application.isTerminated else {
-            throw UpdateInstallationError.helperFailed("新版在启动时退出，正在恢复原应用。")
+            throw UpdateInstallationError.helperFailed(
+                String(localized: "update.helper.exitedDuringLaunch", defaultValue: "The new version exited during startup. Restoring the previous application.")
+            )
         }
-        try InstallerLaunchValidation.validateRunningApplication(pid: application.processIdentifier, targetURL: url, expectedVersion: InstallerSystem.version(url))
+        do {
+            try InstallerLaunchValidation.validateRunningApplication(pid: application.processIdentifier, targetURL: url, expectedVersion: InstallerSystem.version(url))
+        } catch {
+            if !application.isTerminated {
+                application.terminate()
+            }
+            throw error
+        }
         guard !application.isTerminated else { throw UpdateInstallationError.invalidApplication }
     }
     func signalReady(_ plan: UpdateInstallationPlan) throws {

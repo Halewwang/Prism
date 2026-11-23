@@ -156,7 +156,7 @@ struct HistoryView: View {
 
     private var resultFilterButtons: some View {
         HStack(spacing: 2) {
-            ForEach([HistoryResultFilter.all, .opened, .cancelled]) { filter in
+            ForEach([HistoryResultFilter.all, .opened, .cancelled, .failed]) { filter in
                 Button { resultFilter = filter } label: {
                     filterLabel(filter, selected: resultFilter == filter)
                 }

@@ -424,7 +424,7 @@ struct HistoryRow: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityValue(activity == .retrying ? "Retrying" : "Ready")
             .accessibilityHint(isRetryAvailable ? "Retry with the browser selected for this request" : "The original full URL is no longer available for retry")
-        } else if entry.result == .cancelled {
+        } else if entry.result == .cancelled || entry.result == .success {
             Button {
                 showsDetails = false
                 reopen()
@@ -471,7 +471,7 @@ struct HistoryRow: View {
                     ? "Retry with the browser selected for this request"
                     : "The original full URL is no longer available for retry")
         }
-        if entry.result == .cancelled {
+        if entry.result == .cancelled || entry.result == .success {
             Button("Reopen", action: reopen)
                 .accessibilityIdentifier("\(accessibilityPrefix).reopen")
                 .disabled(!canReopen || isPerformingAction)

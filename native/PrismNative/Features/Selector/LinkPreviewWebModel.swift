@@ -43,6 +43,9 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
         if configuration.applicationNameForUserAgent == nil {
             configuration.applicationNameForUserAgent = LinkPreviewBrowserIdentity.systemApplicationName
         }
+        if configuration.mediaTypesRequiringUserActionForPlayback.isEmpty {
+            configuration.mediaTypesRequiringUserActionForPlayback = .all
+        }
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
         // Isolate the bridge from website scripts; only trusted key events request handoff.
@@ -127,11 +130,14 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
             dialog.completion(.cancel)
         }
         webView.stopLoading()
+        webView.closeAllMediaPresentations()
+        webView.pauseAllMediaPlayback()
         observations.removeAll()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
         browserShortcutAction = nil
         shortcutFrames.removeAll()
+        webView.configuration.userContentController.removeAllUserScripts()
         webView.configuration.userContentController.removeScriptMessageHandler(forName: LinkPreviewWebShortcuts.handlerName, contentWorld: LinkPreviewWebShortcuts.world)
     }
 
@@ -180,10 +186,13 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
         guard navigationEnabled else { decisionHandler(.cancel); return }
         guard let url = action.request.url else { decisionHandler(.cancel); return }
         // Embedded frames need local documents; only HTTP(S) can become the top-level page.
-        if action.targetFrame?.isMainFrame == false, ["about", "blob", "data"].contains(url.scheme ?? "") {
+        if action.targetFrame?.isMainFrame == false, ["about", "blob", "data"].contains((url.scheme ?? "").lowercased()) {
             decisionHandler(.allow)
         } else if LinkPreviewNavigationPolicy.canOpen(url) {
-            if action.targetFrame == nil {
+            if action.shouldPerformDownload, action.targetFrame?.isMainFrame != false {
+                presentDownloadFallback(for: url, in: webView)
+                decisionHandler(.cancel)
+            } else if action.targetFrame == nil {
                 webView.load(action.request)
                 decisionHandler(.cancel)
             } else {
@@ -199,15 +208,30 @@ final class LinkPreviewWebModel: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse,
                  decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
-        if !response.canShowMIMEType, response.isForMainFrame {
-            if let url = response.response.url, LinkPreviewNavigationPolicy.canOpen(url) {
-                uncommittedAddress = nil
-                downloadFallback = LinkPreviewDownloadFallback(url: url, documentURL: webView.backForwardList.currentItem?.url)
-                currentURL = url
-            }
-            errorMessage = String(localized: "preview.download", defaultValue: "Open this link in a browser to download the file.")
+        let isAttachment: Bool
+        if let httpResponse = response.response as? HTTPURLResponse,
+           let disposition = httpResponse.value(forHTTPHeaderField: "Content-Disposition") {
+            isAttachment = disposition
+                .split(separator: ";")
+                .first?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased() == "attachment"
+        } else {
+            isAttachment = false
+        }
+        if (!response.canShowMIMEType || isAttachment), response.isForMainFrame {
+            presentDownloadFallback(for: response.response.url, in: webView)
             decisionHandler(.cancel)
         } else { decisionHandler(.allow) }
+    }
+
+    private func presentDownloadFallback(for url: URL?, in webView: WKWebView) {
+        if let url, LinkPreviewNavigationPolicy.canOpen(url) {
+            uncommittedAddress = nil
+            downloadFallback = LinkPreviewDownloadFallback(url: url, documentURL: webView.backForwardList.currentItem?.url)
+            currentURL = url
+        }
+        errorMessage = String(localized: "preview.download", defaultValue: "Open this link in a browser to download the file.")
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {

@@ -46,8 +46,9 @@ export const PublicTest = () => {
               </ol>
               <h3>New in v{release.version}</h3>
               <ul>
-                <li>Fixed a duplicate outer focus ring on the <strong>Selection window</strong> cards so clicking a mode shows a single crisp 1pt border.</li>
-                <li>Includes the lighter 1pt card stroke, shorter Simplified Chinese history-limit labels, and enlarged 15pt menu bar icon from v1.15.9.</li>
+                <li>Redesigned the 5-step onboarding flow with a unified two-column grid, live language switcher, real app icon, and interactive Compact Bar / Link Preview demos.</li>
+                <li>Redesigned the in-app software update modal into a cleaner, compact sheet with structured release notes, “Skip this version,” and last-checked timestamp in Settings.</li>
+                <li>Refined the menu bar menu into a streamlined, flat 4-group layout with clearer action names, SF Symbols, keyboard shortcuts, and quick clipboard link opening.</li>
               </ul>
               <h3>Updating this public test</h3>
               <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in the app, then ask you to confirm installation. In this version, start a check in Settings or the menu bar menu. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>

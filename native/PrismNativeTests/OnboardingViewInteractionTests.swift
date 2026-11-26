@@ -13,7 +13,7 @@ struct OnboardingViewInteractionTests {
         await fixture.interactions.addCustomBrowser()
 
         #expect(fixture.catalog.scanCount == 0)
-        #expect(fixture.model.step == .browsers)
+        #expect(fixture.model.step == .linkHandling)
         #expect(fixture.model.alert == nil)
     }
 
@@ -24,7 +24,7 @@ struct OnboardingViewInteractionTests {
         await fixture.interactions.addCustomBrowser()
 
         #expect(fixture.catalog.scanCount == 0)
-        #expect(fixture.model.step == .browsers)
+        #expect(fixture.model.step == .linkHandling)
         #expect(fixture.model.alert == .customBrowserFailed)
     }
 
@@ -35,26 +35,25 @@ struct OnboardingViewInteractionTests {
         await fixture.interactions.addCustomBrowser()
 
         #expect(fixture.catalog.scanCount == 1)
-        #expect(fixture.model.step == .testLink)
+        #expect(fixture.model.usableBrowsers.count == 1)
+        #expect(fixture.model.alert == nil)
     }
 
-    @Test func viewReadsTheObservableModelAfterAnAsyncTransition() async {
+    @Test func viewModelTransitionsThroughUnifiedFiveStepFlow() async {
         let fixture = OnboardingViewInteractionFixture(customBrowserResult: .cancelled)
 
-        let view = OnboardingView(
-            model: fixture.model,
-            actions: fixture.actions
-        )
-
-        #expect(view.presentation.step == .welcome)
+        #expect(fixture.model.step == .welcome)
 
         await fixture.model.advanceFromWelcome()
+        #expect(fixture.model.step == .presentationStyle)
 
-        #expect(view.presentation.step == .linkHandling)
-        #expect(view.presentation.statusRows.map(\.statusText) == [
-            "Needs attention",
-            "Needs attention",
-        ])
+        fixture.model.advanceFromPresentationStyle()
+        #expect(fixture.model.step == .routingRules)
+
+        await fixture.model.advanceFromRoutingRules()
+        #expect(fixture.model.step == .linkHandling)
+        #expect(fixture.model.handlerStatusIsKnown)
+        #expect(!fixture.model.isDefaultHandlerActive)
     }
 }
 
@@ -111,13 +110,17 @@ private struct OnboardingViewInteractionFixture {
 
     func prepareBrowserStep() async {
         await model.advanceFromWelcome()
-        model.finishLater()
+        model.advanceFromPresentationStyle()
+        await model.jumpTo(.linkHandling)
+        catalog.resetCount()
     }
 }
 
 @MainActor
 private final class CountingOnboardingBrowserCatalog: BrowserCataloging {
     private(set) var scanCount = 0
+
+    func resetCount() { scanCount = 0 }
 
     func scan() async throws -> [BrowserDescriptor] {
         scanCount += 1

@@ -43,11 +43,10 @@ import XCTest
             let actionBottom = download.frame.maxY
             let notes = app.scrollViews["update.releaseNotes"]
             XCTAssertTrue(notes.exists)
-            XCTAssertEqual(app.staticTexts["update.title"].frame.minX, initialFrame.minX + 40, accuracy: 2)
-            XCTAssertEqual(notes.frame.minX, initialFrame.minX + 40, accuracy: 2)
-            XCTAssertEqual(notes.frame.maxX, initialFrame.maxX - 40, accuracy: 2)
-            XCTAssertEqual(download.frame.maxX, initialFrame.maxX - 40, accuracy: 2)
-            XCTAssertEqual(actionBottom, initialFrame.maxY - 40, accuracy: 2)
+            XCTAssertEqual(notes.frame.minX, initialFrame.minX + 26, accuracy: 2)
+            XCTAssertEqual(notes.frame.maxX, initialFrame.maxX - 26, accuracy: 2)
+            XCTAssertEqual(download.frame.maxX, initialFrame.maxX - 26, accuracy: 2)
+            XCTAssertEqual(actionBottom, initialFrame.maxY - 26, accuracy: 2)
             XCTAssertGreaterThan(notes.frame.height, 100)
 
             download.click()
@@ -58,8 +57,8 @@ import XCTest
             XCTAssertGreaterThan(notes.frame.height, 80)
             let install = app.buttons["update.install"]
             XCTAssertEqual(install.frame.maxY, actionBottom, accuracy: 2)
-            XCTAssertEqual(install.frame.maxX, initialFrame.maxX - 40, accuracy: 2)
-            XCTAssertEqual(consent.frame.minX, initialFrame.minX + 40, accuracy: 2)
+            XCTAssertEqual(install.frame.maxX, initialFrame.maxX - 26, accuracy: 2)
+            XCTAssertEqual(consent.frame.minX, initialFrame.minX + 26, accuracy: 2)
             XCTAssertTrue(install.isHittable)
 
             install.click()

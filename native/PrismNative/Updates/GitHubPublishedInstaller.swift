@@ -14,6 +14,18 @@ struct GitHubPublishedInstaller: Equatable, Sendable {
     static let releasesAPIURL = URL(string: "https://api.github.com/repos/Halewwang/Prism/releases?per_page=100")!
     static let releasesURL = URL(string: "https://github.com/Halewwang/Prism/releases")!
 
+    var releasePageURL: URL {
+        URL(string: "https://github.com/Halewwang/Prism/releases/tag/v\(version)") ?? Self.releasesURL
+    }
+
+    var formattedFileSize: String? {
+        guard let fileByteCount, fileByteCount > 0 else { return nil }
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useKB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: fileByteCount)
+    }
+
     static func isNewer(_ candidate: String, than current: String) -> Bool? {
         guard let candidate = versionNumbers(candidate), let current = versionNumbers(current) else { return nil }
         return current.lexicographicallyPrecedes(candidate)

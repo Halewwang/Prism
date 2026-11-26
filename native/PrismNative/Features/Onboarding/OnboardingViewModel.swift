@@ -21,9 +21,28 @@ final class OnboardingViewModel {
     private(set) var httpsHandlerIsActive = false
     private(set) var handlerStatusIsKnown = false
     private(set) var isCheckingHandlers = false
+    private(set) var isScanningBrowsers = false
     private(set) var usableBrowsers: [BrowserDescriptor] = []
+    private(set) var loginItemState: LoginItemState?
+    private(set) var isUpdatingLoginItem = false
     private(set) var testLinkWasAccepted = false
     private(set) var completionSaveIsPending = false
+
+    var selectedPresentationMode: SelectorPresentationMode {
+        environment.settings.selectorPresentationMode
+    }
+
+    var currentLanguage: AppLanguage {
+        environment.settings.language
+    }
+
+    var hasLoginItemService: Bool {
+        environment.loginItemService != nil
+    }
+
+    var isDefaultHandlerActive: Bool {
+        handlerStatusIsKnown && httpHandlerIsActive && httpsHandlerIsActive
+    }
 
     var isTestLinkInProgress: Bool {
         testLinkGeneration != nil || testLinkSession != nil
@@ -31,6 +50,10 @@ final class OnboardingViewModel {
 
     var isTestLinkPreparing: Bool {
         testLinkGeneration != nil && testLinkSession == nil
+    }
+
+    var canNavigateSteps: Bool {
+        !isTestLinkInProgress && !completionSaveIsPending
     }
 
     init(
@@ -49,20 +72,112 @@ final class OnboardingViewModel {
         self.resumeRouting = resumeRouting
     }
 
-    func advanceFromWelcome() async {
-        guard step == .welcome, !isCheckingHandlers else { return }
+    // MARK: - Navigation
+
+    func goBack() {
+        guard canNavigateSteps,
+              let index = OnboardingStep.allCases.firstIndex(of: step),
+              index > 0
+        else { return }
         alert = nil
-        isCheckingHandlers = true
+        step = OnboardingStep.allCases[index - 1]
+    }
+
+    func jumpTo(_ target: OnboardingStep) async {
+        guard canNavigateSteps, target != step else { return }
+        alert = nil
+        step = target
+        if target == .linkHandling {
+            await loadSystemReadiness()
+        }
+    }
+
+    func advanceFromWelcome() async {
+        guard step == .welcome, canNavigateSteps else { return }
+        alert = nil
+        step = .presentationStyle
+    }
+
+    func advanceFromPresentationStyle() {
+        guard step == .presentationStyle, canNavigateSteps else { return }
+        alert = nil
+        step = .routingRules
+    }
+
+    func advanceFromRoutingRules() async {
+        guard step == .routingRules, canNavigateSteps else { return }
+        alert = nil
         step = .linkHandling
-        defer { isCheckingHandlers = false }
-        await queryCurrentHandler()
+        await loadSystemReadiness()
     }
 
     func advanceFromLinkHandling() async {
+        guard step == .linkHandling, canNavigateSteps else { return }
+        alert = nil
+        if !usableBrowsers.isEmpty {
+            guard environment.mutateSettings({ $0.unmatchedBehavior = .alwaysAsk }) else {
+                alert = .settingsNotSaved
+                return
+            }
+        }
+        step = .testLink
+    }
+
+    func skipCurrentStep() async {
+        guard canNavigateSteps else { return }
+        switch step {
+        case .welcome:
+            await advanceFromWelcome()
+        case .presentationStyle:
+            advanceFromPresentationStyle()
+        case .routingRules:
+            await advanceFromRoutingRules()
+        case .linkHandling:
+            alert = nil
+            step = .testLink
+        case .testLink:
+            await finishSetup()
+        }
+    }
+
+    // MARK: - Configuration Actions
+
+    func selectPresentationMode(_ mode: SelectorPresentationMode) {
+        guard environment.settings.selectorPresentationMode != mode else { return }
+        guard environment.mutateSettings({ $0.selectorPresentationMode = mode }) else {
+            alert = .settingsNotSaved
+            return
+        }
+        if alert == .settingsNotSaved {
+            alert = nil
+        }
+    }
+
+    @discardableResult
+    func selectLanguage(_ language: AppLanguage) -> Bool {
+        guard environment.mutateSettings({ $0.language = language }) else {
+            alert = .settingsNotSaved
+            return false
+        }
+        language.applySystemLanguagePreference()
+        if alert == .settingsNotSaved {
+            alert = nil
+        }
+        return true
+    }
+
+    // MARK: - Step 4: System Readiness (Handlers + Browsers + Login Item)
+
+    func loadSystemReadiness() async {
+        loginItemState = environment.loginItemService?.status()
+        await queryCurrentHandler(reportAlertOnIncomplete: false)
+        await scanBrowsers(reportEmptyAlert: false)
+    }
+
+    func refreshHandlerStatusSilently() async {
         guard step == .linkHandling, !isCheckingHandlers else { return }
-        isCheckingHandlers = true
-        defer { isCheckingHandlers = false }
-        await queryCurrentHandler()
+        loginItemState = environment.loginItemService?.status()
+        await queryCurrentHandler(reportAlertOnIncomplete: false)
     }
 
     func setPrismAsDefault() async {
@@ -72,44 +187,62 @@ final class OnboardingViewModel {
         do {
             _ = try await defaultBrowserService.setAsDefaultAfterUserConfirmation()
         } catch {
-            // The service can fail after registering only one scheme. Always
-            // query the real handler state below instead of trusting the request.
+            // Always query the real handler state below instead of trusting the request.
         }
-        await queryCurrentHandler()
+        await queryCurrentHandler(reportAlertOnIncomplete: true)
     }
 
-    func advanceFromBrowserScan() async {
-        guard step == .browsers || step == .testLink,
-              !isTestLinkInProgress, !testLinkWasAccepted, !completionSaveIsPending
-        else { return }
+    func refreshHandlers() async {
+        guard step == .linkHandling, !isCheckingHandlers else { return }
+        await queryCurrentHandler(reportAlertOnIncomplete: true)
+    }
+
+    func scanBrowsers(reportEmptyAlert: Bool = true) async {
+        guard !isScanningBrowsers, !isTestLinkInProgress, !completionSaveIsPending else { return }
+        isScanningBrowsers = true
+        defer { isScanningBrowsers = false }
         do {
             let scanned = try await browserCatalog.scan()
             usableBrowsers = scanned.filter { $0.availability == .available }
-            guard !usableBrowsers.isEmpty else {
-                step = .browsers
-                alert = .noUsableBrowser
-                return
+            if usableBrowsers.isEmpty {
+                if reportEmptyAlert {
+                    alert = .noUsableBrowser
+                }
+            } else if alert == .noUsableBrowser || alert == .browserScanFailed || alert == .customBrowserFailed {
+                alert = nil
             }
-            guard environment.mutateSettings({ $0.unmatchedBehavior = .alwaysAsk }) else {
-                step = .browsers
-                alert = .settingsNotSaved
-                return
-            }
-            alert = nil
-            step = .testLink
         } catch {
             usableBrowsers = []
-            step = .browsers
             alert = .browserScanFailed
         }
     }
 
+    func advanceFromBrowserScan() async {
+        await scanBrowsers(reportEmptyAlert: true)
+    }
+
     func reportCustomBrowserFailure() {
-        guard step == .browsers || step == .testLink,
-              !isTestLinkInProgress, !testLinkWasAccepted, !completionSaveIsPending
-        else { return }
+        guard !isTestLinkInProgress, !completionSaveIsPending else { return }
         alert = .customBrowserFailed
     }
+
+    func setLaunchAtLogin(_ enabled: Bool) async {
+        guard let loginItemService = environment.loginItemService, !isUpdatingLoginItem else { return }
+        isUpdatingLoginItem = true
+        defer { isUpdatingLoginItem = false }
+        do {
+            if enabled {
+                try loginItemService.registerAfterUserAction()
+            } else {
+                try loginItemService.unregisterAfterUserAction()
+            }
+        } catch {
+            // Re-read real service status below.
+        }
+        loginItemState = loginItemService.status()
+    }
+
+    // MARK: - Step 5: Real Test Link & Completion
 
     func beginTestLink() async {
         guard step == .testLink,
@@ -118,6 +251,10 @@ final class OnboardingViewModel {
               !completionSaveIsPending
         else {
             return
+        }
+        if usableBrowsers.isEmpty {
+            await scanBrowsers(reportEmptyAlert: true)
+            guard !usableBrowsers.isEmpty else { return }
         }
         let generation = UUID()
         testLinkGeneration = generation
@@ -160,12 +297,6 @@ final class OnboardingViewModel {
         }
     }
 
-    func finishLater() {
-        guard step == .linkHandling, !isCheckingHandlers else { return }
-        alert = nil
-        step = .browsers
-    }
-
     func finishTestLater() async {
         guard step == .testLink, testLinkGeneration == nil else { return }
         if completionSaveIsPending {
@@ -196,27 +327,42 @@ final class OnboardingViewModel {
     }
 
     func finishSetup() async {
-        guard step == .testLink, testLinkWasAccepted, !isTestLinkInProgress,
+        guard step == .testLink,
               !environment.settings.onboardingCompleted
         else { return }
+        if isTestLinkInProgress {
+            await finishTestLater()
+            return
+        }
+        if completionSaveIsPending {
+            await retryCompletionSave()
+            return
+        }
         completionSaveIsPending = true
         await completeOnboarding()
     }
 
-    private func queryCurrentHandler() async {
+    // MARK: - Internals
+
+    private func queryCurrentHandler(reportAlertOnIncomplete: Bool) async {
+        isCheckingHandlers = true
+        defer { isCheckingHandlers = false }
         do {
             let state = try await defaultBrowserService.status()
             updateHandlerState(state)
             handlerStatusIsKnown = true
             if state == .active {
-                alert = nil
-                step = .browsers
-            } else {
+                if alert == .defaultHandlerIncomplete || alert == .defaultHandlerUnavailable {
+                    alert = nil
+                }
+            } else if reportAlertOnIncomplete {
                 alert = .defaultHandlerIncomplete
             }
         } catch {
             handlerStatusIsKnown = false
-            alert = .defaultHandlerUnavailable
+            if reportAlertOnIncomplete {
+                alert = .defaultHandlerUnavailable
+            }
         }
     }
 
@@ -256,7 +402,10 @@ final class OnboardingViewModel {
 
     @discardableResult
     private func completeOnboarding() async -> Bool {
-        guard environment.mutateSettings({ $0.onboardingCompleted = true }) else {
+        guard environment.mutateSettings({
+            $0.unmatchedBehavior = .alwaysAsk
+            $0.onboardingCompleted = true
+        }) else {
             alert = .settingsNotSaved
             return false
         }

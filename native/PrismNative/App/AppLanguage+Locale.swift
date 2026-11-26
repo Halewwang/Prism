@@ -1,3 +1,4 @@
+import Foundation
 import PrismCore
 
 extension AppLanguage {
@@ -9,6 +10,17 @@ extension AppLanguage {
             "en"
         case .simplifiedChinese:
             "zh-Hans"
+        }
+    }
+
+    func applySystemLanguagePreference() {
+        #if DEBUG
+        guard !ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
+        #endif
+        if let code = interfaceLocalizationCode {
+            UserDefaults.standard.set([code], forKey: "AppleLanguages")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
         }
     }
 }

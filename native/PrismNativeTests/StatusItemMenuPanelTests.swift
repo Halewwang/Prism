@@ -20,16 +20,172 @@ struct StatusItemMenuPanelTests {
         #expect(adapter.panel.frame.width >= 160)
         let button = try #require(adapter.button(for: item))
         let cell = try #require(button.cell as? NSButtonCell)
-        #expect(button.frame.minX == 4)
-        #expect(button.frame.minY == 4)
-        #expect(button.frame.height == 26)
+        #expect(button.frame.minX == 5)
+        #expect(button.frame.minY == 6)
+        #expect(button.frame.height == 28)
         #expect(button.focusRingType == .none)
         #expect(button.font?.pointSize == 13)
         let image = cell.imageRect(forBounds: button.bounds)
         let title = cell.titleRect(forBounds: button.bounds)
-        #expect(image == NSRect(x: 12, y: 6, width: 14, height: 14))
+        #expect(image == NSRect(x: 9, y: 7, width: 14, height: 14))
         #expect(title.minX - image.maxX == 8)
-        #expect(button.bounds.maxX - title.maxX == 12)
+        #expect(button.bounds.maxX - title.maxX == 9)
+    }
+
+    @Test func shortcutFormattingAndKeyboardDispatchExecuteMatchingMenuItem() throws {
+        let fixture = Fixture()
+        let settings = fixture.add("Settings")
+        settings.keyEquivalent = ","
+        settings.keyEquivalentModifierMask = [.command]
+        let quit = fixture.add("Quit")
+        quit.keyEquivalent = "q"
+        quit.keyEquivalentModifierMask = [.command]
+        #expect(StatusItemMenuFormatting.shortcutText(for: settings) == "⌘,")
+        #expect(StatusItemMenuFormatting.shortcutText(for: quit) == "⌘Q")
+
+        let adapter = fixture.makeAdapter()
+        fixture.present(adapter)
+        let event = try #require(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [.command],
+            timestamp: 0,
+            windowNumber: adapter.panel.windowNumber,
+            context: nil,
+            characters: ",",
+            charactersIgnoringModifiers: ",",
+            isARepeat: false,
+            keyCode: 43
+        ))
+        #expect(adapter.handleKeyEvent(event))
+        #expect(!adapter.isPresented)
+        #expect(fixture.events == ["dismiss", "Settings"])
+        #expect(fixture.lastSender === settings)
+    }
+
+    @Test func submenuOpensOnRightArrowExecutesAndDismissesWholeHierarchy() throws {
+        let fixture = Fixture()
+        _ = fixture.add("First")
+        let submenu = NSMenu(title: "More")
+        submenu.autoenablesItems = false
+        let subAction = NSMenuItem(title: "About Prism", action: #selector(Fixture.command(_:)), keyEquivalent: "")
+        subAction.target = fixture
+        subAction.isEnabled = true
+        submenu.addItem(subAction)
+
+        let more = NSMenuItem(title: "More", action: nil, keyEquivalent: "")
+        more.isEnabled = true
+        more.submenu = submenu
+        fixture.menu.addItem(more)
+
+        let adapter = fixture.makeAdapter()
+        fixture.present(adapter)
+        defer { adapter.dismiss() }
+
+        adapter.moveSelection(by: 1)
+        #expect(adapter.selectedItem === more)
+
+        // Right arrow opens submenu and focuses its first enabled item.
+        #expect(adapter.handleKeyEvent(try key(124, in: adapter.panel)))
+        let child = try #require(adapter.presentedSubmenuPanel)
+        #expect(child.isPresented)
+        #expect(child.selectedItem === subAction)
+        #expect(adapter.contains(window: child.panel))
+
+        // Left arrow closes child submenu without cancelling the root session.
+        #expect(child.handleKeyEvent(try key(123, in: child.panel)))
+        #expect(adapter.presentedSubmenuPanel == nil)
+        #expect(adapter.isPresented)
+        #expect(adapter.selectedItem === more)
+        #expect(fixture.dismissals == 0)
+
+        // Reopen submenu and activate the child item with Return.
+        #expect(adapter.handleKeyEvent(try key(124, in: adapter.panel)))
+        let reopenedChild = try #require(adapter.presentedSubmenuPanel)
+        #expect(reopenedChild.handleKeyEvent(try key(36, in: reopenedChild.panel)))
+        #expect(!reopenedChild.isPresented)
+        #expect(!adapter.isPresented)
+        #expect(fixture.events == ["dismiss", "About Prism"])
+        #expect(fixture.lastSender === subAction)
+        #expect(adapter.activeMonitorCount == 0)
+        #expect(adapter.activeObserverCount == 0)
+    }
+
+    @Test func submenuClearsShadowAndOpacityOnDismissAndForwardsParentKeys() throws {
+        let fixture = Fixture()
+        let first = fixture.add("First")
+        let submenu = NSMenu(title: "More")
+        submenu.autoenablesItems = false
+        let subFirst = NSMenuItem(title: "About Prism", action: #selector(Fixture.command(_:)), keyEquivalent: "")
+        subFirst.target = fixture
+        subFirst.isEnabled = true
+        let subSecond = NSMenuItem(title: "Project Homepage", action: #selector(Fixture.command(_:)), keyEquivalent: "")
+        subSecond.target = fixture
+        subSecond.isEnabled = true
+        submenu.addItem(subFirst)
+        submenu.addItem(subSecond)
+
+        let more = NSMenuItem(title: "More", action: nil, keyEquivalent: "")
+        more.isEnabled = true
+        more.submenu = submenu
+        fixture.menu.addItem(more)
+
+        let adapter = fixture.makeAdapter()
+        fixture.present(adapter)
+        defer { adapter.dismiss() }
+
+        #expect(adapter.panel.animationBehavior == .none)
+        #expect(adapter.panel.hasShadow)
+        #expect(adapter.panel.alphaValue == 1)
+
+        // Hover-open submenu without stealing keyboard selection, then verify pointer entry keeps parent item selected.
+        adapter.openSubmenu(for: more, focusFirstItem: false)
+        let child = try #require(adapter.presentedSubmenuPanel)
+        #expect(child.panel.animationBehavior == .none)
+        #expect(child.panel.hasShadow)
+        #expect(child.panel.alphaValue == 1)
+        #expect(child.selectedItem == nil)
+
+        child.simulateSubmenuPointerPresence(true)
+        #expect(adapter.selectedItem === more)
+
+        // Right arrow activates keyboard focus in child and forwards Down/Left via the parent panel.
+        #expect(adapter.handleKeyEvent(try key(124, in: adapter.panel)))
+        #expect(child.selectedItem === subFirst)
+        #expect(adapter.handleKeyEvent(try key(125, in: adapter.panel)))
+        #expect(child.selectedItem === subSecond)
+        #expect(adapter.handleKeyEvent(try key(123, in: adapter.panel)))
+        #expect(adapter.presentedSubmenuPanel == nil)
+        #expect(!child.panel.hasShadow)
+        #expect(child.panel.alphaValue == 0)
+        #expect(adapter.selectedItem === more)
+
+        // Dismissing root panel also clears shadow and opacity cleanly.
+        adapter.dismiss()
+        #expect(!adapter.panel.hasShadow)
+        #expect(adapter.panel.alphaValue == 0)
+        _ = first
+    }
+
+    @Test func submenuFrameFlipsToLeftWhenNearRightEdgeOfScreen() {
+        let screen = NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let rightEdgeAnchor = NSRect(x: 1220, y: 600, width: 210, height: 28)
+        let flipped = StatusItemMenuPanel.submenuFrame(
+            for: NSSize(width: 190, height: 150),
+            anchor: rightEdgeAnchor,
+            visibleFrames: [screen]
+        )
+        #expect(screen.contains(flipped))
+        #expect(flipped.maxX == rightEdgeAnchor.minX - 4)
+
+        let leftAnchor = NSRect(x: 100, y: 600, width: 210, height: 28)
+        let rightPlaced = StatusItemMenuPanel.submenuFrame(
+            for: NSSize(width: 190, height: 150),
+            anchor: leftAnchor,
+            visibleFrames: [screen]
+        )
+        #expect(screen.contains(rightPlaced))
+        #expect(rightPlaced.minX == leftAnchor.maxX + 4)
     }
 
     @Test func navigationSkipsSeparatorsHiddenAndDisabledItems() {
@@ -215,15 +371,18 @@ struct StatusItemMenuPanelTests {
         let result = StatusItemMenuPanel.frame(for: NSSize(width: 220, height: 105), anchor: menuBarAnchor, visibleFrames: [selectedVisibleFrame])
         #expect(selectedVisibleFrame.contains(result))
         #expect(result.maxY <= menuBarAnchor.minY)
-        #expect(result.maxX == menuBarAnchor.maxX)
+        #expect(result.minX == menuBarAnchor.minX)
     }
 
     @Test func frameClampsToTheAnchorDisplayIncludingNegativeOrigins() {
         let left = NSRect(x: -1200, y: 0, width: 1200, height: 900)
         let right = NSRect(x: 0, y: 0, width: 1600, height: 1000)
-        let frame = StatusItemMenuPanel.frame(for: NSSize(width: 260, height: 140), anchor: NSRect(x: -1198, y: 880, width: 24, height: 20), visibleFrames: [right, left])
-        #expect(left.contains(frame))
-        #expect(frame.minX == left.minX)
+        let leftClamped = StatusItemMenuPanel.frame(for: NSSize(width: 260, height: 140), anchor: NSRect(x: -1210, y: 880, width: 24, height: 20), visibleFrames: [right, left])
+        #expect(left.contains(leftClamped))
+        #expect(leftClamped.minX == left.minX)
+        let rightClamped = StatusItemMenuPanel.frame(for: NSSize(width: 260, height: 140), anchor: NSRect(x: -100, y: 880, width: 24, height: 20), visibleFrames: [right, left])
+        #expect(left.contains(rightClamped))
+        #expect(rightClamped.maxX == left.maxX)
         let oversized = StatusItemMenuPanel.frame(for: NSSize(width: 500, height: 500), anchor: NSRect(x: 20, y: 70, width: 20, height: 20), visibleFrames: [NSRect(x: 0, y: 0, width: 100, height: 100)])
         #expect(oversized == NSRect(x: 0, y: 0, width: 100, height: 100))
     }
@@ -265,7 +424,7 @@ private final class Fixture: NSObject {
         adapter.present(anchor: NSRect(x: 100, y: 900, width: 24, height: 24), visibleFrames: [NSRect(x: 0, y: 0, width: 1440, height: 900)])
     }
 
-    @objc private func command(_ sender: NSMenuItem) {
+    @objc func command(_ sender: NSMenuItem) {
         lastSender = sender
         events.append(sender.title)
     }

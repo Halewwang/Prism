@@ -4,22 +4,21 @@ final class OnboardingUITests: PrismUITestCase {
     func testChineseOnboardingFollowsPenWindowLayout() throws {
         let application = launchFixture("partial-handler", appearance: .light, language: "zh-Hans")
         let welcome = requireElement("onboarding.step.welcome", in: application)
-        XCTAssertTrue(accessibilityText(of: welcome).contains("你的链接"))
+        XCTAssertTrue(accessibilityText(of: welcome).contains("Prism"))
         let window = requireMainWindow(in: application)
-        XCTAssertEqual(window.frame.width, 668, accuracy: 1)
-        XCTAssertEqual(window.frame.height, 578, accuracy: 1)
-        assertWelcomeContentAlignment(in: application, window: window, title: welcome)
+        XCTAssertEqual(window.frame.width, 720, accuracy: 1)
+        XCTAssertEqual(window.frame.height, 492, accuracy: 1)
         try attachWindowScreenshot("pen-onboarding-welcome-zh", application: application, appearance: .light)
 
         requireButton("onboarding.welcome.continue", in: application).click()
+        _ = requireElement("onboarding.step.presentationStyle", in: application)
+        requireButton("onboarding.style.continue", in: application).click()
+        _ = requireElement("onboarding.step.routingRules", in: application)
+        requireButton("onboarding.rules.continue", in: application).click()
         _ = requireElement("onboarding.step.linkHandling", in: application)
         try attachWindowScreenshot("pen-onboarding-link-handling-zh", application: application, appearance: .light)
-        requireButton("onboarding.linkHandling.finishLater", in: application).click()
-        requireButton("onboarding.browsers.rescan", in: application).click()
+        requireButton("onboarding.linkHandling.continue", in: application).click()
         _ = requireElement("onboarding.step.testLink", in: application)
-        _ = requireElement("onboarding.browsers.browser.invalid.prism.fixture.browser", in: application)
-        XCTAssertTrue(requireButton("onboarding.browsers.rescan", in: application).isHittable)
-        XCTAssertTrue(requireButton("onboarding.browsers.addCustomBrowser", in: application).isHittable)
         XCTAssertTrue(requireButton("onboarding.testLink.start", in: application).isHittable)
         try attachWindowScreenshot("pen-onboarding-browsers-zh", application: application, appearance: .light)
 
@@ -226,10 +225,12 @@ final class OnboardingUITests: PrismUITestCase {
 
     private func advanceToTestLink(in application: XCUIApplication) {
         requireButton("onboarding.welcome.continue", in: application).click()
+        _ = requireElement("onboarding.step.presentationStyle", in: application)
+        requireButton("onboarding.style.continue", in: application).click()
+        _ = requireElement("onboarding.step.routingRules", in: application)
+        requireButton("onboarding.rules.continue", in: application).click()
         _ = requireElement("onboarding.step.linkHandling", in: application)
-        requireButton("onboarding.linkHandling.finishLater", in: application).click()
-        _ = requireElement("onboarding.step.browsers", in: application)
-        requireButton("onboarding.browsers.rescan", in: application).click()
+        requireButton("onboarding.linkHandling.continue", in: application).click()
         _ = requireElement("onboarding.step.testLink", in: application)
     }
 

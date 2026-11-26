@@ -103,9 +103,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let mainWindowOpening: MainWindowOpening
     private let environment: AppEnvironment
     private let terminate: @MainActor () -> Void
+    private let clipboardURLProvider: @MainActor () -> URL?
+    private let openClipboardURLAction: (@MainActor (URL) -> Void)?
     private let menu = NSMenu(title: "Prism")
-    private var openPrismItem: NSMenuItem!
+
     private var automaticRulesItem: NSMenuItem!
+    private var openClipboardLinkItem: NSMenuItem!
+    private var historyItem: NSMenuItem!
+    private var rulesItem: NSMenuItem!
+    private var browsersItem: NSMenuItem!
+    private var settingsItem: NSMenuItem!
     private var checkForUpdatesItem: NSMenuItem!
     private var quitPrismItem: NSMenuItem!
 
@@ -113,12 +120,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         host: any StatusItemHosting = AppKitStatusItemHost(),
         mainWindowOpening: MainWindowOpening,
         environment: AppEnvironment,
-        terminate: @escaping @MainActor () -> Void = { NSApplication.shared.terminate(nil) }
+        terminate: @escaping @MainActor () -> Void = { NSApplication.shared.terminate(nil) },
+        clipboardURLProvider: @escaping @MainActor () -> URL? = { StatusItemController.clipboardWebURL() },
+        openClipboardURL: (@MainActor (URL) -> Void)? = nil
     ) {
         self.host = host
         self.mainWindowOpening = mainWindowOpening
         self.environment = environment
         self.terminate = terminate
+        self.clipboardURLProvider = clipboardURLProvider
+        self.openClipboardURLAction = openClipboardURL
         super.init()
 
         configureMenu()
@@ -127,25 +138,108 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         host.install(menu: menu)
     }
 
+    static func clipboardWebURL(from pasteboard: NSPasteboard = .general) -> URL? {
+        let candidates = [
+            pasteboard.string(forType: .URL),
+            pasteboard.string(forType: .string)
+        ].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+        for candidate in candidates where !candidate.isEmpty {
+            guard let components = URLComponents(string: candidate),
+                  let url = components.url,
+                  BootstrapLinkBuffer.accepts(url),
+                  let host = url.host,
+                  !host.isEmpty
+            else { continue }
+            return url
+        }
+        return nil
+    }
+
     private func configureMenu() {
         menu.removeAllItems()
         menu.autoenablesItems = false
         menu.delegate = self
-        openPrismItem = makeItem(title: localized("status.openPrism", "Open Prism"), action: #selector(openPrism), symbol: "rectangle.on.rectangle")
-        menu.addItem(openPrismItem)
 
-        automaticRulesItem = makeItem(title: "", action: #selector(toggleAutomaticRules), symbol: "pause.circle")
+        // Group 1: Core routing controls & quick actions
+        automaticRulesItem = makeItem(
+            title: "",
+            action: #selector(toggleAutomaticRules),
+            symbol: "pause.circle"
+        )
         menu.addItem(automaticRulesItem)
 
+        openClipboardLinkItem = makeItem(
+            title: localized("status.openClipboardLink", "Open Clipboard Link"),
+            action: #selector(openClipboardLink),
+            symbol: "doc.on.clipboard"
+        )
+        menu.addItem(openClipboardLinkItem)
+
+        // Group 2: Workspace navigation
         menu.addItem(.separator())
-        checkForUpdatesItem = makeItem(title: localized("status.checkForUpdates", "Check for Updates"), action: #selector(checkForUpdates), symbol: "arrow.triangle.2.circlepath")
+        historyItem = makeItem(
+            title: localized("status.history", "History"),
+            action: #selector(openHistory),
+            symbol: "clock",
+            keyEquivalent: "1"
+        )
+        menu.addItem(historyItem)
+
+        rulesItem = makeItem(
+            title: localized("status.rules", "Routing Rules"),
+            action: #selector(openRules),
+            symbol: "arrow.triangle.branch",
+            keyEquivalent: "2"
+        )
+        menu.addItem(rulesItem)
+
+        browsersItem = makeItem(
+            title: localized("status.browsers", "Manage Browsers"),
+            action: #selector(openBrowsers),
+            symbol: "globe"
+        )
+        menu.addItem(browsersItem)
+
+        // Group 3: Preferences & Updates
+        menu.addItem(.separator())
+        settingsItem = makeItem(
+            title: localized("status.settings", "Settings"),
+            action: #selector(openSettings),
+            symbol: "gearshape",
+            keyEquivalent: ","
+        )
+        menu.addItem(settingsItem)
+
+        checkForUpdatesItem = makeItem(
+            title: localized("status.checkForUpdates", "Check for Updates"),
+            action: #selector(checkForUpdates),
+            symbol: "arrow.triangle.2.circlepath"
+        )
         menu.addItem(checkForUpdatesItem)
-        quitPrismItem = makeItem(title: localized("status.quit", "Quit Prism"), action: #selector(quitPrism), symbol: "power")
+
+        // Group 4: Quit
+        menu.addItem(.separator())
+        quitPrismItem = makeItem(
+            title: localized("status.quit", "Quit"),
+            action: #selector(quitPrism),
+            symbol: "power",
+            keyEquivalent: "q"
+        )
         menu.addItem(quitPrismItem)
     }
 
-    private func makeItem(title: String, action: Selector, symbol: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+    private func makeItem(
+        title: String,
+        action: Selector,
+        symbol: String,
+        keyEquivalent: String = "",
+        modifiers: NSEvent.ModifierFlags = [.command]
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        if !keyEquivalent.isEmpty {
+            item.keyEquivalentModifierMask = modifiers
+        }
         item.target = self
         item.image = StatusItemVisuals.menuSymbol(symbol)
         item.isEnabled = true
@@ -153,21 +247,45 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func synchronizeWithEnvironment() {
-        openPrismItem.title = localized("status.openPrism", "Open Prism")
-        automaticRulesItem.title = environment.settings.automaticRulesEnabled
-            ? localized("status.pauseRules", "Pause Automatic Rules")
-            : localized("status.resumeRules", "Resume Automatic Rules")
+        let rulesEnabled = environment.settings.automaticRulesEnabled
+        automaticRulesItem.title = rulesEnabled
+            ? localized("status.pauseRules", "Pause Auto Routing")
+            : localized("status.resumeRules", "Resume Auto Routing")
         automaticRulesItem.image = StatusItemVisuals.menuSymbol(
-            environment.settings.automaticRulesEnabled ? "pause.circle" : "play.circle"
+            rulesEnabled ? "pause.circle" : "play.circle"
         )
+        automaticRulesItem.badge = rulesEnabled
+            ? nil
+            : NSMenuItemBadge(string: localized("status.pausedBadge", "Paused"))
+
+        openClipboardLinkItem.title = localized("status.openClipboardLink", "Open Clipboard Link")
+        refreshDynamicItemAvailability()
+
+        historyItem.title = localized("status.history", "History")
+        rulesItem.title = localized("status.rules", "Routing Rules")
+        browsersItem.title = localized("status.browsers", "Manage Browsers")
+        settingsItem.title = localized("status.settings", "Settings")
+
         checkForUpdatesItem.title = localized("status.checkForUpdates", "Check for Updates")
-        checkForUpdatesItem.isEnabled = environment.updateChecker.canCheckForUpdates
-        quitPrismItem.title = localized("status.quit", "Quit Prism")
+
+        quitPrismItem.title = localized("status.quit", "Quit")
         host.setVisible(environment.settings.showMenuBarItem || environment.startupPhase == .recovery)
     }
 
+    private func refreshDynamicItemAvailability() {
+        let canCheckUpdates = environment.updateChecker.canCheckForUpdates
+        if checkForUpdatesItem.isEnabled != canCheckUpdates {
+            checkForUpdatesItem.isEnabled = canCheckUpdates
+        }
+        let hasClipboardHandler = openClipboardURLAction != nil || environment.linkIntakeService != nil
+        let canOpenClipboard = hasClipboardHandler && clipboardURLProvider() != nil
+        if openClipboardLinkItem.isEnabled != canOpenClipboard {
+            openClipboardLinkItem.isEnabled = canOpenClipboard
+        }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
-        checkForUpdatesItem.isEnabled = environment.updateChecker.canCheckForUpdates
+        refreshDynamicItemAvailability()
     }
 
     private func observeSettings() {
@@ -195,10 +313,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         return bundle.localizedString(forKey: key, value: defaultValue, table: nil)
     }
 
-    @objc private func openPrism() {
-        mainWindowOpening.open(route: environment.route)
-    }
-
     @objc private func toggleAutomaticRules() {
         let nextValue = !environment.settings.automaticRulesEnabled
         guard environment.mutateSettings({ $0.automaticRulesEnabled = nextValue }) else {
@@ -207,12 +321,41 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         synchronizeWithEnvironment()
     }
 
-    @objc private func quitPrism() {
-        terminate()
+    @objc private func openClipboardLink() {
+        guard let url = clipboardURLProvider() else {
+            refreshDynamicItemAvailability()
+            return
+        }
+        if let openClipboardURLAction {
+            openClipboardURLAction(url)
+        } else {
+            _ = environment.linkIntakeService?.capture(url: url, senderPID: nil)
+        }
+    }
+
+    @objc private func openHistory() {
+        mainWindowOpening.open(route: .history)
+    }
+
+    @objc private func openRules() {
+        mainWindowOpening.open(route: .rules)
+    }
+
+    @objc private func openBrowsers() {
+        environment.stageBrowserManagement()
+        mainWindowOpening.open(route: .settings)
+    }
+
+    @objc private func openSettings() {
+        mainWindowOpening.open(route: .settings)
     }
 
     @objc private func checkForUpdates() {
         guard environment.updateChecker.canCheckForUpdates else { return }
         environment.updateChecker.checkForUpdates()
+    }
+
+    @objc private func quitPrism() {
+        terminate()
     }
 }

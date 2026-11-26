@@ -9,11 +9,11 @@
   </picture>
   <h2>Your links. In the right browser.</h2>
   <p>A native browser router for macOS.<br />Open work links in your work browser, keep personal browsing separate, or preview a page before choosing its browser.</p>
-  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.10 / Build 25 public test</strong></p>
+  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.11 / Build 26 public test</strong></p>
   <p>
     <a href="https://prismmac.vercel.app/">Website</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.10/Prism-1.15.10-universal-test.dmg">Download for macOS</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.10">Release notes</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.11/Prism-1.15.11-universal-test.dmg">Download for macOS</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.11">Release notes</a>
   </p>
 </div>
 
@@ -64,12 +64,14 @@ Set Prism as your default browser. When you open an HTTP or HTTPS link from anot
 
 ## Get started
 
-1. Download [Prism-1.15.10-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.10/Prism-1.15.10-universal-test.dmg), open it, and drag Prism into Applications.
+1. Download [Prism-1.15.11-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.11/Prism-1.15.11-universal-test.dmg), open it, and drag Prism into Applications.
 2. Open Prism and follow setup to make it your default browser. You can also select it in **System Settings → Desktop & Dock → Default web browser**.
 3. Choose your fallback behavior. For manual browser choices, select Link Preview or Browser Picker in Settings, then add URL or source-app rules.
 4. Open a link from an app you use and check where it goes.
 
-This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS. The download is a Universal build for Apple Silicon and Intel Macs. [Installation instructions and public-test limitations](docs/public-test-release-1.15.10.md)
+This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS. The download is a Universal build for Apple Silicon and Intel Macs. [Installation instructions and public-test limitations](docs/public-test-release-1.15.11.md)
+
+v1.15.11 redesigns the 5-step onboarding flow with a unified two-column grid, introduces a minimalist software update sheet with structured release notes and version skipping, and streamlines the menu bar menu into a cleaner flat 4-group layout.
 
 v1.15.10 fixes a duplicate outer focus ring on the **Selection window** wireframe cards so clicking an option always shows a single clean 1pt border.
 

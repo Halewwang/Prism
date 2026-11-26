@@ -135,8 +135,9 @@ import Testing
         resumeRouting: { [recorder] in recorder.resumeCount += 1 }
     )
     await model.advanceFromWelcome()
+    model.advanceFromPresentationStyle()
+    await model.advanceFromRoutingRules()
     await model.advanceFromLinkHandling()
-    await model.advanceFromBrowserScan()
 
     await model.beginTestLink()
 
@@ -189,8 +190,9 @@ import Testing
         resumeRouting: { [recorder] in recorder.resumeCount += 1 }
     )
     await model.advanceFromWelcome()
+    model.advanceFromPresentationStyle()
+    await model.advanceFromRoutingRules()
     await model.advanceFromLinkHandling()
-    await model.advanceFromBrowserScan()
     await pendingStore.suspendNextSave()
 
     let begin = Task { @MainActor in await model.beginTestLink() }
@@ -509,8 +511,9 @@ private struct OnboardingModelRoutingFixture {
 
     func enterTestLink() async {
         await model.advanceFromWelcome()
+        model.advanceFromPresentationStyle()
+        await model.advanceFromRoutingRules()
         await model.advanceFromLinkHandling()
-        await model.advanceFromBrowserScan()
     }
 }
 

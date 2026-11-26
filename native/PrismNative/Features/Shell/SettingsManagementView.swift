@@ -211,7 +211,7 @@ struct SettingsManagementView: View {
                 )
                 settingsSeparator
                 settingsRow(
-                    title: "Check for Updates", detail: "See whether a new version is available.",
+                    title: "Check for Updates", detail: checkForUpdatesDetail,
                     symbol: "arrow.clockwise", tint: SettingsPalette.primary
                 ) {
                     Button { environment.updateChecker.checkForUpdates() } label: {
@@ -477,6 +477,15 @@ struct SettingsManagementView: View {
         environment.updateChecker.canCheckForUpdates
             ? "Get new features and improvements."
             : "Update checks are unavailable in this build."
+    }
+
+    private var checkForUpdatesDetail: String {
+        if let checker = environment.updateChecker as? GitHubUpdateChecker,
+           let lastCheck = checker.lastUpdateCheckDate {
+            let formatted = RelativeDateTimeFormatter().localizedString(for: lastCheck, relativeTo: Date())
+            return String(format: NSLocalizedString("update.settings.lastChecked", comment: "Last update check"), formatted)
+        }
+        return "See whether a new version is available."
     }
 
     private func settingsToggle(
@@ -826,14 +835,7 @@ struct SettingsManagementView: View {
     }
 
     private func updateAppLanguagePreference(_ language: AppLanguage) {
-        #if DEBUG
-        guard !ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
-        #endif
-        if let code = language.interfaceLocalizationCode {
-            UserDefaults.standard.set([code], forKey: "AppleLanguages")
-        } else {
-            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
-        }
+        language.applySystemLanguagePreference()
     }
 }
 

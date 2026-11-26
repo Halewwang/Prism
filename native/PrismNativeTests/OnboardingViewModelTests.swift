@@ -104,39 +104,32 @@ import Testing
     #expect(!environment.persistenceWarnings.contains(.settingsNotSaved))
 }
 
-@Test @MainActor func advanceFromLinkHandlingOnlyRequeriesCurrentStatus() async {
-    let fixture = OnboardingFixture(
-        handlerState: .inactive(http: false, https: false),
-        browsers: [onboardingBrowser]
-    )
-    let model = fixture.model
-
-    await model.advanceFromWelcome()
-    await model.advanceFromLinkHandling()
-
-    #expect(fixture.defaultHandlerClient.setRequests.isEmpty)
-    #expect(model.step == .linkHandling)
-    #expect(model.alert == .defaultHandlerIncomplete)
-}
-
-@Test @MainActor func welcomeAdvanceChecksHandlerBeforeExposingItsStatus() async {
+@Test @MainActor func fiveStepNavigationSupportsBackAndDirectJumpAndPersistsPresentationStyle() async throws {
     let fixture = OnboardingFixture(
         handlerState: .inactive(http: true, https: false),
         browsers: [onboardingBrowser]
     )
     let model = fixture.model
 
-    #expect(!model.handlerStatusIsKnown)
-    #expect(!model.isCheckingHandlers)
-
+    #expect(model.step == .welcome)
     await model.advanceFromWelcome()
+    #expect(model.step == .presentationStyle)
 
+    model.selectPresentationMode(.preview)
+    #expect(try fixture.settingsRepository.load().selectorPresentationMode == .preview)
+
+    model.advanceFromPresentationStyle()
+    #expect(model.step == .routingRules)
+
+    model.goBack()
+    #expect(model.step == .presentationStyle)
+
+    await model.jumpTo(.linkHandling)
     #expect(model.step == .linkHandling)
     #expect(model.handlerStatusIsKnown)
-    #expect(!model.isCheckingHandlers)
     #expect(model.httpHandlerIsActive)
     #expect(!model.httpsHandlerIsActive)
-    #expect(model.alert == .defaultHandlerIncomplete)
+    #expect(model.usableBrowsers.map(\.id) == [onboardingBrowser.id])
 }
 
 @Test @MainActor func explicitDefaultActionSetsBothSchemesThenRequeriesActualStatus() async {
@@ -146,13 +139,13 @@ import Testing
     )
     let model = fixture.model
 
-    await model.advanceFromWelcome()
+    await model.jumpTo(.linkHandling)
     await model.setPrismAsDefault()
 
     #expect(fixture.defaultHandlerClient.setRequests == ["http", "https"])
     #expect(model.httpHandlerIsActive)
     #expect(model.httpsHandlerIsActive)
-    #expect(model.step == .browsers)
+    #expect(model.isDefaultHandlerActive)
     #expect(model.alert == nil)
 }
 
@@ -164,7 +157,7 @@ import Testing
     )
     let model = fixture.model
 
-    await model.advanceFromWelcome()
+    await model.jumpTo(.linkHandling)
     await model.setPrismAsDefault()
 
     #expect(fixture.defaultHandlerClient.setRequests == ["http", "https"])
@@ -172,40 +165,6 @@ import Testing
     #expect(!model.httpsHandlerIsActive)
     #expect(model.step == .linkHandling)
     #expect(model.alert == .defaultHandlerIncomplete)
-}
-
-@Test @MainActor func finishLaterFromLinkHandlingOnlyAdvancesToBrowserSelection() async throws {
-    let fixture = OnboardingFixture(
-        handlerState: .inactive(http: false, https: false),
-        browsers: [onboardingBrowser]
-    )
-    let model = fixture.model
-
-    await model.advanceFromWelcome()
-    model.finishLater()
-
-    #expect(model.step == .browsers)
-    #expect(try !fixture.settingsRepository.load().onboardingCompleted)
-    #expect(fixture.recorder.openedRoutes.isEmpty)
-}
-
-@Test @MainActor func finishLaterCannotBypassWelcomeOrBrowserSelection() async {
-    let fixture = OnboardingFixture(
-        handlerState: .active,
-        browsers: [onboardingBrowser]
-    )
-    let model = fixture.model
-
-    model.finishLater()
-    #expect(model.step == .welcome)
-
-    await model.advanceFromWelcome()
-    model.finishLater()
-    #expect(model.step == .browsers)
-
-    model.finishLater()
-    #expect(model.step == .browsers)
-    #expect(fixture.recorder.openedRoutes.isEmpty)
 }
 
 @Test @MainActor func enteringTestLinkPersistsAlwaysAskBeforeAdvancing() async throws {
@@ -218,9 +177,8 @@ import Testing
     )
     let model = fixture.model
 
-    await model.advanceFromWelcome()
+    await model.jumpTo(.linkHandling)
     await model.advanceFromLinkHandling()
-    await model.advanceFromBrowserScan()
 
     #expect(model.step == .testLink)
     #expect(model.alert == nil)
@@ -229,7 +187,7 @@ import Testing
     #expect(await fixture.queue.snapshot().isEmpty)
 }
 
-@Test @MainActor func settingsSaveFailureKeepsBrowserGateAndDoesNotStartTest() async {
+@Test @MainActor func settingsSaveFailureKeepsLinkHandlingGateAndDoesNotAdvance() async {
     var settings = AppSettings.defaults
     settings.unmatchedBehavior = .preferredBrowser
     let fixture = OnboardingFixture(
@@ -239,19 +197,16 @@ import Testing
     )
     let model = fixture.model
 
-    await model.advanceFromWelcome()
-    await model.advanceFromLinkHandling()
+    await model.jumpTo(.linkHandling)
     fixture.settingsRepository.shouldFailSave = true
-    await model.advanceFromBrowserScan()
-    await model.beginTestLink()
+    await model.advanceFromLinkHandling()
 
-    #expect(model.step == .browsers)
+    #expect(model.step == .linkHandling)
     #expect(model.alert == .settingsNotSaved)
     #expect(fixture.environment.unmatchedBehavior == .preferredBrowser)
-    #expect(await fixture.queue.snapshot().isEmpty)
 
     fixture.settingsRepository.shouldFailSave = false
-    await model.advanceFromBrowserScan()
+    await model.advanceFromLinkHandling()
 
     #expect(model.step == .testLink)
     #expect(model.alert == nil)
@@ -268,9 +223,8 @@ import Testing
     await model.finishTestLater()
     #expect(model.step == .welcome)
 
-    await model.advanceFromWelcome()
+    await model.jumpTo(.linkHandling)
     await model.advanceFromLinkHandling()
-    await model.advanceFromBrowserScan()
     await model.finishTestLater()
 
     #expect(model.step == .testLink)
@@ -285,11 +239,10 @@ import Testing
     )
     let model = fixture.model
 
-    await model.advanceFromWelcome()
+    await model.jumpTo(.linkHandling)
     await model.advanceFromLinkHandling()
-    await model.advanceFromBrowserScan()
     fixture.settingsRepository.shouldFailSave = true
-    await model.finishTestLater()
+    await model.finishSetup()
 
     #expect(model.step == .testLink)
     #expect(model.alert == .settingsNotSaved)
@@ -298,7 +251,7 @@ import Testing
     #expect(fixture.recorder.openedRoutes.isEmpty)
 
     fixture.settingsRepository.shouldFailSave = false
-    await model.finishTestLater()
+    await model.finishSetup()
 
     #expect(try fixture.settingsRepository.load().onboardingCompleted)
     #expect(!model.completionSaveIsPending)
@@ -308,10 +261,8 @@ import Testing
 @Test @MainActor func acceptedTestCanBeRepeatedBeforeExplicitlyCompletingSetup() async throws {
     let fixture = OnboardingFixture(handlerState: .active, browsers: [onboardingBrowser])
     let model = fixture.model
-    await model.advanceFromWelcome()
-    await model.advanceFromBrowserScan()
-    await model.finishSetup()
-    #expect(fixture.recorder.openedRoutes.isEmpty)
+    await model.jumpTo(.linkHandling)
+    await model.advanceFromLinkHandling()
     await model.beginTestLink()
     let first = try #require(await fixture.queue.snapshot().first)
     await fixture.routingCoordinator.select(browserID: onboardingBrowser.id, for: first.id)
@@ -334,23 +285,6 @@ import Testing
     #expect(fixture.recorder.resumeRoutingCount == 1)
 }
 
-@Test @MainActor func rescanRemainsAvailableAtTheIdleTestStepButDoesNotInterruptAnActiveTest() async throws {
-    let fixture = OnboardingFixture(handlerState: .active, browsers: [onboardingBrowser])
-    let model = fixture.model
-    await model.advanceFromWelcome()
-    await model.advanceFromBrowserScan()
-    fixture.settingsRepository.updateDurableSettings { $0.unmatchedBehavior = .preferredBrowser }
-    await model.advanceFromBrowserScan()
-    #expect(try fixture.settingsRepository.load().unmatchedBehavior == .alwaysAsk)
-    #expect(model.step == .testLink)
-
-    await model.beginTestLink()
-    let requestIDs = await fixture.queue.snapshot().map(\.id)
-    await model.advanceFromBrowserScan()
-    #expect(model.isTestLinkInProgress)
-    #expect(await fixture.queue.snapshot().map(\.id) == requestIDs)
-}
-
 @Test @MainActor func browserScanFiltersUnavailableApplications() async {
     let unavailable = makeOnboardingBrowser(
         id: "com.example.unavailable",
@@ -362,11 +296,9 @@ import Testing
     )
     let model = fixture.model
 
-    await model.advanceFromWelcome()
-    await model.advanceFromLinkHandling()
-    await model.advanceFromBrowserScan()
+    await model.jumpTo(.linkHandling)
 
-    #expect(model.step == .testLink)
+    #expect(model.step == .linkHandling)
     #expect(model.usableBrowsers.map(\.id) == [onboardingBrowser.id])
 }
 
@@ -377,11 +309,10 @@ import Testing
     )
     let model = fixture.model
 
-    await model.advanceFromWelcome()
-    await model.advanceFromLinkHandling()
-    await model.advanceFromBrowserScan()
+    await model.jumpTo(.linkHandling)
+    await model.scanBrowsers(reportEmptyAlert: true)
 
-    #expect(model.step == .browsers)
+    #expect(model.step == .linkHandling)
     #expect(model.usableBrowsers.isEmpty)
     #expect(model.alert == .noUsableBrowser)
 }
@@ -394,11 +325,9 @@ import Testing
     )
     let model = fixture.model
 
-    await model.advanceFromWelcome()
-    await model.advanceFromLinkHandling()
-    await model.advanceFromBrowserScan()
+    await model.jumpTo(.linkHandling)
 
-    #expect(model.step == .browsers)
+    #expect(model.step == .linkHandling)
     #expect(model.usableBrowsers.isEmpty)
     #expect(model.alert == .browserScanFailed)
 }

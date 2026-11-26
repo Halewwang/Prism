@@ -159,7 +159,7 @@ final class OnboardingViewModel {
             alert = .settingsNotSaved
             return false
         }
-        updateAppLanguagePreference(language)
+        language.applySystemLanguagePreference()
         if alert == .settingsNotSaved {
             alert = nil
         }

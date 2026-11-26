@@ -835,14 +835,7 @@ struct SettingsManagementView: View {
     }
 
     private func updateAppLanguagePreference(_ language: AppLanguage) {
-        #if DEBUG
-        guard !ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
-        #endif
-        if let code = language.interfaceLocalizationCode {
-            UserDefaults.standard.set([code], forKey: "AppleLanguages")
-        } else {
-            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
-        }
+        language.applySystemLanguagePreference()
     }
 }
 

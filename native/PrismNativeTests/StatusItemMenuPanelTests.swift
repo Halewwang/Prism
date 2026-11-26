@@ -111,6 +111,62 @@ struct StatusItemMenuPanelTests {
         #expect(adapter.activeObserverCount == 0)
     }
 
+    @Test func submenuClearsShadowAndOpacityOnDismissAndForwardsParentKeys() throws {
+        let fixture = Fixture()
+        let first = fixture.add("First")
+        let submenu = NSMenu(title: "More")
+        submenu.autoenablesItems = false
+        let subFirst = NSMenuItem(title: "About Prism", action: #selector(Fixture.command(_:)), keyEquivalent: "")
+        subFirst.target = fixture
+        subFirst.isEnabled = true
+        let subSecond = NSMenuItem(title: "Project Homepage", action: #selector(Fixture.command(_:)), keyEquivalent: "")
+        subSecond.target = fixture
+        subSecond.isEnabled = true
+        submenu.addItem(subFirst)
+        submenu.addItem(subSecond)
+
+        let more = NSMenuItem(title: "More", action: nil, keyEquivalent: "")
+        more.isEnabled = true
+        more.submenu = submenu
+        fixture.menu.addItem(more)
+
+        let adapter = fixture.makeAdapter()
+        fixture.present(adapter)
+        defer { adapter.dismiss() }
+
+        #expect(adapter.panel.animationBehavior == .none)
+        #expect(adapter.panel.hasShadow)
+        #expect(adapter.panel.alphaValue == 1)
+
+        // Hover-open submenu without stealing keyboard selection, then verify pointer entry keeps parent item selected.
+        adapter.openSubmenu(for: more, focusFirstItem: false)
+        let child = try #require(adapter.presentedSubmenuPanel)
+        #expect(child.panel.animationBehavior == .none)
+        #expect(child.panel.hasShadow)
+        #expect(child.panel.alphaValue == 1)
+        #expect(child.selectedItem == nil)
+
+        child.simulateSubmenuPointerPresence(true)
+        #expect(adapter.selectedItem === more)
+
+        // Right arrow activates keyboard focus in child and forwards Down/Left via the parent panel.
+        #expect(adapter.handleKeyEvent(try key(124, in: adapter.panel)))
+        #expect(child.selectedItem === subFirst)
+        #expect(adapter.handleKeyEvent(try key(125, in: adapter.panel)))
+        #expect(child.selectedItem === subSecond)
+        #expect(adapter.handleKeyEvent(try key(123, in: adapter.panel)))
+        #expect(adapter.presentedSubmenuPanel == nil)
+        #expect(!child.panel.hasShadow)
+        #expect(child.panel.alphaValue == 0)
+        #expect(adapter.selectedItem === more)
+
+        // Dismissing root panel also clears shadow and opacity cleanly.
+        adapter.dismiss()
+        #expect(!adapter.panel.hasShadow)
+        #expect(adapter.panel.alphaValue == 0)
+        _ = first
+    }
+
     @Test func submenuFrameFlipsToLeftWhenNearRightEdgeOfScreen() {
         let screen = NSRect(x: 0, y: 0, width: 1440, height: 900)
         let rightEdgeAnchor = NSRect(x: 1220, y: 600, width: 210, height: 28)

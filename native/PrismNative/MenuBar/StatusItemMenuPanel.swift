@@ -26,11 +26,13 @@ final class StatusItemMenuPanel: NSObject {
     private let menu: NSMenu
     private let cancelSession: @MainActor () -> Void
     private let statusButtonRect: @MainActor () -> NSRect?
-    private let orderFront: @MainActor (NSPanel) -> Void
+    private let customOrderFront: (@MainActor (NSPanel) -> Void)?
     private let isSubmenu: Bool
     private weak var parentPanel: StatusItemMenuPanel?
     private var activeSubmenuPanel: StatusItemMenuPanel?
     private var activeSubmenuParentItem: NSMenuItem?
+    private var submenuDismissTask: Task<Void, Never>?
+    private var pendingHoverItem: NSMenuItem?
     private var localMonitor: Any?
     private var globalMonitor: Any?
     private var menuObservers: [NSObjectProtocol] = []
@@ -40,6 +42,9 @@ final class StatusItemMenuPanel: NSObject {
     private var visibleFrames: [NSRect] = []
     private(set) var isPresented = false
     private(set) var selectedItem: NSMenuItem?
+    private(set) var isPointerInside = false
+    private var isKeyboardActive = false
+    var onPointerPresenceChanged: (@MainActor (Bool) -> Void)?
 
     var activeMonitorCount: Int {
         (localMonitor == nil ? 0 : 1) + (globalMonitor == nil ? 0 : 1) + (activeSubmenuPanel?.activeMonitorCount ?? 0)
@@ -55,14 +60,14 @@ final class StatusItemMenuPanel: NSObject {
         menu: NSMenu,
         cancelSession: @escaping @MainActor () -> Void,
         statusButtonRect: @escaping @MainActor () -> NSRect? = { nil },
-        orderFront: @escaping @MainActor (NSPanel) -> Void = { $0.makeKeyAndOrderFront(nil) },
+        orderFront: (@MainActor (NSPanel) -> Void)? = nil,
         isSubmenu: Bool = false,
         parentPanel: StatusItemMenuPanel? = nil
     ) {
         self.menu = menu
         self.cancelSession = cancelSession
         self.statusButtonRect = statusButtonRect
-        self.orderFront = orderFront
+        self.customOrderFront = orderFront
         self.isSubmenu = isSubmenu
         self.parentPanel = parentPanel
         super.init()
@@ -70,6 +75,9 @@ final class StatusItemMenuPanel: NSObject {
         panel.dismissAction = { [weak self] in self?.dismissHierarchy() }
         panel.shouldDismissOnResignKey = { [weak self] in
             guard let self else { return true }
+            if self.isSubmenu {
+                return false
+            }
             if let keyWindow = NSApp.keyWindow, self.rootPanel.contains(window: keyWindow) {
                 return false
             }
@@ -83,27 +91,45 @@ final class StatusItemMenuPanel: NSObject {
         parentPanel?.rootPanel ?? self
     }
 
+    private func orderPanelFront() {
+        if let customOrderFront {
+            customOrderFront(panel)
+            return
+        }
+        if isSubmenu {
+            if let parentWindow = parentPanel?.panel, parentWindow.isVisible {
+                panel.order(.above, relativeTo: parentWindow.windowNumber)
+            } else {
+                panel.orderFront(nil)
+            }
+        } else {
+            panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
     func contains(window: NSWindow?) -> Bool {
         guard let window else { return false }
         if window === panel { return true }
         return activeSubmenuPanel?.contains(window: window) ?? false
     }
 
-    func present(anchor: NSRect, visibleFrames: [NSRect]) {
+    func present(anchor: NSRect, visibleFrames: [NSRect], selectInitialItem: Bool = true) {
         self.anchor = anchor
         self.visibleFrames = visibleFrames
-        if isPresented { refresh(); return }
+        if isPresented { refresh(selectInitialItem: selectInitialItem); return }
         isPresented = true
+        isPointerInside = false
+        isKeyboardActive = selectInitialItem
         menu.delegate?.menuNeedsUpdate?(menu)
         menu.update()
-        refresh()
+        refresh(selectInitialItem: selectInitialItem)
         guard isPresented else { return }
         observeMenuAndSpace()
         if !isSubmenu {
             monitorOutsideClicks()
         }
-        orderFront(panel)
-        if let selectedItem, let button = buttons[ObjectIdentifier(selectedItem)] {
+        orderPanelFront()
+        if selectInitialItem, !isSubmenu, let selectedItem, let button = buttons[ObjectIdentifier(selectedItem)] {
             panel.makeFirstResponder(button)
         }
     }
@@ -111,6 +137,9 @@ final class StatusItemMenuPanel: NSObject {
     func dismiss(cancelSession shouldCancel: Bool = true) {
         guard isPresented else { return }
         isPresented = false // Clear before orderOut/cancel, both of which can reenter dismissal.
+        cancelPendingSubmenuDismiss()
+        isPointerInside = false
+        isKeyboardActive = false
         dismissSubmenu()
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
@@ -120,7 +149,14 @@ final class StatusItemMenuPanel: NSObject {
         menuObservers.removeAll()
         if let spaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver) }
         spaceObserver = nil
+        // Clear shadow and opacity before ordering out so macOS 27's compositor never leaves an empty shadow silhouette.
+        panel.hasShadow = false
+        panel.alphaValue = 0
+        panel.invalidateShadow()
         panel.orderOut(nil)
+        if isSubmenu {
+            panel.close()
+        }
         panel.contentView = nil
         buttons.removeAll()
         selectedItem = nil
@@ -131,10 +167,40 @@ final class StatusItemMenuPanel: NSObject {
         rootPanel.dismiss(cancelSession: true)
     }
 
+    private func cancelPendingSubmenuDismiss() {
+        submenuDismissTask?.cancel()
+        submenuDismissTask = nil
+        pendingHoverItem = nil
+    }
+
+    private func scheduleSubmenuDismiss(selecting item: NSMenuItem?) {
+        cancelPendingSubmenuDismiss()
+        pendingHoverItem = item
+        submenuDismissTask = Task { @MainActor [weak self, weak item] in
+            try? await Task.sleep(for: .milliseconds(160))
+            guard !Task.isCancelled, let self, self.isPresented else { return }
+            if self.activeSubmenuPanel?.isPointerInside == true {
+                self.pendingHoverItem = nil
+                return
+            }
+            self.submenuDismissTask = nil
+            self.pendingHoverItem = nil
+            self.dismissSubmenu()
+            self.select(item)
+        }
+    }
+
+    func simulateSubmenuPointerPresence(_ inside: Bool) {
+        isPointerInside = inside
+        onPointerPresenceChanged?(inside)
+    }
+
     private func dismissSubmenu() {
+        cancelPendingSubmenuDismiss()
         guard let child = activeSubmenuPanel else { return }
         activeSubmenuPanel = nil
         activeSubmenuParentItem = nil
+        child.onPointerPresenceChanged = nil
         child.dismiss(cancelSession: false)
     }
 
@@ -148,11 +214,24 @@ final class StatusItemMenuPanel: NSObject {
         let next = current.map { ($0 + offset % eligible.count + eligible.count) % eligible.count }
             ?? (offset < 0 ? eligible.count - 1 : 0)
         dismissSubmenu()
-        select(eligible[next], focus: true)
+        select(eligible[next], focus: !isSubmenu)
     }
 
     func handleKeyEvent(_ event: NSEvent) -> Bool {
-        guard isPresented, event.type == .keyDown, event.window === panel else { return false }
+        guard isPresented, event.type == .keyDown else { return false }
+        if !isSubmenu,
+           event.window === panel,
+           let child = activeSubmenuPanel,
+           child.isPresented,
+           child.isKeyboardActive,
+           child.processKeyEvent(event) {
+            return true
+        }
+        guard event.window === panel else { return false }
+        return processKeyEvent(event)
+    }
+
+    private func processKeyEvent(_ event: NSEvent) -> Bool {
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
         if !modifiers.isEmpty {
             if let shortcutItem = matchingShortcutItem(for: event, modifiers: modifiers) {
@@ -174,7 +253,6 @@ final class StatusItemMenuPanel: NSObject {
             guard isSubmenu, let parent = parentPanel else { return false }
             let trigger = parent.activeSubmenuParentItem
             parent.dismissSubmenu()
-            parent.orderFront(parent.panel)
             if let trigger {
                 parent.select(trigger, focus: true)
             }
@@ -281,11 +359,12 @@ final class StatusItemMenuPanel: NSObject {
 
     func openSubmenu(for item: NSMenuItem, focusFirstItem: Bool = false) {
         guard isPresented, canOpenSubmenu(item), let submenu = item.submenu else { return }
+        cancelPendingSubmenuDismiss()
         if activeSubmenuParentItem === item, let existing = activeSubmenuPanel, existing.isPresented {
             if focusFirstItem {
-                existing.orderFront(existing.panel)
+                existing.isKeyboardActive = true
                 if let first = submenu.items.first(where: { existing.canSelect($0) }) {
-                    existing.select(first, focus: true)
+                    existing.select(first, focus: false)
                 }
             }
             return
@@ -304,16 +383,23 @@ final class StatusItemMenuPanel: NSObject {
             menu: submenu,
             cancelSession: {},
             statusButtonRect: statusButtonRect,
-            orderFront: orderFront,
+            orderFront: customOrderFront,
             isSubmenu: true,
             parentPanel: self
         )
+        child.onPointerPresenceChanged = { [weak self, weak item] inside in
+            guard let self else { return }
+            if inside {
+                self.cancelPendingSubmenuDismiss()
+                if let item {
+                    self.select(item, focus: false)
+                }
+            }
+        }
         activeSubmenuPanel = child
         activeSubmenuParentItem = item
-        child.present(anchor: rowAnchor, visibleFrames: visibleFrames)
-        if !focusFirstItem {
-            child.select(nil, focus: false)
-        }
+        child.present(anchor: rowAnchor, visibleFrames: visibleFrames, selectInitialItem: focusFirstItem)
+        child.isKeyboardActive = focusFirstItem
     }
 
     @objc private func clicked(_ sender: StatusItemMenuButton) { activate(sender.menuItem) }
@@ -326,7 +412,7 @@ final class StatusItemMenuPanel: NSObject {
         }
     }
 
-    private func refresh() {
+    private func refresh(selectInitialItem: Bool = true) {
         guard isPresented else { return }
         let hadButtonFocus = buttons.values.contains { panel.firstResponder === $0 }
         var items: [NSMenuItem] = []
@@ -347,6 +433,11 @@ final class StatusItemMenuPanel: NSObject {
             : Self.frame(for: size, anchor: anchor, visibleFrames: visibleFrames)
 
         let background = StatusItemMenuBackground(frame: NSRect(origin: .zero, size: frame.size))
+        background.onPointerPresenceChanged = { [weak self] inside in
+            guard let self else { return }
+            self.isPointerInside = inside
+            self.onPointerPresenceChanged?(inside)
+        }
         buttons.removeAll()
         var y: CGFloat = Metrics.verticalPadding
         for item in items {
@@ -374,14 +465,26 @@ final class StatusItemMenuPanel: NSObject {
             button.hover = { [weak self, weak item] entered in
                 guard let self else { return }
                 if entered {
-                    self.select(item)
-                    if let item, self.canOpenSubmenu(item) {
+                    if self.isSubmenu {
+                        self.parentPanel?.cancelPendingSubmenuDismiss()
+                        self.isKeyboardActive = true
+                        self.select(item)
+                    } else if let item, self.canOpenSubmenu(item) {
+                        self.cancelPendingSubmenuDismiss()
+                        self.select(item)
                         self.openSubmenu(for: item, focusFirstItem: false)
-                    } else if self.activeSubmenuParentItem !== item {
-                        self.dismissSubmenu()
+                    } else if self.activeSubmenuPanel != nil && self.activeSubmenuParentItem !== item {
+                        self.scheduleSubmenuDismiss(selecting: item)
+                    } else {
+                        self.select(item)
                     }
-                } else if self.selectedItem === item && self.activeSubmenuParentItem !== item {
-                    self.select(nil)
+                } else {
+                    if self.pendingHoverItem === item {
+                        self.cancelPendingSubmenuDismiss()
+                    }
+                    if self.selectedItem === item && self.activeSubmenuParentItem !== item {
+                        self.select(nil)
+                    }
                 }
             }
             button.focus = { [weak self, weak item] in self?.select(item) }
@@ -389,10 +492,17 @@ final class StatusItemMenuPanel: NSObject {
             background.addSubview(button)
             y += Metrics.rowHeight
         }
-        panel.setFrame(frame, display: false)
         panel.contentView = background
+        panel.setFrame(frame, display: true)
+        panel.alphaValue = 1
+        panel.hasShadow = true
+        panel.invalidateShadow()
         let current = selectedItem.flatMap { canSelect($0) ? $0 : nil }
-        select(current ?? items.first(where: canSelect), focus: hadButtonFocus)
+        if selectInitialItem {
+            select(current ?? items.first(where: canSelect), focus: hadButtonFocus)
+        } else {
+            select(current, focus: false)
+        }
     }
 
     private func requiredWidth(for items: [NSMenuItem]) -> CGFloat {
@@ -489,9 +599,11 @@ final class StatusItemMenuWindow: NSPanel {
         hidesOnDeactivate = false
         becomesKeyOnlyIfNeeded = false
         isReleasedWhenClosed = false
+        animationBehavior = .none
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
+        alphaValue = 0
+        hasShadow = false
         setAccessibilityTitle("Prism")
     }
 
@@ -510,6 +622,8 @@ final class StatusItemMenuWindow: NSPanel {
 
 @MainActor
 private final class StatusItemMenuBackground: NSVisualEffectView {
+    var onPointerPresenceChanged: (@MainActor (Bool) -> Void)?
+    private var tracking: NSTrackingArea?
     override var isFlipped: Bool { true }
 
     override init(frame frameRect: NSRect) {
@@ -531,6 +645,22 @@ private final class StatusItemMenuBackground: NSVisualEffectView {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    override func updateTrackingAreas() {
+        if let tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
+        tracking = area
+        addTrackingArea(area)
+        super.updateTrackingAreas()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        onPointerPresenceChanged?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onPointerPresenceChanged?(false)
+    }
 }
 
 /// Keep native cell drawing and accessibility while giving icon, title, badge, and trailing hints explicit menu spacing.

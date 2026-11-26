@@ -355,15 +355,28 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         host.setVisible(environment.settings.showMenuBarItem || environment.startupPhase == .recovery)
     }
 
-    private func refreshDynamicItemAvailability() {
-        checkForUpdatesItem.isEnabled = environment.updateChecker.canCheckForUpdates
-        let hasClipboardHandler = openClipboardURLAction != nil || environment.linkIntakeService != nil
-        openClipboardLinkItem.isEnabled = hasClipboardHandler && clipboardURLProvider() != nil
-        hideDockIconItem.state = environment.settings.hideDockIcon ? .on : .off
+    private func refreshDynamicItemAvailability(for targetMenu: NSMenu? = nil) {
+        if targetMenu == nil || targetMenu === menu {
+            let canCheckUpdates = environment.updateChecker.canCheckForUpdates
+            if checkForUpdatesItem.isEnabled != canCheckUpdates {
+                checkForUpdatesItem.isEnabled = canCheckUpdates
+            }
+            let hasClipboardHandler = openClipboardURLAction != nil || environment.linkIntakeService != nil
+            let canOpenClipboard = hasClipboardHandler && clipboardURLProvider() != nil
+            if openClipboardLinkItem.isEnabled != canOpenClipboard {
+                openClipboardLinkItem.isEnabled = canOpenClipboard
+            }
+        }
+        if targetMenu == nil || targetMenu === moreSubmenu {
+            let desiredState: NSControl.StateValue = environment.settings.hideDockIcon ? .on : .off
+            if hideDockIconItem.state != desiredState {
+                hideDockIconItem.state = desiredState
+            }
+        }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
-        refreshDynamicItemAvailability()
+        refreshDynamicItemAvailability(for: menu)
     }
 
     private func observeSettings() {

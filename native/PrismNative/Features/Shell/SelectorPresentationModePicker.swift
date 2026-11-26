@@ -92,7 +92,7 @@ private struct SelectorPresentationModeCard: View {
             .background(cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(borderColor, lineWidth: borderWidth)
+                    .strokeBorder(borderColor, lineWidth: borderWidth)
             }
             .overlay {
                 if isFocused {
@@ -130,7 +130,7 @@ private struct SelectorPresentationModeCard: View {
     }
 
     private var borderWidth: CGFloat {
-        isSelected ? (increasedContrast ? 2 : 1.5) : 1.5
+        isSelected && increasedContrast ? 1.5 : 1
     }
 
     private var selectionIndicator: some View {
@@ -501,7 +501,7 @@ private struct SelectorPresentationWireframeStage: View {
 }
 
 private enum WireframePalette {
-    static let selectedBorder = adaptive(light: 0x262626, dark: 0xC4C4CC)
+    static let selectedBorder = adaptive(light: 0x525258, dark: 0x9E9EA8)
     static let cardSelectedBackground = adaptive(light: 0xFAFAFB, dark: 0x323236)
     static let cardHoverBackground = adaptive(light: 0xFCFCFD, dark: 0x2E2E31)
     static let stageBackground = adaptive(light: 0xF4F4F5, dark: 0x222225)

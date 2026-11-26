@@ -46,8 +46,8 @@ export const PublicTest = () => {
               </ol>
               <h3>New in v{release.version}</h3>
               <ul>
-                <li>In <strong>Settings → Link Handling → Selection window</strong>, replaced the dropdown menu with visual wireframe cards for <strong>Browser selector</strong> and <strong>Link preview</strong>.</li>
-                <li>Both cards adapt to light/dark mode and high contrast, and support keyboard focus and arrow-key switching.</li>
+                <li>Refined the <strong>Selection window</strong> wireframe cards with a lighter 1pt border and softer selected highlight, and tightened Simplified Chinese history-limit labels.</li>
+                <li>Enlarged the menu bar status icon glyph from 12.65pt to 15pt inside the 18pt slot so it aligns visually with neighboring macOS menu bar icons.</li>
               </ul>
               <h3>Updating this public test</h3>
               <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in the app, then ask you to confirm installation. In this version, start a check in Settings or the menu bar menu. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>

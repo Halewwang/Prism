@@ -96,6 +96,18 @@ struct SelectorPresentationSettingsTests {
         #expect(repository.settings.selectorPresentationMode == .preview)
         #expect(environment.persistenceWarnings.contains(.settingsNotSaved))
     }
+
+    @Test func wireframePickerOptionsPreserveCompactAndPreviewContract() {
+        #expect(SelectorPresentationModeOption.all.map(\.mode) == [.compact, .preview])
+        #expect(SelectorPresentationModeOption.all.map(\.title) == [
+            "selector.presentation.compact",
+            "selector.presentation.preview",
+        ])
+        #expect(SelectorPresentationModeOption.all.map(\.accessibilityIdentifier) == [
+            "settings.selectorPresentationMode.compact",
+            "settings.selectorPresentationMode.preview",
+        ])
+    }
 }
 
 @MainActor

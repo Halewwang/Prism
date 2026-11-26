@@ -95,11 +95,7 @@ struct SettingsManagementView: View {
                     ) { preferredBrowserPicker }
                 }
                 settingsSeparator
-                settingsRow(
-                    title: "selector.presentation.title",
-                    detail: "selector.presentation.detail",
-                    symbol: "macwindow", tint: SettingsPalette.primary
-                ) { selectorPresentationModePicker }
+                selectorPresentationModeRow
                 if environment.settings.selectorPresentationMode == .preview {
                     settingsSeparator
                     settingsRow(
@@ -308,12 +304,24 @@ struct SettingsManagementView: View {
         .accessibilityIdentifier("settings.unmatchedBehavior")
     }
 
-    private var selectorPresentationModePicker: some View {
-        WorkspacePicker(title: "selector.presentation.title", selection: setting(\.selectorPresentationMode), options: [
-            WorkspacePickerOption(value: SelectorPresentationMode.compact, title: "selector.presentation.compact", accessibilityIdentifier: "settings.selectorPresentationMode.compact"),
-            WorkspacePickerOption(value: SelectorPresentationMode.preview, title: "selector.presentation.preview", accessibilityIdentifier: "settings.selectorPresentationMode.preview")
-        ], compact: true)
-        .accessibilityIdentifier("settings.selectorPresentationMode")
+    private var selectorPresentationModeRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(LocalizedStringKey("selector.presentation.title"))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(SettingsPalette.secondary)
+                    .frame(minHeight: 20, alignment: .leading)
+                Text(LocalizedStringKey("selector.presentation.detail"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(SettingsPalette.tertiary)
+                    .frame(minHeight: 17, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            SelectorPresentationModePicker(selection: setting(\.selectorPresentationMode))
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
     }
 
     private var linkPreviewPositionPicker: some View {

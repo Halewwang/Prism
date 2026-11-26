@@ -46,8 +46,8 @@ export const PublicTest = () => {
               </ol>
               <h3>New in v{release.version}</h3>
               <ul>
-                <li>With Link preview enabled, go to <strong>Settings → Link Handling → Preview window position</strong>. Choose <strong>Follow the mouse</strong> (default) or <strong>Remember last closed position</strong>.</li>
-                <li>The remembered position survives a restart. If the previous display is unavailable, the preview opens near the mouse.</li>
+                <li>In <strong>Settings → Link Handling → Selection window</strong>, replaced the dropdown menu with visual wireframe cards for <strong>Browser selector</strong> and <strong>Link preview</strong>.</li>
+                <li>Both cards adapt to light/dark mode and high contrast, and support keyboard focus and arrow-key switching.</li>
               </ul>
               <h3>Updating this public test</h3>
               <p>After the repository rename, native v1.14.10 and earlier need one manual installation of the current version. From v1.14.11 onward, Prism can download and verify future updates in the app, then ask you to confirm installation. In this version, start a check in Settings or the menu bar menu. The option to allow an unnotarized public-test update is off by default and applies only to that installation. Prism restores the previous version if the new app fails to launch. macOS may still block an unnotarized app, and manual installation may be needed.</p>

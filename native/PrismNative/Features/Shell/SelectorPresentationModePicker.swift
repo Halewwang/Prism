@@ -94,13 +94,6 @@ private struct SelectorPresentationModeCard: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: borderWidth)
             }
-            .overlay {
-                if isFocused {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(SettingsPalette.action, lineWidth: 2)
-                        .padding(-2)
-                }
-            }
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -123,7 +116,7 @@ private struct SelectorPresentationModeCard: View {
         if isSelected {
             return increasedContrast ? SettingsPalette.action : WireframePalette.selectedBorder
         }
-        if isHovered || increasedContrast {
+        if isFocused || isHovered || increasedContrast {
             return SettingsPalette.borderStrong
         }
         return SettingsPalette.border

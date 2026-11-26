@@ -9,11 +9,11 @@
   </picture>
   <h2>Your links. In the right browser.</h2>
   <p>A native browser router for macOS.<br />Open work links in your work browser, keep personal browsing separate, or preview a page before choosing its browser.</p>
-  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.9 / Build 24 public test</strong></p>
+  <p><strong>macOS 15+ · Apple Silicon &amp; Intel · v1.15.10 / Build 25 public test</strong></p>
   <p>
     <a href="https://prismmac.vercel.app/">Website</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.9/Prism-1.15.9-universal-test.dmg">Download for macOS</a> ·
-    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.9">Release notes</a>
+    <a href="https://github.com/Halewwang/Prism/releases/download/v1.15.10/Prism-1.15.10-universal-test.dmg">Download for macOS</a> ·
+    <a href="https://github.com/Halewwang/Prism/releases/tag/v1.15.10">Release notes</a>
   </p>
 </div>
 
@@ -64,12 +64,14 @@ Set Prism as your default browser. When you open an HTTP or HTTPS link from anot
 
 ## Get started
 
-1. Download [Prism-1.15.9-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.9/Prism-1.15.9-universal-test.dmg), open it, and drag Prism into Applications.
+1. Download [Prism-1.15.10-universal-test.dmg](https://github.com/Halewwang/Prism/releases/download/v1.15.10/Prism-1.15.10-universal-test.dmg), open it, and drag Prism into Applications.
 2. Open Prism and follow setup to make it your default browser. You can also select it in **System Settings → Desktop & Dock → Default web browser**.
 3. Choose your fallback behavior. For manual browser choices, select Link Preview or Browser Picker in Settings, then add URL or source-app rules.
 4. Open a link from an app you use and check where it goes.
 
-This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS. The download is a Universal build for Apple Silicon and Intel Macs. [Installation instructions and public-test limitations](docs/public-test-release-1.15.9.md)
+This public test uses ad hoc signing and is not Apple-notarized. First launch may require manual approval in macOS. The download is a Universal build for Apple Silicon and Intel Macs. [Installation instructions and public-test limitations](docs/public-test-release-1.15.10.md)
+
+v1.15.10 fixes a duplicate outer focus ring on the **Selection window** wireframe cards so clicking an option always shows a single clean 1pt border.
 
 v1.15.9 lightens the Selection window card border to a crisp 1pt stroke, shortens Simplified Chinese history-limit options, and enlarges the menu bar icon glyph from 12.65pt to 15pt inside its 18pt canvas to match neighboring macOS menu bar icons.
 

@@ -99,26 +99,56 @@ extension AppKitStatusItemHost: @preconcurrency NSStatusItemExpandedInterfaceDel
 
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
+    private enum ExternalLinks {
+        static let homepage = URL(string: "https://github.com/Halewwang/Prism")!
+        static let reportIssue = URL(string: "https://github.com/Halewwang/Prism/issues")!
+        static let privacy = URL(string: "https://github.com/Halewwang/Prism#readme")!
+    }
+
     private let host: any StatusItemHosting
     private let mainWindowOpening: MainWindowOpening
     private let environment: AppEnvironment
     private let terminate: @MainActor () -> Void
+    private let clipboardURLProvider: @MainActor () -> URL?
+    private let openClipboardURLAction: (@MainActor (URL) -> Void)?
+    private let openAboutAction: @MainActor () -> Void
+    private let openExternalURLAction: @MainActor (URL) -> Void
     private let menu = NSMenu(title: "Prism")
-    private var openPrismItem: NSMenuItem!
+    private let moreSubmenu = NSMenu(title: "More")
+
     private var automaticRulesItem: NSMenuItem!
+    private var openClipboardLinkItem: NSMenuItem!
+    private var historyItem: NSMenuItem!
+    private var rulesItem: NSMenuItem!
+    private var browsersItem: NSMenuItem!
+    private var settingsItem: NSMenuItem!
     private var checkForUpdatesItem: NSMenuItem!
+    private var moreItem: NSMenuItem!
+    private var aboutItem: NSMenuItem!
+    private var homepageItem: NSMenuItem!
+    private var reportIssueItem: NSMenuItem!
+    private var privacyItem: NSMenuItem!
+    private var hideDockIconItem: NSMenuItem!
     private var quitPrismItem: NSMenuItem!
 
     init(
         host: any StatusItemHosting = AppKitStatusItemHost(),
         mainWindowOpening: MainWindowOpening,
         environment: AppEnvironment,
-        terminate: @escaping @MainActor () -> Void = { NSApplication.shared.terminate(nil) }
+        terminate: @escaping @MainActor () -> Void = { NSApplication.shared.terminate(nil) },
+        clipboardURLProvider: @escaping @MainActor () -> URL? = { StatusItemController.clipboardWebURL() },
+        openClipboardURL: (@MainActor (URL) -> Void)? = nil,
+        openAbout: @escaping @MainActor () -> Void = { PrismAboutWindowController.shared.present() },
+        openExternalURL: @escaping @MainActor (URL) -> Void = { NSWorkspace.shared.open($0) }
     ) {
         self.host = host
         self.mainWindowOpening = mainWindowOpening
         self.environment = environment
         self.terminate = terminate
+        self.clipboardURLProvider = clipboardURLProvider
+        self.openClipboardURLAction = openClipboardURL
+        self.openAboutAction = openAbout
+        self.openExternalURLAction = openExternalURL
         super.init()
 
         configureMenu()
@@ -127,25 +157,163 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         host.install(menu: menu)
     }
 
+    static func clipboardWebURL(from pasteboard: NSPasteboard = .general) -> URL? {
+        let candidates = [
+            pasteboard.string(forType: .URL),
+            pasteboard.string(forType: .string)
+        ].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+        for candidate in candidates where !candidate.isEmpty {
+            guard let components = URLComponents(string: candidate),
+                  let url = components.url,
+                  BootstrapLinkBuffer.accepts(url),
+                  let host = url.host,
+                  !host.isEmpty
+            else { continue }
+            return url
+        }
+        return nil
+    }
+
     private func configureMenu() {
         menu.removeAllItems()
         menu.autoenablesItems = false
         menu.delegate = self
-        openPrismItem = makeItem(title: localized("status.openPrism", "Open Prism"), action: #selector(openPrism), symbol: "rectangle.on.rectangle")
-        menu.addItem(openPrismItem)
 
-        automaticRulesItem = makeItem(title: "", action: #selector(toggleAutomaticRules), symbol: "pause.circle")
+        moreSubmenu.removeAllItems()
+        moreSubmenu.autoenablesItems = false
+        moreSubmenu.delegate = self
+
+        // Group 1: Core routing controls & quick actions
+        automaticRulesItem = makeItem(
+            title: "",
+            action: #selector(toggleAutomaticRules),
+            symbol: "pause.circle"
+        )
         menu.addItem(automaticRulesItem)
 
+        openClipboardLinkItem = makeItem(
+            title: localized("status.openClipboardLink", "Open Clipboard Link"),
+            action: #selector(openClipboardLink),
+            symbol: "doc.on.clipboard"
+        )
+        menu.addItem(openClipboardLinkItem)
+
+        // Group 2: Workspace navigation
         menu.addItem(.separator())
-        checkForUpdatesItem = makeItem(title: localized("status.checkForUpdates", "Check for Updates"), action: #selector(checkForUpdates), symbol: "arrow.triangle.2.circlepath")
+        historyItem = makeItem(
+            title: localized("status.history", "History"),
+            action: #selector(openHistory),
+            symbol: "clock",
+            keyEquivalent: "1"
+        )
+        menu.addItem(historyItem)
+
+        rulesItem = makeItem(
+            title: localized("status.rules", "Routing Rules"),
+            action: #selector(openRules),
+            symbol: "arrow.triangle.branch",
+            keyEquivalent: "2"
+        )
+        menu.addItem(rulesItem)
+
+        browsersItem = makeItem(
+            title: localized("status.browsers", "Manage Browsers"),
+            action: #selector(openBrowsers),
+            symbol: "globe"
+        )
+        menu.addItem(browsersItem)
+
+        // Group 3: Preferences
+        menu.addItem(.separator())
+        settingsItem = makeItem(
+            title: localized("status.settings", "Settings"),
+            action: #selector(openSettings),
+            symbol: "gearshape",
+            keyEquivalent: ","
+        )
+        menu.addItem(settingsItem)
+
+        // Group 4: Updates & More
+        menu.addItem(.separator())
+        checkForUpdatesItem = makeItem(
+            title: localized("status.checkForUpdates", "Check for Updates"),
+            action: #selector(checkForUpdates),
+            symbol: "arrow.triangle.2.circlepath"
+        )
         menu.addItem(checkForUpdatesItem)
-        quitPrismItem = makeItem(title: localized("status.quit", "Quit Prism"), action: #selector(quitPrism), symbol: "power")
+
+        configureMoreSubmenu()
+        moreItem = NSMenuItem(
+            title: localized("status.more", "More"),
+            action: nil,
+            keyEquivalent: ""
+        )
+        moreItem.image = StatusItemVisuals.menuSymbol("ellipsis.circle")
+        moreItem.isEnabled = true
+        moreItem.submenu = moreSubmenu
+        menu.addItem(moreItem)
+
+        // Group 5: Quit
+        menu.addItem(.separator())
+        quitPrismItem = makeItem(
+            title: localized("status.quit", "Quit"),
+            action: #selector(quitPrism),
+            symbol: "power",
+            keyEquivalent: "q"
+        )
         menu.addItem(quitPrismItem)
     }
 
-    private func makeItem(title: String, action: Selector, symbol: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+    private func configureMoreSubmenu() {
+        aboutItem = makeItem(
+            title: localized("status.about", "About Prism"),
+            action: #selector(openAbout),
+            symbol: "info.circle"
+        )
+        moreSubmenu.addItem(aboutItem)
+
+        homepageItem = makeItem(
+            title: localized("status.homepage", "Project Homepage"),
+            action: #selector(openHomepage),
+            symbol: "safari"
+        )
+        moreSubmenu.addItem(homepageItem)
+
+        reportIssueItem = makeItem(
+            title: localized("status.reportIssue", "Report an Issue"),
+            action: #selector(openReportIssue),
+            symbol: "exclamationmark.bubble"
+        )
+        moreSubmenu.addItem(reportIssueItem)
+
+        privacyItem = makeItem(
+            title: localized("status.privacy", "Privacy & Local-First"),
+            action: #selector(openPrivacy),
+            symbol: "lock.shield"
+        )
+        moreSubmenu.addItem(privacyItem)
+
+        moreSubmenu.addItem(.separator())
+        hideDockIconItem = makeItem(
+            title: localized("status.hideDockIcon", "Hide Dock Icon"),
+            action: #selector(toggleHideDockIcon),
+            symbol: "dock.rectangle"
+        )
+        moreSubmenu.addItem(hideDockIconItem)
+    }
+
+    private func makeItem(
+        title: String,
+        action: Selector,
+        symbol: String,
+        keyEquivalent: String = "",
+        modifiers: NSEvent.ModifierFlags = [.command]
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        if !keyEquivalent.isEmpty {
+            item.keyEquivalentModifierMask = modifiers
+        }
         item.target = self
         item.image = StatusItemVisuals.menuSymbol(symbol)
         item.isEnabled = true
@@ -153,27 +321,56 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func synchronizeWithEnvironment() {
-        openPrismItem.title = localized("status.openPrism", "Open Prism")
-        automaticRulesItem.title = environment.settings.automaticRulesEnabled
-            ? localized("status.pauseRules", "Pause Automatic Rules")
-            : localized("status.resumeRules", "Resume Automatic Rules")
+        let rulesEnabled = environment.settings.automaticRulesEnabled
+        automaticRulesItem.title = rulesEnabled
+            ? localized("status.pauseRules", "Pause Auto Routing")
+            : localized("status.resumeRules", "Resume Auto Routing")
         automaticRulesItem.image = StatusItemVisuals.menuSymbol(
-            environment.settings.automaticRulesEnabled ? "pause.circle" : "play.circle"
+            rulesEnabled ? "pause.circle" : "play.circle"
         )
+        automaticRulesItem.badge = rulesEnabled
+            ? nil
+            : NSMenuItemBadge(string: localized("status.pausedBadge", "Paused"))
+
+        openClipboardLinkItem.title = localized("status.openClipboardLink", "Open Clipboard Link")
+        refreshDynamicItemAvailability()
+
+        historyItem.title = localized("status.history", "History")
+        rulesItem.title = localized("status.rules", "Routing Rules")
+        browsersItem.title = localized("status.browsers", "Manage Browsers")
+        settingsItem.title = localized("status.settings", "Settings")
+
         checkForUpdatesItem.title = localized("status.checkForUpdates", "Check for Updates")
-        checkForUpdatesItem.isEnabled = environment.updateChecker.canCheckForUpdates
-        quitPrismItem.title = localized("status.quit", "Quit Prism")
+
+        moreItem.title = localized("status.more", "More")
+        moreSubmenu.title = moreItem.title
+        aboutItem.title = localized("status.about", "About Prism")
+        homepageItem.title = localized("status.homepage", "Project Homepage")
+        reportIssueItem.title = localized("status.reportIssue", "Report an Issue")
+        privacyItem.title = localized("status.privacy", "Privacy & Local-First")
+        hideDockIconItem.title = localized("status.hideDockIcon", "Hide Dock Icon")
+        hideDockIconItem.state = environment.settings.hideDockIcon ? .on : .off
+
+        quitPrismItem.title = localized("status.quit", "Quit")
         host.setVisible(environment.settings.showMenuBarItem || environment.startupPhase == .recovery)
     }
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
+    private func refreshDynamicItemAvailability() {
         checkForUpdatesItem.isEnabled = environment.updateChecker.canCheckForUpdates
+        let hasClipboardHandler = openClipboardURLAction != nil || environment.linkIntakeService != nil
+        openClipboardLinkItem.isEnabled = hasClipboardHandler && clipboardURLProvider() != nil
+        hideDockIconItem.state = environment.settings.hideDockIcon ? .on : .off
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        refreshDynamicItemAvailability()
     }
 
     private func observeSettings() {
         withObservationTracking {
             _ = environment.settings.automaticRulesEnabled
             _ = environment.settings.showMenuBarItem
+            _ = environment.settings.hideDockIcon
             _ = environment.settings.language
             _ = environment.startupPhase
         } onChange: { [weak self] in
@@ -195,10 +392,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         return bundle.localizedString(forKey: key, value: defaultValue, table: nil)
     }
 
-    @objc private func openPrism() {
-        mainWindowOpening.open(route: environment.route)
-    }
-
     @objc private func toggleAutomaticRules() {
         let nextValue = !environment.settings.automaticRulesEnabled
         guard environment.mutateSettings({ $0.automaticRulesEnabled = nextValue }) else {
@@ -207,12 +400,65 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         synchronizeWithEnvironment()
     }
 
-    @objc private func quitPrism() {
-        terminate()
+    @objc private func openClipboardLink() {
+        guard let url = clipboardURLProvider() else {
+            refreshDynamicItemAvailability()
+            return
+        }
+        if let openClipboardURLAction {
+            openClipboardURLAction(url)
+        } else {
+            _ = environment.linkIntakeService?.capture(url: url, senderPID: nil)
+        }
+    }
+
+    @objc private func openHistory() {
+        mainWindowOpening.open(route: .history)
+    }
+
+    @objc private func openRules() {
+        mainWindowOpening.open(route: .rules)
+    }
+
+    @objc private func openBrowsers() {
+        environment.stageBrowserManagement()
+        mainWindowOpening.open(route: .settings)
+    }
+
+    @objc private func openSettings() {
+        mainWindowOpening.open(route: .settings)
     }
 
     @objc private func checkForUpdates() {
         guard environment.updateChecker.canCheckForUpdates else { return }
         environment.updateChecker.checkForUpdates()
+    }
+
+    @objc private func openAbout() {
+        openAboutAction()
+    }
+
+    @objc private func openHomepage() {
+        openExternalURLAction(ExternalLinks.homepage)
+    }
+
+    @objc private func openReportIssue() {
+        openExternalURLAction(ExternalLinks.reportIssue)
+    }
+
+    @objc private func openPrivacy() {
+        openExternalURLAction(ExternalLinks.privacy)
+    }
+
+    @objc private func toggleHideDockIcon() {
+        let nextValue = !environment.settings.hideDockIcon
+        guard environment.mutateSettings({ $0.hideDockIcon = nextValue }) else {
+            return
+        }
+        synchronizeWithEnvironment()
+    }
+
+    @objc private func quitPrism() {
+        terminate()
     }
 }

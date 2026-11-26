@@ -6,6 +6,7 @@ import Observation
 final class InAppUpdateSession {
     enum Stage: Equatable { case available, downloading, ready, installing, failed }
     let installer: GitHubPublishedInstaller
+    let currentVersion: String
     private(set) var stage: Stage = .available
     private(set) var progress: Double?
     private(set) var message: String?
@@ -22,12 +23,15 @@ final class InAppUpdateSession {
     @ObservationIgnored private let cancelTermination: @MainActor () -> Void
     @ObservationIgnored private let terminate: @MainActor () -> Void
     @ObservationIgnored private let commitInstallation: @MainActor () throws -> Void
+    @ObservationIgnored private let onSkipVersion: (@MainActor (String) -> Void)?
     @ObservationIgnored private let onEvent: @MainActor (UpdateEvent) -> Void
 
     var hasPreparedInstallation: Bool { cancelInstallation != nil }
+    var isVerifying: Bool { stage == .downloading && (progress ?? 0) >= 0.999 }
 
     init(
         installer: GitHubPublishedInstaller,
+        currentVersion: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0",
         prepare: @escaping @MainActor (GitHubPublishedInstaller, @escaping @Sendable (Double?) -> Void) async throws -> PreparedUpdate,
         cleanup: @escaping @MainActor (PreparedUpdate) -> Void,
         startInstallation: @escaping @MainActor (PreparedUpdate) async throws -> (@MainActor () -> Void),
@@ -35,9 +39,11 @@ final class InAppUpdateSession {
         cancelTermination: @escaping @MainActor () -> Void,
         terminate: @escaping @MainActor () -> Void,
         commitInstallation: @escaping @MainActor () throws -> Void = {},
+        onSkipVersion: (@MainActor (String) -> Void)? = nil,
         onEvent: @escaping @MainActor (UpdateEvent) -> Void = { _ in }
     ) {
         self.installer = installer
+        self.currentVersion = currentVersion
         self.prepare = prepare
         self.cleanup = cleanup
         self.startInstallation = startInstallation
@@ -45,7 +51,12 @@ final class InAppUpdateSession {
         self.cancelTermination = cancelTermination
         self.terminate = terminate
         self.commitInstallation = commitInstallation
+        self.onSkipVersion = onSkipVersion
         self.onEvent = onEvent
+    }
+
+    func skipThisVersion() {
+        onSkipVersion?(installer.version)
     }
 
     func startDownload() {

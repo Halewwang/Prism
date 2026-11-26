@@ -6,7 +6,7 @@ import Testing
 @Suite("Status item")
 @MainActor
 struct StatusItemControllerTests {
-    @Test func installsTheExactMenuInTheRequiredOrder() async throws {
+    @Test func installsTheExactMenuInTheRequiredOrderWithIconsAndShortcuts() async throws {
         let fixture = await StatusItemFixture.make(
             route: .history,
             automaticRulesEnabled: true,
@@ -17,36 +17,139 @@ struct StatusItemControllerTests {
 
         let menu = try #require(fixture.host.menu)
         #expect(menu.items.map(menuLabel) == [
-            "Open Prism",
-            "Pause Automatic Rules",
+            "Pause Auto Routing",
+            "Open Clipboard Link",
+            "<separator>",
+            "History",
+            "Routing Rules",
+            "Manage Browsers",
+            "<separator>",
+            "Settings",
             "<separator>",
             "Check for Updates",
-            "Quit Prism",
+            "More",
+            "<separator>",
+            "Quit",
         ])
         #expect(menu.items.filter { !$0.isSeparatorItem }.allSatisfy { $0.image != nil })
-        #expect(menu.items[0].image?.isTemplate == true)
+        #expect(menu.items.filter { !$0.isSeparatorItem }.allSatisfy { $0.image?.isTemplate == true })
+
+        let historyItem = try #require(item(titled: "History", in: menu))
+        #expect(historyItem.keyEquivalent == "1")
+        #expect(historyItem.keyEquivalentModifierMask == [.command])
+
+        let rulesItem = try #require(item(titled: "Routing Rules", in: menu))
+        #expect(rulesItem.keyEquivalent == "2")
+        #expect(rulesItem.keyEquivalentModifierMask == [.command])
+
+        let settingsItem = try #require(item(titled: "Settings", in: menu))
+        #expect(settingsItem.keyEquivalent == ",")
+        #expect(settingsItem.keyEquivalentModifierMask == [.command])
+
+        let quitItem = try #require(item(titled: "Quit", in: menu))
+        #expect(quitItem.keyEquivalent == "q")
+        #expect(quitItem.keyEquivalentModifierMask == [.command])
+
+        let moreItem = try #require(item(titled: "More", in: menu))
+        let submenu = try #require(moreItem.submenu)
+        #expect(submenu.items.map(menuLabel) == [
+            "About Prism",
+            "Project Homepage",
+            "Report an Issue",
+            "Privacy & Local-First",
+            "<separator>",
+            "Hide Dock Icon",
+        ])
+        #expect(submenu.items.filter { !$0.isSeparatorItem }.allSatisfy { $0.image != nil })
         #expect(fixture.host.installCount == 1)
         #expect(fixture.host.isVisible)
     }
 
-    @Test func openPrismPreservesTheCurrentRouteAndUsesTheSingletonWindowAdapter() async throws {
+    @Test func workspaceNavigationItemsOpenTheExpectedRoutesAndBrowserSheet() async throws {
         let fixture = await StatusItemFixture.make(
-            route: .rules,
+            route: .history,
             automaticRulesEnabled: true,
             showMenuBarItem: true
         )
         _ = fixture.makeController()
         let menu = try #require(fixture.host.menu)
 
-        try invokeItem(at: 0, in: menu)
-
+        try invokeItem(titled: "Routing Rules", in: menu)
         #expect(fixture.windows.routes == [.rules])
-        #expect(fixture.windows.openedWindowIDs == ["main"])
-        #expect(fixture.windows.openedValues == [.singleton])
         #expect(fixture.environment.route == .rules)
+
+        try invokeItem(titled: "History", in: menu)
+        #expect(fixture.windows.routes == [.rules, .history])
+        #expect(fixture.environment.route == .history)
+
+        try invokeItem(titled: "Manage Browsers", in: menu)
+        #expect(fixture.windows.routes == [.rules, .history, .settings])
+        #expect(fixture.environment.pendingBrowserManagement)
+        #expect(fixture.environment.consumeBrowserManagement())
+
+        try invokeItem(titled: "Settings", in: menu)
+        #expect(fixture.windows.routes == [.rules, .history, .settings, .settings])
+        #expect(!fixture.environment.pendingBrowserManagement)
+        #expect(fixture.windows.openedWindowIDs.allSatisfy { $0 == "main" })
+        #expect(fixture.windows.openedValues.allSatisfy { $0 == .singleton })
     }
 
-    @Test func pauseAndResumeChangeOnlyTheDurableAutomaticRuleSetting() async throws {
+    @Test func openClipboardLinkTracksAvailabilityAndDispatchesValidURL() async throws {
+        let fixture = await StatusItemFixture.make(
+            route: .history,
+            automaticRulesEnabled: true,
+            showMenuBarItem: true
+        )
+        let url = try #require(URL(string: "https://example.com/docs"))
+        var clipboardURL: URL? = nil
+        var openedURLs: [URL] = []
+        let controller = fixture.makeController(
+            clipboardURLProvider: { clipboardURL },
+            openClipboardURL: { openedURLs.append($0) }
+        )
+        let menu = try #require(fixture.host.menu)
+        let clipboardItem = try #require(item(titled: "Open Clipboard Link", in: menu))
+
+        #expect(!clipboardItem.isEnabled)
+
+        clipboardURL = url
+        controller.menuNeedsUpdate(menu)
+        #expect(clipboardItem.isEnabled)
+
+        try invokeItem(titled: "Open Clipboard Link", in: menu)
+        #expect(openedURLs == [url])
+
+        clipboardURL = nil
+        controller.menuNeedsUpdate(menu)
+        #expect(!clipboardItem.isEnabled)
+    }
+
+    @Test func clipboardWebURLParserAcceptsHttpAndHttpsAndRejectsInvalidText() {
+        let pasteboard = NSPasteboard.withUniqueName()
+        defer { pasteboard.releaseGlobally() }
+
+        pasteboard.clearContents()
+        pasteboard.setString("  https://github.com/Halewwang/Prism \n", forType: .string)
+        #expect(StatusItemController.clipboardWebURL(from: pasteboard)?.absoluteString == "https://github.com/Halewwang/Prism")
+
+        pasteboard.clearContents()
+        pasteboard.setString("http://localhost:3000/test", forType: .string)
+        #expect(StatusItemController.clipboardWebURL(from: pasteboard)?.absoluteString == "http://localhost:3000/test")
+
+        pasteboard.clearContents()
+        pasteboard.setString("not a url", forType: .string)
+        #expect(StatusItemController.clipboardWebURL(from: pasteboard) == nil)
+
+        pasteboard.clearContents()
+        pasteboard.setString("https://", forType: .string)
+        #expect(StatusItemController.clipboardWebURL(from: pasteboard) == nil)
+
+        pasteboard.clearContents()
+        pasteboard.setString("file:///tmp/demo.html", forType: .string)
+        #expect(StatusItemController.clipboardWebURL(from: pasteboard) == nil)
+    }
+
+    @Test func pauseAndResumeChangeOnlyTheDurableAutomaticRuleSettingAndBadge() async throws {
         var settings = AppSettings.defaults
         settings.automaticRulesEnabled = true
         settings.showMenuBarItem = true
@@ -57,20 +160,23 @@ struct StatusItemControllerTests {
         _ = fixture.makeController()
         let menu = try #require(fixture.host.menu)
 
-        try invokeItem(at: 1, in: menu)
+        #expect(menu.items[0].badge == nil)
+        try invokeItem(at: 0, in: menu)
 
         var expected = settings
         expected.automaticRulesEnabled = false
         #expect(try fixture.settingsRepository.load() == expected)
         #expect(fixture.environment.settings == expected)
-        #expect(menu.items[1].title == "Resume Automatic Rules")
+        #expect(menu.items[0].title == "Resume Auto Routing")
+        #expect(menu.items[0].badge?.stringValue == "Paused")
         #expect(fixture.termination.count == 0)
 
-        try invokeItem(at: 1, in: menu)
+        try invokeItem(at: 0, in: menu)
 
         #expect(try fixture.settingsRepository.load() == settings)
         #expect(fixture.environment.settings == settings)
-        #expect(menu.items[1].title == "Pause Automatic Rules")
+        #expect(menu.items[0].title == "Pause Auto Routing")
+        #expect(menu.items[0].badge == nil)
     }
 
     @Test func failedPauseSaveDoesNotFlipStateOrMenuLabel() async throws {
@@ -83,12 +189,51 @@ struct StatusItemControllerTests {
         let menu = try #require(fixture.host.menu)
         fixture.settingsRepository.shouldFailSave = true
 
-        try invokeItem(at: 1, in: menu)
+        try invokeItem(at: 0, in: menu)
 
         #expect(fixture.environment.settings.automaticRulesEnabled)
         #expect(try fixture.settingsRepository.load().automaticRulesEnabled)
-        #expect(menu.items[1].title == "Pause Automatic Rules")
+        #expect(menu.items[0].title == "Pause Auto Routing")
         #expect(fixture.environment.persistenceWarnings.contains(.settingsNotSaved))
+    }
+
+    @Test func moreSubmenuActionsOpenAboutExternalLinksAndToggleDockIcon() async throws {
+        let fixture = await StatusItemFixture.make(
+            route: .history,
+            automaticRulesEnabled: true,
+            showMenuBarItem: true
+        )
+        var aboutCount = 0
+        var openedExternalURLs: [URL] = []
+        _ = fixture.makeController(
+            openAbout: { aboutCount += 1 },
+            openExternalURL: { openedExternalURLs.append($0) }
+        )
+        let menu = try #require(fixture.host.menu)
+        let moreItem = try #require(item(titled: "More", in: menu))
+        let submenu = try #require(moreItem.submenu)
+
+        try invokeItem(titled: "About Prism", in: submenu)
+        #expect(aboutCount == 1)
+
+        try invokeItem(titled: "Project Homepage", in: submenu)
+        try invokeItem(titled: "Report an Issue", in: submenu)
+        try invokeItem(titled: "Privacy & Local-First", in: submenu)
+        #expect(openedExternalURLs.map(\.absoluteString) == [
+            "https://github.com/Halewwang/Prism",
+            "https://github.com/Halewwang/Prism/issues",
+            "https://github.com/Halewwang/Prism#readme",
+        ])
+
+        let dockItem = try #require(item(titled: "Hide Dock Icon", in: submenu))
+        #expect(dockItem.state == .off)
+        try invokeItem(titled: "Hide Dock Icon", in: submenu)
+        #expect(fixture.environment.settings.hideDockIcon)
+        #expect(dockItem.state == .on)
+
+        try invokeItem(titled: "Hide Dock Icon", in: submenu)
+        #expect(!fixture.environment.settings.hideDockIcon)
+        #expect(dockItem.state == .off)
     }
 
     @Test func quitUsesOnlyTheInjectedTerminationAction() async throws {
@@ -100,7 +245,7 @@ struct StatusItemControllerTests {
         _ = fixture.makeController()
         let menu = try #require(fixture.host.menu)
 
-        try invokeItem(at: 4, in: menu)
+        try invokeItem(titled: "Quit", in: menu)
 
         #expect(fixture.termination.count == 1)
         #expect(fixture.windows.routes.isEmpty)
@@ -133,10 +278,10 @@ struct StatusItemControllerTests {
         let fixture = await StatusItemFixture.make(route: .history, settings: settings, updateChecker: checker)
         _ = fixture.makeController()
         let menu = try #require(fixture.host.menu)
-        let item = try #require(menu.items.first { $0.title == "Check for Updates" })
+        let updateItem = try #require(item(titled: "Check for Updates", in: menu))
 
-        #expect(item.isEnabled)
-        try invokeItem(at: menu.index(of: item), in: menu)
+        #expect(updateItem.isEnabled)
+        try invokeItem(at: menu.index(of: updateItem), in: menu)
 
         #expect(checker.checkCount == 1)
         #expect(fixture.windows.routes.isEmpty)
@@ -151,26 +296,26 @@ struct StatusItemControllerTests {
         let fixture = await StatusItemFixture.make(route: .history, settings: settings, updateChecker: checker)
         _ = fixture.makeController()
         let menu = try #require(fixture.host.menu)
-        let item = try #require(menu.items.first { $0.title == "Check for Updates" })
+        let updateItem = try #require(item(titled: "Check for Updates", in: menu))
         let panel = StatusItemMenuPanel(menu: menu, cancelSession: {}, orderFront: { _ in })
         defer { panel.dismiss() }
 
-        #expect(!item.isEnabled)
-        try invokeItem(at: menu.index(of: item), in: menu)
+        #expect(!updateItem.isEnabled)
+        try invokeItem(at: menu.index(of: updateItem), in: menu)
         #expect(checker.checkCount == 0)
 
         checker.canCheckForUpdates = true
         panel.present(anchor: NSRect(x: 100, y: 800, width: 24, height: 18),
                       visibleFrames: [NSRect(x: 0, y: 0, width: 1000, height: 800)])
-        #expect(item.isEnabled)
-        #expect(panel.button(for: item)?.isEnabled == true)
+        #expect(updateItem.isEnabled)
+        #expect(panel.button(for: updateItem)?.isEnabled == true)
         panel.dismiss()
 
         checker.canCheckForUpdates = false
         panel.present(anchor: NSRect(x: 100, y: 800, width: 24, height: 18),
                       visibleFrames: [NSRect(x: 0, y: 0, width: 1000, height: 800)])
-        #expect(!item.isEnabled)
-        #expect(panel.button(for: item)?.isEnabled == false)
+        #expect(!updateItem.isEnabled)
+        #expect(panel.button(for: updateItem)?.isEnabled == false)
     }
 
     @Test func automaticRulesLabelTracksChangesFromTheMainWindow() async throws {
@@ -183,12 +328,14 @@ struct StatusItemControllerTests {
         let menu = try #require(fixture.host.menu)
 
         #expect(fixture.environment.mutateSettings { $0.automaticRulesEnabled = false })
-        await waitUntil { menu.items[1].title == "Resume Automatic Rules" }
-        #expect(menu.items[1].title == "Resume Automatic Rules")
+        await waitUntil { menu.items[0].title == "Resume Auto Routing" }
+        #expect(menu.items[0].title == "Resume Auto Routing")
+        #expect(menu.items[0].badge?.stringValue == "Paused")
 
         #expect(fixture.environment.mutateSettings { $0.automaticRulesEnabled = true })
-        await waitUntil { menu.items[1].title == "Pause Automatic Rules" }
-        #expect(menu.items[1].title == "Pause Automatic Rules")
+        await waitUntil { menu.items[0].title == "Pause Auto Routing" }
+        #expect(menu.items[0].title == "Pause Auto Routing")
+        #expect(menu.items[0].badge == nil)
 
         _ = controller
     }
@@ -211,13 +358,43 @@ struct StatusItemControllerTests {
         _ = fixture.makeController()
 
         let menu = try #require(fixture.host.menu)
-        #expect(menu.items[0].title == "打开 Prism")
-        #expect(menu.items[1].title == "暂停自动规则")
-        #expect(menu.items[3].title == "检查更新")
+        #expect(menu.items.map(menuLabel) == [
+            "暂停自动分流",
+            "打开剪贴板链接",
+            "<separator>",
+            "历史记录",
+            "分流规则",
+            "浏览器管理",
+            "<separator>",
+            "偏好设置",
+            "<separator>",
+            "检查更新",
+            "更多",
+            "<separator>",
+            "退出",
+        ])
+        let moreSubmenu = try #require(item(titled: "更多", in: menu)?.submenu)
+        #expect(moreSubmenu.items.map(menuLabel) == [
+            "关于 Prism",
+            "项目主页",
+            "反馈问题",
+            "隐私与本地优先",
+            "<separator>",
+            "隐藏程序坞图标",
+        ])
     }
 
     private func menuLabel(_ item: NSMenuItem) -> String {
         item.isSeparatorItem ? "<separator>" : item.title
+    }
+
+    private func item(titled title: String, in menu: NSMenu) -> NSMenuItem? {
+        menu.items.first { !$0.isSeparatorItem && $0.title == title }
+    }
+
+    private func invokeItem(titled title: String, in menu: NSMenu) throws {
+        let target = try #require(item(titled: title, in: menu))
+        try invokeItem(at: menu.index(of: target), in: menu)
     }
 
     private func invokeItem(at index: Int, in menu: NSMenu) throws {
@@ -284,7 +461,12 @@ private final class StatusItemFixture {
         return StatusItemFixture(environment: environment, settingsRepository: repository)
     }
 
-    func makeController() -> StatusItemController {
+    func makeController(
+        clipboardURLProvider: @escaping @MainActor () -> URL? = { nil },
+        openClipboardURL: (@MainActor (URL) -> Void)? = nil,
+        openAbout: @escaping @MainActor () -> Void = {},
+        openExternalURL: @escaping @MainActor (URL) -> Void = { _ in }
+    ) -> StatusItemController {
         let opening = MainWindowOpening { [environment, windows] route in
             environment.updateRoute(route)
             windows.routes.append(route)
@@ -297,7 +479,11 @@ private final class StatusItemFixture {
             host: host,
             mainWindowOpening: opening,
             environment: environment,
-            terminate: { [termination] in termination.count += 1 }
+            terminate: { [termination] in termination.count += 1 },
+            clipboardURLProvider: clipboardURLProvider,
+            openClipboardURL: openClipboardURL,
+            openAbout: openAbout,
+            openExternalURL: openExternalURL
         )
         retainedController = controller
         return controller

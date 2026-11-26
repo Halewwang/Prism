@@ -49,6 +49,7 @@ final class GitHubUpdateChecker: UpdateChecking {
         let coordinator = NativeUpdateInstallationCoordinator()
         let model = InAppUpdateSession(
             installer: installer,
+            currentVersion: currentVersion,
             prepare: { installer, progress in try await preparer.prepare(installer, progress: progress) },
             cleanup: { preparer.cleanup($0) },
             startInstallation: { [weak self] prepared in
@@ -67,6 +68,9 @@ final class GitHubUpdateChecker: UpdateChecking {
                 guard let handle = self?.preparedHelper else { throw UpdateFailureForPresentation.notReady }
                 try handle.commit()
             },
+            onSkipVersion: { [weak self] version in
+                self?.skipVersion(version)
+            },
             onEvent: { [weak self] in self?.continuation.yield($0) }
         )
         let window = InAppUpdateWindowController(session: model)
@@ -75,8 +79,17 @@ final class GitHubUpdateChecker: UpdateChecking {
     }
 
     static let lastCheckKey = "PrismGitHubLastUpdateCheck"
+    static let skippedVersionKey = "PrismGitHubSkippedVersion"
     private static let lastNotifiedKey = "PrismGitHubLastNotifiedVersion"
     private static let interval: TimeInterval = 24 * 60 * 60
+
+    var lastUpdateCheckDate: Date? {
+        defaults.object(forKey: Self.lastCheckKey) as? Date
+    }
+
+    func skipVersion(_ version: String) {
+        defaults.set(version, forKey: Self.skippedVersionKey)
+    }
 
     // Keep the action visible while a check is running; repeated clicks join it.
     let canCheckForUpdates = true
@@ -164,7 +177,11 @@ final class GitHubUpdateChecker: UpdateChecking {
             manualCheckRequested = false
             check = nil
             if case let .available(version) = result,
-               wasManual || (automaticallyChecksForUpdates && defaults.string(forKey: Self.lastNotifiedKey) != version) {
+               wasManual || (
+                   automaticallyChecksForUpdates
+                   && defaults.string(forKey: Self.lastNotifiedKey) != version
+                   && defaults.string(forKey: Self.skippedVersionKey) != version
+               ) {
                 defaults.set(version, forKey: Self.lastNotifiedKey)
                 presentResult(result, installer)
             } else if wasManual {

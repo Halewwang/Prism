@@ -409,7 +409,10 @@ struct AppRootView: View {
     var body: some View {
         rootContent
             .padding(.top, isShell ? 0 : WorkspaceLayout.windowControlClearance)
-            .frame(minWidth: isShell ? WorkspaceLayout.windowContentWidth : 668, minHeight: isShell ? 640 : 554 + WorkspaceLayout.windowControlClearance)
+            .frame(
+                minWidth: isShell ? WorkspaceLayout.windowContentWidth : OnboardingView.windowContentWidth,
+                minHeight: isShell ? 640 : OnboardingView.windowContentHeight + WorkspaceLayout.windowControlClearance
+            )
             .background(SettingsPalette.canvas)
             .background(WorkspaceWindowSizing(isShell: isShell))
             .background {
@@ -496,8 +499,8 @@ private struct WorkspaceWindowSizing: NSViewRepresentable {
         func applyWindowSize() {
             guard let window, appliedShell != isShell else { return }
             appliedShell = isShell
-            let width = isShell ? WorkspaceLayout.windowContentWidth : 668
-            let size = NSSize(width: width, height: isShell ? WorkspaceLayout.windowContentHeight : 554 + WorkspaceLayout.windowControlClearance)
+            let width = isShell ? WorkspaceLayout.windowContentWidth : OnboardingView.windowContentWidth
+            let size = NSSize(width: width, height: isShell ? WorkspaceLayout.windowContentHeight : OnboardingView.windowContentHeight + WorkspaceLayout.windowControlClearance)
             window.contentMinSize = size
             window.contentMaxSize = size
             window.setContentSize(size)

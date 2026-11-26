@@ -172,6 +172,44 @@ struct GitHubUpdateCheckerTests {
         #expect(relaunched.automaticallyChecksForUpdates)
     }
 
+    @Test @MainActor func skippedVersionSuppressesAutomaticPromptButStillShowsOnManualCheck() async {
+        let defaults = isolatedDefaults()
+        var feedback: [UpdateEvent] = []
+        let checker = GitHubUpdateChecker(
+            currentVersion: "1.12.0", defaults: defaults, startAutomatically: false,
+            loadInstaller: { installer(version: "1.13.0") },
+            present: { event, _ in feedback.append(event) }
+        )
+        var events = checker.events.makeAsyncIterator()
+        checker.skipVersion("1.13.0")
+        checker.checkAutomaticallyIfDue()
+        #expect(await events.next() == .checking)
+        #expect(await events.next() == .available(version: "1.13.0"))
+        #expect(feedback.isEmpty)
+
+        checker.checkForUpdates()
+        #expect(await events.next() == .checking)
+        #expect(await events.next() == .available(version: "1.13.0"))
+        #expect(feedback == [.available(version: "1.13.0")])
+    }
+
+    @Test func releaseNotesParserExtractsStructuredSectionsWithoutLeadingEmoji() {
+        let notes = """
+        ### ✨ Features
+        - Added `Link Preview` window mode
+        - Enlarged menu bar icon
+
+        ### 🐛 Bug Fixes
+        * Removed duplicate focus ring
+        """
+        let sections = UpdateReleaseNotesParser.parse(notes)
+        #expect(sections.count == 2)
+        #expect(sections[0].title == "Features")
+        #expect(sections[0].items == ["Added Link Preview window mode", "Enlarged menu bar icon"])
+        #expect(sections[1].title == "Bug Fixes")
+        #expect(sections[1].items == ["Removed duplicate focus ring"])
+    }
+
     private func isolatedDefaults() -> UserDefaults {
         UserDefaults(suiteName: "GitHubUpdateCheckerTests.\(UUID().uuidString)")!
     }

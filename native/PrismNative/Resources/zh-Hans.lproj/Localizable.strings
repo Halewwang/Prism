@@ -487,7 +487,7 @@
 "Check Now" = "立即检查";
 "Get the published installer from GitHub." = "从 GitHub 获取已发布的安装包。";
 "Go to Download" = "前往下载";
-"%d links" = "%d 条链接";
+"%d links" = "%d 条";
 "Reset All Settings" = "重置所有设置";
 "Restore default options without deleting rules or History." = "恢复默认选项，不会删除规则与历史记录。";
 "Reset…" = "重置…";

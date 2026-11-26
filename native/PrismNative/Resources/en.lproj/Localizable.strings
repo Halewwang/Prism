@@ -20,12 +20,6 @@
 "status.pausedBadge" = "Paused";
 "status.openClipboardLink" = "Open Clipboard Link";
 "status.checkForUpdates" = "Check for Updates";
-"status.more" = "More";
-"status.about" = "About Prism";
-"status.homepage" = "Project Homepage";
-"status.reportIssue" = "Report an Issue";
-"status.privacy" = "Privacy & Local-First";
-"status.hideDockIcon" = "Hide Dock Icon";
 "status.quit" = "Quit";
 "overview.ruleCount.one" = "%lld rule configured";
 "overview.ruleCount.other" = "%lld rules configured";

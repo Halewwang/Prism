@@ -20,12 +20,6 @@
 "status.pausedBadge" = "已暂停";
 "status.openClipboardLink" = "打开剪贴板链接";
 "status.checkForUpdates" = "检查更新";
-"status.more" = "更多";
-"status.about" = "关于 Prism";
-"status.homepage" = "项目主页";
-"status.reportIssue" = "反馈问题";
-"status.privacy" = "隐私与本地优先";
-"status.hideDockIcon" = "隐藏程序坞图标";
 "status.quit" = "退出";
 "overview.ruleCount.one" = "已配置 %lld 条规则";
 "overview.ruleCount.other" = "已配置 %lld 条规则";

@@ -25,9 +25,7 @@ struct StatusItemControllerTests {
             "Manage Browsers",
             "<separator>",
             "Settings",
-            "<separator>",
             "Check for Updates",
-            "More",
             "<separator>",
             "Quit",
         ])
@@ -50,17 +48,7 @@ struct StatusItemControllerTests {
         #expect(quitItem.keyEquivalent == "q")
         #expect(quitItem.keyEquivalentModifierMask == [.command])
 
-        let moreItem = try #require(item(titled: "More", in: menu))
-        let submenu = try #require(moreItem.submenu)
-        #expect(submenu.items.map(menuLabel) == [
-            "About Prism",
-            "Project Homepage",
-            "Report an Issue",
-            "Privacy & Local-First",
-            "<separator>",
-            "Hide Dock Icon",
-        ])
-        #expect(submenu.items.filter { !$0.isSeparatorItem }.allSatisfy { $0.image != nil })
+        #expect(item(titled: "More", in: menu) == nil)
         #expect(fixture.host.installCount == 1)
         #expect(fixture.host.isVisible)
     }
@@ -197,45 +185,6 @@ struct StatusItemControllerTests {
         #expect(fixture.environment.persistenceWarnings.contains(.settingsNotSaved))
     }
 
-    @Test func moreSubmenuActionsOpenAboutExternalLinksAndToggleDockIcon() async throws {
-        let fixture = await StatusItemFixture.make(
-            route: .history,
-            automaticRulesEnabled: true,
-            showMenuBarItem: true
-        )
-        var aboutCount = 0
-        var openedExternalURLs: [URL] = []
-        _ = fixture.makeController(
-            openAbout: { aboutCount += 1 },
-            openExternalURL: { openedExternalURLs.append($0) }
-        )
-        let menu = try #require(fixture.host.menu)
-        let moreItem = try #require(item(titled: "More", in: menu))
-        let submenu = try #require(moreItem.submenu)
-
-        try invokeItem(titled: "About Prism", in: submenu)
-        #expect(aboutCount == 1)
-
-        try invokeItem(titled: "Project Homepage", in: submenu)
-        try invokeItem(titled: "Report an Issue", in: submenu)
-        try invokeItem(titled: "Privacy & Local-First", in: submenu)
-        #expect(openedExternalURLs.map(\.absoluteString) == [
-            "https://github.com/Halewwang/Prism",
-            "https://github.com/Halewwang/Prism/issues",
-            "https://github.com/Halewwang/Prism#readme",
-        ])
-
-        let dockItem = try #require(item(titled: "Hide Dock Icon", in: submenu))
-        #expect(dockItem.state == .off)
-        try invokeItem(titled: "Hide Dock Icon", in: submenu)
-        #expect(fixture.environment.settings.hideDockIcon)
-        #expect(dockItem.state == .on)
-
-        try invokeItem(titled: "Hide Dock Icon", in: submenu)
-        #expect(!fixture.environment.settings.hideDockIcon)
-        #expect(dockItem.state == .off)
-    }
-
     @Test func quitUsesOnlyTheInjectedTerminationAction() async throws {
         let fixture = await StatusItemFixture.make(
             route: .history,
@@ -367,20 +316,9 @@ struct StatusItemControllerTests {
             "浏览器管理",
             "<separator>",
             "偏好设置",
-            "<separator>",
             "检查更新",
-            "更多",
             "<separator>",
             "退出",
-        ])
-        let moreSubmenu = try #require(item(titled: "更多", in: menu)?.submenu)
-        #expect(moreSubmenu.items.map(menuLabel) == [
-            "关于 Prism",
-            "项目主页",
-            "反馈问题",
-            "隐私与本地优先",
-            "<separator>",
-            "隐藏程序坞图标",
         ])
     }
 
@@ -463,9 +401,7 @@ private final class StatusItemFixture {
 
     func makeController(
         clipboardURLProvider: @escaping @MainActor () -> URL? = { nil },
-        openClipboardURL: (@MainActor (URL) -> Void)? = nil,
-        openAbout: @escaping @MainActor () -> Void = {},
-        openExternalURL: @escaping @MainActor (URL) -> Void = { _ in }
+        openClipboardURL: (@MainActor (URL) -> Void)? = nil
     ) -> StatusItemController {
         let opening = MainWindowOpening { [environment, windows] route in
             environment.updateRoute(route)
@@ -481,9 +417,7 @@ private final class StatusItemFixture {
             environment: environment,
             terminate: { [termination] in termination.count += 1 },
             clipboardURLProvider: clipboardURLProvider,
-            openClipboardURL: openClipboardURL,
-            openAbout: openAbout,
-            openExternalURL: openExternalURL
+            openClipboardURL: openClipboardURL
         )
         retainedController = controller
         return controller

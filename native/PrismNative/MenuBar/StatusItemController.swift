@@ -99,22 +99,13 @@ extension AppKitStatusItemHost: @preconcurrency NSStatusItemExpandedInterfaceDel
 
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
-    private enum ExternalLinks {
-        static let homepage = URL(string: "https://github.com/Halewwang/Prism")!
-        static let reportIssue = URL(string: "https://github.com/Halewwang/Prism/issues")!
-        static let privacy = URL(string: "https://github.com/Halewwang/Prism#readme")!
-    }
-
     private let host: any StatusItemHosting
     private let mainWindowOpening: MainWindowOpening
     private let environment: AppEnvironment
     private let terminate: @MainActor () -> Void
     private let clipboardURLProvider: @MainActor () -> URL?
     private let openClipboardURLAction: (@MainActor (URL) -> Void)?
-    private let openAboutAction: @MainActor () -> Void
-    private let openExternalURLAction: @MainActor (URL) -> Void
     private let menu = NSMenu(title: "Prism")
-    private let moreSubmenu = NSMenu(title: "More")
 
     private var automaticRulesItem: NSMenuItem!
     private var openClipboardLinkItem: NSMenuItem!
@@ -123,12 +114,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private var browsersItem: NSMenuItem!
     private var settingsItem: NSMenuItem!
     private var checkForUpdatesItem: NSMenuItem!
-    private var moreItem: NSMenuItem!
-    private var aboutItem: NSMenuItem!
-    private var homepageItem: NSMenuItem!
-    private var reportIssueItem: NSMenuItem!
-    private var privacyItem: NSMenuItem!
-    private var hideDockIconItem: NSMenuItem!
     private var quitPrismItem: NSMenuItem!
 
     init(
@@ -137,9 +122,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         environment: AppEnvironment,
         terminate: @escaping @MainActor () -> Void = { NSApplication.shared.terminate(nil) },
         clipboardURLProvider: @escaping @MainActor () -> URL? = { StatusItemController.clipboardWebURL() },
-        openClipboardURL: (@MainActor (URL) -> Void)? = nil,
-        openAbout: @escaping @MainActor () -> Void = { PrismAboutWindowController.shared.present() },
-        openExternalURL: @escaping @MainActor (URL) -> Void = { NSWorkspace.shared.open($0) }
+        openClipboardURL: (@MainActor (URL) -> Void)? = nil
     ) {
         self.host = host
         self.mainWindowOpening = mainWindowOpening
@@ -147,8 +130,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         self.terminate = terminate
         self.clipboardURLProvider = clipboardURLProvider
         self.openClipboardURLAction = openClipboardURL
-        self.openAboutAction = openAbout
-        self.openExternalURLAction = openExternalURL
         super.init()
 
         configureMenu()
@@ -179,10 +160,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         menu.autoenablesItems = false
         menu.delegate = self
-
-        moreSubmenu.removeAllItems()
-        moreSubmenu.autoenablesItems = false
-        moreSubmenu.delegate = self
 
         // Group 1: Core routing controls & quick actions
         automaticRulesItem = makeItem(
@@ -224,7 +201,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         )
         menu.addItem(browsersItem)
 
-        // Group 3: Preferences
+        // Group 3: Preferences & Updates
         menu.addItem(.separator())
         settingsItem = makeItem(
             title: localized("status.settings", "Settings"),
@@ -234,8 +211,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         )
         menu.addItem(settingsItem)
 
-        // Group 4: Updates & More
-        menu.addItem(.separator())
         checkForUpdatesItem = makeItem(
             title: localized("status.checkForUpdates", "Check for Updates"),
             action: #selector(checkForUpdates),
@@ -243,18 +218,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         )
         menu.addItem(checkForUpdatesItem)
 
-        configureMoreSubmenu()
-        moreItem = NSMenuItem(
-            title: localized("status.more", "More"),
-            action: nil,
-            keyEquivalent: ""
-        )
-        moreItem.image = StatusItemVisuals.menuSymbol("ellipsis.circle")
-        moreItem.isEnabled = true
-        moreItem.submenu = moreSubmenu
-        menu.addItem(moreItem)
-
-        // Group 5: Quit
+        // Group 4: Quit
         menu.addItem(.separator())
         quitPrismItem = makeItem(
             title: localized("status.quit", "Quit"),
@@ -263,44 +227,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             keyEquivalent: "q"
         )
         menu.addItem(quitPrismItem)
-    }
-
-    private func configureMoreSubmenu() {
-        aboutItem = makeItem(
-            title: localized("status.about", "About Prism"),
-            action: #selector(openAbout),
-            symbol: "info.circle"
-        )
-        moreSubmenu.addItem(aboutItem)
-
-        homepageItem = makeItem(
-            title: localized("status.homepage", "Project Homepage"),
-            action: #selector(openHomepage),
-            symbol: "safari"
-        )
-        moreSubmenu.addItem(homepageItem)
-
-        reportIssueItem = makeItem(
-            title: localized("status.reportIssue", "Report an Issue"),
-            action: #selector(openReportIssue),
-            symbol: "exclamationmark.bubble"
-        )
-        moreSubmenu.addItem(reportIssueItem)
-
-        privacyItem = makeItem(
-            title: localized("status.privacy", "Privacy & Local-First"),
-            action: #selector(openPrivacy),
-            symbol: "lock.shield"
-        )
-        moreSubmenu.addItem(privacyItem)
-
-        moreSubmenu.addItem(.separator())
-        hideDockIconItem = makeItem(
-            title: localized("status.hideDockIcon", "Hide Dock Icon"),
-            action: #selector(toggleHideDockIcon),
-            symbol: "dock.rectangle"
-        )
-        moreSubmenu.addItem(hideDockIconItem)
     }
 
     private func makeItem(
@@ -342,48 +268,30 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         checkForUpdatesItem.title = localized("status.checkForUpdates", "Check for Updates")
 
-        moreItem.title = localized("status.more", "More")
-        moreSubmenu.title = moreItem.title
-        aboutItem.title = localized("status.about", "About Prism")
-        homepageItem.title = localized("status.homepage", "Project Homepage")
-        reportIssueItem.title = localized("status.reportIssue", "Report an Issue")
-        privacyItem.title = localized("status.privacy", "Privacy & Local-First")
-        hideDockIconItem.title = localized("status.hideDockIcon", "Hide Dock Icon")
-        hideDockIconItem.state = environment.settings.hideDockIcon ? .on : .off
-
         quitPrismItem.title = localized("status.quit", "Quit")
         host.setVisible(environment.settings.showMenuBarItem || environment.startupPhase == .recovery)
     }
 
-    private func refreshDynamicItemAvailability(for targetMenu: NSMenu? = nil) {
-        if targetMenu == nil || targetMenu === menu {
-            let canCheckUpdates = environment.updateChecker.canCheckForUpdates
-            if checkForUpdatesItem.isEnabled != canCheckUpdates {
-                checkForUpdatesItem.isEnabled = canCheckUpdates
-            }
-            let hasClipboardHandler = openClipboardURLAction != nil || environment.linkIntakeService != nil
-            let canOpenClipboard = hasClipboardHandler && clipboardURLProvider() != nil
-            if openClipboardLinkItem.isEnabled != canOpenClipboard {
-                openClipboardLinkItem.isEnabled = canOpenClipboard
-            }
+    private func refreshDynamicItemAvailability() {
+        let canCheckUpdates = environment.updateChecker.canCheckForUpdates
+        if checkForUpdatesItem.isEnabled != canCheckUpdates {
+            checkForUpdatesItem.isEnabled = canCheckUpdates
         }
-        if targetMenu == nil || targetMenu === moreSubmenu {
-            let desiredState: NSControl.StateValue = environment.settings.hideDockIcon ? .on : .off
-            if hideDockIconItem.state != desiredState {
-                hideDockIconItem.state = desiredState
-            }
+        let hasClipboardHandler = openClipboardURLAction != nil || environment.linkIntakeService != nil
+        let canOpenClipboard = hasClipboardHandler && clipboardURLProvider() != nil
+        if openClipboardLinkItem.isEnabled != canOpenClipboard {
+            openClipboardLinkItem.isEnabled = canOpenClipboard
         }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
-        refreshDynamicItemAvailability(for: menu)
+        refreshDynamicItemAvailability()
     }
 
     private func observeSettings() {
         withObservationTracking {
             _ = environment.settings.automaticRulesEnabled
             _ = environment.settings.showMenuBarItem
-            _ = environment.settings.hideDockIcon
             _ = environment.settings.language
             _ = environment.startupPhase
         } onChange: { [weak self] in
@@ -445,30 +353,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func checkForUpdates() {
         guard environment.updateChecker.canCheckForUpdates else { return }
         environment.updateChecker.checkForUpdates()
-    }
-
-    @objc private func openAbout() {
-        openAboutAction()
-    }
-
-    @objc private func openHomepage() {
-        openExternalURLAction(ExternalLinks.homepage)
-    }
-
-    @objc private func openReportIssue() {
-        openExternalURLAction(ExternalLinks.reportIssue)
-    }
-
-    @objc private func openPrivacy() {
-        openExternalURLAction(ExternalLinks.privacy)
-    }
-
-    @objc private func toggleHideDockIcon() {
-        let nextValue = !environment.settings.hideDockIcon
-        guard environment.mutateSettings({ $0.hideDockIcon = nextValue }) else {
-            return
-        }
-        synchronizeWithEnvironment()
     }
 
     @objc private func quitPrism() {
